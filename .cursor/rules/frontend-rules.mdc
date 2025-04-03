@@ -1,0 +1,26 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+## **2. Frontend Development Rules**
+### **SPA-Like Behavior**
+- **Rule 2.1**: Use **Fetch API** (`/api/...`) for dynamic data loading.
+- **Rule 2.2**: Render responses with **Handlebars.js** templates.
+- **Rule 2.3**: Avoid full page reloads; update DOM dynamically.
+
+### **Templating (Handlebars.js)**
+- **Rule 2.4**: Store templates in `/templates/` (shared with Flask) or `/static/js/templates/`.
+- **Rule 2.5**: Precompile templates in production (Vite handles this).
+
+### **Interactivity (Alpine.js)**
+- **Rule 2.6**: Use Alpine.js for simple state management (`x-data`, `x-show`).
+- **Rule 2.7**: Avoid complex Alpine.js logic; delegate to Fetch API when needed.
+
+### **Styling (Tailwind CSS)**
+- **Rule 2.8**: Use **Tailwind utility classes** (avoid custom CSS unless necessary).
+- **Rule 2.9**: Keep responsive design in mind (`sm:`, `md:`, `lg:` prefixes).
+
+### **Performance**
+- **Rule 2.10**: Lazy-load non-critical JS/CSS with Vite.
+- **Rule 2.11**: Optimize images and assets via Vite’s build pipeline.

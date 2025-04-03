@@ -1,0 +1,11 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+## **4. General Coding Standards**
+- **Rule 4.1**: Follow **PEP 8** for Python code.
+- **Rule 4.2**: Use **ES6+** for JavaScript (Vite handles transpilation).
+- **Rule 4.3**: Keep functions small and modular.
+- **Rule 4.4**: Add JSDoc/type hints for complex logic.
+- **Rule 4.5**: Avoid global variables; use modules.
