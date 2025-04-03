@@ -1,0 +1,25 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+## **1. Backend Development Rules**
+### **Flask API Development**
+- **Rule 1.1**: Always use **Flask Blueprints** for modular API routing.
+- **Rule 1.2**: Follow RESTful conventions (`GET`, `POST`, `PUT`, `DELETE`) for endpoints.
+- **Rule 1.3**: Use **SQLAlchemy ORM** (not raw SQL) for database interactions.
+- **Rule 1.4**: Apply **JWT authentication** for protected routes.
+- **Rule 1.5**: Document all API endpoints using **Swagger (Flasgger)** annotations.
+
+### **Database & Models**
+- **Rule 1.6**: Define models in `models/` with proper SQLAlchemy column types.
+- **Rule 1.7**: Use `db.session` for transactions (commit/rollback on errors).
+- **Rule 1.8**: Avoid business logic in models; keep them data-only.
+
+### **Error Handling & Logging**
+- **Rule 1.9**: Use `@app.errorhandler` for consistent error responses (JSON format).
+- **Rule 1.10**: Log errors and critical events using the `infra/logger.py` module.
+
+### **Testing**
+- **Rule 1.11**: Write **Pytest** unit tests for all API endpoints.
+- **Rule 1.12**: Mock external dependencies (DB, APIs) in tests.
