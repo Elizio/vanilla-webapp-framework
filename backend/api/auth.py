@@ -23,7 +23,7 @@ def token_required(f):
         try:
             token = token.split(' ')[1]  # Remove 'Bearer ' prefix
             data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-            current_user = User.query.get(data['user_id'])
+            current_user = db_session.get(User, data['user_id'])
             if not current_user:
                 return jsonify({'message': 'Invalid token'}), 401
         except jwt.ExpiredSignatureError:
@@ -35,6 +35,37 @@ def token_required(f):
 
 @auth_bp.route('/api/login', methods=['POST'])
 def login():
+    """
+    Authenticate a user and return a JWT token.
+    
+    ---
+    tags:
+      - Authentication
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            username:
+              type: string
+            password:
+              type: string
+          required:
+            - username
+            - password
+    responses:
+      200:
+        description: Login successful
+        schema:
+          type: object
+          properties:
+            token:
+              type: string
+      401:
+        description: Invalid credentials
+    """
     data = request.get_json()
     user = User.query.filter_by(username=data.get('username')).first()
     
@@ -49,6 +80,32 @@ def login():
 
 @auth_bp.route('/api/register', methods=['POST'])
 def register():
+    """
+    Register a new user.
+    
+    ---
+    tags:
+      - Authentication
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            username:
+              type: string
+            password:
+              type: string
+          required:
+            - username
+            - password
+    responses:
+      201:
+        description: User created successfully
+      400:
+        description: Username already exists
+    """
     data = request.get_json()
     if User.query.filter_by(username=data.get('username')).first():
         return jsonify({'message': 'Username already exists'}), 400
