@@ -10,7 +10,7 @@ alwaysApply: true
 - **Rule 2.3**: Avoid full page reloads; update DOM dynamically.
 
 ### **Templating (Handlebars.js)**
-- **Rule 2.4**: Store templates in `/templates/` (shared with Flask) or `/static/js/templates/`.
+- **Rule 2.4**: Store templates in `/static/` (shared with Flask).
 - **Rule 2.5**: Precompile templates in production (Vite handles this).
 
 ### **Interactivity (Alpine.js)**

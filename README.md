@@ -55,17 +55,23 @@ A modern, lightweight web application framework that combines Flask backend with
 ```
 vanilla-webapp-framework/
 ├── backend/
-│   ├── api/           # Flask blueprints
-│   ├── models/        # SQLAlchemy models
-│   ├── infra/         # Infrastructure code
-│   └── tests/         # Backend tests
+│   ├── api/               # Flask blueprints
+│   ├── models/            # SQLAlchemy models
+│   ├── templates/         # Shared Flask/Handlebars base templates
+│   ├── db_repository/     
+│   └── tests/             # Backend tests
 ├── frontend/
-│   ├── static/
-│   │   ├── js/        # JavaScript modules
-│   │   └── css/       # Tailwind styles
-│   └── templates/     # Handlebars templates
-├── docker/            # Docker configuration
-└── .github/           # GitHub Actions workflows
+│   ├── src/
+│   │   ├── js/            # JavaScript modules
+│   │   │   └── api.js     # Centralized Fetch API calls
+│   │   └── styles/        # Tailwind styles
+│   │   └── templates/     # Handlebars templates
+│   ├── public/            # Static assets (favicon, etc.)
+├── Dockerfile             # Docker configuration
+├── setup.cfg
+├── setup.py
+├── vite.config.js         # Vite setup
+└── .github/               # GitHub Actions workflows
 ```
 
 ## 🚀 Getting Started
@@ -86,7 +92,14 @@ vanilla-webapp-framework/
    npm run dev
    ```
 
-3. **Testing**
+3. **Docker Setup**
+   ```bash
+   # Build and run the Docker container
+   docker build -t vanilla-webapp .
+   docker run -p 5000:5000 vanilla-webapp
+   ```
+
+4. **Testing**
    ```bash
    pytest
    ```
