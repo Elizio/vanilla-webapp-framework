@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
+import handlebars from 'vite-plugin-handlebars';
 
 export default defineConfig({
   root: 'src',
@@ -25,5 +26,13 @@ export default defineConfig({
       },
     },
   },
-  plugins: [],
+  plugins: [
+    handlebars({
+      partialDirectory: resolve(__dirname, 'src/templates/partials'),
+      helpers: {
+        json: (context) => JSON.stringify(context, null, 2),
+        eq: (v1, v2) => v1 === v2
+      }
+    }),
+  ],
 }); 
