@@ -17,16 +17,17 @@ class Database:
     def __init__(self):
         if self._engine is None:
             # Get database URL from environment or use SQLite
-            database_url = os.environ.get('DATABASE_URL', 'sqlite:///app.db')
+            database_url = os.environ.get('DATABASE_URI', 'sqlite:///app.db')
             
             # Force SQLite for testing
-            if os.environ.get('FLASK_ENV') == 'testing':
+            if os.environ.get('APP_PROFILE') == 'testing':
                 database_url = 'sqlite:///:memory:'
+                print("Using in-memory SQLite database for testing (from database.py)")
             
             # Create engine with appropriate configuration
             self._engine = create_engine(
                 database_url,
-                echo=os.environ.get('FLASK_ENV') == 'development',
+                echo=os.environ.get('APP_PROFILE') == 'development',
                 connect_args={'check_same_thread': False} if database_url.startswith('sqlite') else {}
             )
             

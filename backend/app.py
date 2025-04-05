@@ -3,6 +3,11 @@ Main application module.
 """
 from flask import render_template, jsonify, request
 from . import app
+from .config.app_config import app_config
+from .config.logging_config import setup_logging
+
+# Setup logging
+setup_logging(app)
 
 @app.route('/')
 def index():
@@ -26,4 +31,4 @@ def unhandled_exception(e):
     return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True) 
+    app.run(host='0.0.0.0', port=5000, debug=app_config.DEBUG) 

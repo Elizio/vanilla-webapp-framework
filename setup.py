@@ -32,6 +32,7 @@ setup(
     install_requires=[
         "flask>=2.0.0",
         "flasgger>=0.9.5",
+        "flask-cors>=4.0.0",
         "sqlalchemy>=1.4.0",  # Base SQLAlchemy
         "pyjwt>=2.3.0",
         "werkzeug>=2.0.0",

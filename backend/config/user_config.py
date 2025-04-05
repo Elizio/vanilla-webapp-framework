@@ -16,19 +16,26 @@ class UserConfig:
 
     def __init__(self):
         if not self._initialized:
-            # Default values
-            self.database_uri = os.getenv(
-                'DATABASE_URI',
-                'sqlite:///app.db'
-            )
+            # Project folder structure
             self.project_folder = os.getenv(
                 'PROJECT_FOLDER', 
-                str(Path.home() / 'Projects')
+                str(Path.home() / 'project_folder')
             )
             self.log_folder = str(Path(self.project_folder) / 'logs')
+            
             self._initialized = True
 
     @classmethod
     def get_instance(cls):
         """Get the singleton instance."""
         return cls()
+
+    def to_dict(self):
+        """Convert configuration to dictionary."""
+        return {
+            'project_folder': self.project_folder,
+            'log_folder': self.log_folder
+        }
+
+# Create a global configuration instance
+user_config = UserConfig.get_instance() 

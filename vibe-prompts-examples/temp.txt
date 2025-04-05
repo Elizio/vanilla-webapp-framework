@@ -1,1 +1,1 @@
-python app.py --APP_ENV DEV --ENV_FILE .env
+python app.py --APP_PROFILE development --ENV_FILE .env

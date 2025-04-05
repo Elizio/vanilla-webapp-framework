@@ -5,12 +5,21 @@ import pytest
 from .. import create_app, db
 import os
 
+@pytest.fixture(scope="session", autouse=True)
+def set_test_env():
+    """Set environment variables for testing."""
+    os.environ["APP_PROFILE"] = "testing"
+    yield
+    # Clean up
+    if "APP_PROFILE" in os.environ:
+        del os.environ["APP_PROFILE"]
+
 @pytest.fixture
 def test_app():
     """Create a test Flask application."""
     app = create_app()
     app.config['TESTING'] = True
-    app.config['DATABASE_URL'] = 'sqlite:///:memory:'
+    app.config['DATABASE_URI'] = 'sqlite:///:memory:'
     return app
 
 @pytest.fixture

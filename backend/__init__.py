@@ -3,11 +3,10 @@ Backend package for the Vanilla WebApp Framework.
 """
 
 from flask import Flask, jsonify, request
+from flask_cors import CORS
 from flasgger import Swagger
 from .db_repository.database import db, db_session, init_db
-from .config.app_config import app_config, get_environment_profile
-from .config.user_config import UserConfig
-from .config.logging_config import setup_logging
+from .config import AppConfig, UserConfig, setup_logging
 
 def create_app():
     """Create and configure the Flask application."""
@@ -15,19 +14,17 @@ def create_app():
                 static_folder='../frontend/public',
                 template_folder='../frontend/src/templates')
     
-    # Get current environment profile
-    env_profile = get_environment_profile()
+    # Enable CORS
+    CORS(app)
     
     # Load configurations
-    app.config.from_object(app_config[env_profile])
+    app.config.from_object(AppConfig.get_instance())
     
     # Get user configuration singleton instance
     user_config = UserConfig.get_instance()
     
     # Update app config with user config values
-    app.config['SQLALCHEMY_DATABASE_URI'] = user_config.database_uri
-    app.config['PROJECT_FOLDER'] = user_config.project_folder
-    app.config['LOG_FOLDER'] = user_config.log_folder
+    app.config.update(user_config.to_dict())
     
     # Configure logging
     setup_logging(app)
@@ -43,22 +40,6 @@ def create_app():
 
     # Initialize database
     init_db()
-
-    # Error handlers
-    @app.errorhandler(404)
-    def not_found_error(error):
-        app.logger.error(f'Page not found: {request.url}')
-        return jsonify({'error': 'Not found'}), 404
-
-    @app.errorhandler(500)
-    def internal_error(error):
-        app.logger.error(f'Server Error: {error}')
-        return jsonify({'error': 'Internal server error'}), 500
-
-    @app.errorhandler(Exception)
-    def unhandled_exception(e):
-        app.logger.error(f'Unhandled Exception: {e}')
-        return jsonify({'error': 'Internal server error'}), 500
 
     return app
 

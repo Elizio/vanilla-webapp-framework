@@ -5,6 +5,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 import os
 from pathlib import Path
+from .user_config import user_config
 
 def setup_logging(app):
     """
@@ -14,7 +15,7 @@ def setup_logging(app):
         app: Flask application instance
     """
     # Create logs directory if it doesn't exist
-    log_dir = Path('logs')
+    log_dir = Path(user_config.log_folder)
     log_dir.mkdir(exist_ok=True)
     
     # Configure file handler
