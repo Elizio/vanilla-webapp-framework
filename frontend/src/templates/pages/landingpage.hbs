@@ -19,7 +19,7 @@
     </button>
 
     <button @click="loadPage('view-container', '/templates/pages/testpage.hbs', '/js/controllers/testpage.js');" 
-            class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50"
+            class="w-full bg-yellow-600 text-white py-2 px-4 rounded-md hover:bg-yellow-700 transition-colors duration-200 disabled:opacity-50"
             :disabled="isLoading">
         <span x-show="!isLoading">Load Test Page</span>
         <span x-show="isLoading">Loading...</span>
