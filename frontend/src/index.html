@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vanilla WebApp Demo</title>
+    <script type="module" src="/js/main.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div x-data="spaApp"
+         x-init="isLoggedIn = !!token; 
+                 loadPage('view-container', '/templates/pages/landingpage.hbs', '/js/controllers/landingpage.js');" 
+         class="container mx-auto px-4 py-8">
+        
+        <!-- Login Form -->
+        {{> login }}
+        
+        <!-- Logged In Content -->
+        <main x-show="isLoggedIn">
+            <div id="menu-container"> {{> menu }} </div>
+            <div id="view-container"></div>
+        </main>    
+        
+    </div>
+</body>
+</html> 

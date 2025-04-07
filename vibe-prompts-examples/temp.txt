@@ -1,0 +1,3 @@
+python app.py --APP_PROFILE development --ENV_FILE .env
+PYTHONPATH=$PYTHONPATH:. python -m backend.app --APP_PROFILE development --ENV_FILE .env
+python -m backend.app --APP_PROFILE development --ENV_FILE ~/Projects/vanilla-webapp-framework/.env

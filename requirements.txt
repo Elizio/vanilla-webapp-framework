@@ -1,0 +1,19 @@
+# Core dependencies
+Flask==2.3.3
+Flasgger==0.9.7.1
+SQLAlchemy==2.0.23
+PyJWT==2.8.0
+Werkzeug==2.3.7
+
+# Database (optional)
+psycopg2-binary==2.9.9; sys_platform != 'win32'
+psycopg2==2.9.9; sys_platform == 'win32'
+
+# Testing
+pytest==7.4.3
+pytest-cov==4.1.0
+
+# Development
+black==23.11.0
+flake8==6.1.0
+mypy==1.7.1 
