@@ -35,7 +35,10 @@ export default defineConfig({
   },
   plugins: [
     handlebars({
-      partialDirectory: resolve(__dirname, 'src/templates/partials'),
+      partialDirectory: [
+        resolve(__dirname, 'src/templates/pages'),
+        resolve(__dirname, 'src/templates/partials')
+      ],
       helpers: {
         json: (context) => JSON.stringify(context, null, 2),
         eq: (v1, v2) => v1 === v2

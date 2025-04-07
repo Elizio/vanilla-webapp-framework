@@ -7,66 +7,20 @@
     <script type="module" src="/js/main.js"></script>
 </head>
 <body class="bg-gray-100 min-h-screen">
-    <div class="container mx-auto px-4 py-8" x-data="appState" x-init="isLoggedIn = !!token">
-        <div class="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
-            <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Vanilla WebApp Demo</h1>
-            
-            <!-- Login Form -->
-            <div x-show="!isLoggedIn" class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Username</label>
-                    <input type="text" 
-                           x-model="username" 
-                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                           :disabled="isLoading">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700">Password</label>
-                    <input type="password" 
-                           x-model="password" 
-                           class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                           :disabled="isLoading">
-                </div>
-                <button @click="login" 
-                        class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors duration-200 disabled:opacity-50"
-                        :disabled="isLoading">
-                    <span x-show="!isLoading">Login</span>
-                    <span x-show="isLoading">Loading...</span>
-                </button>
-            </div>
-            
-            <!-- Logged In Content -->
-            <div x-show="isLoggedIn" class="space-y-4">
-                <button @click="logout" 
-                        class="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors duration-200">
-                    Logout
-                </button>
-                <button @click="fetchProtectedData" 
-                        class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors duration-200 disabled:opacity-50"
-                        :disabled="isLoading">
-                    <span x-show="!isLoading">Fetch Protected Data</span>
-                    <span x-show="isLoading">Loading...</span>
-                </button>
-                <button @click="fetchPublicData" 
-                        class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50"
-                        :disabled="isLoading">
-                    <span x-show="!isLoading">Fetch Public Data</span>
-                    <span x-show="isLoading">Loading...</span>
-                </button>
-            </div>
-            
-            <!-- Error Message -->
-            <div x-show="error" 
-                 class="mt-4 p-4 bg-red-100 text-red-700 rounded-md" 
-                 x-text="error">
-            </div>
-            
-            <!-- Response Data -->
-            <div x-show="response" class="mt-4">
-                <h2 class="text-lg font-semibold mb-2 text-gray-800">Response:</h2>
-                <pre class="bg-gray-100 p-4 rounded-md overflow-x-auto" x-text="JSON.stringify(response, null, 2)"></pre>
-            </div>
-        </div>
+    <div x-data="spaApp"
+         x-init="isLoggedIn = !!token; 
+                 loadPage('view-container', '/templates/pages/landingpage.hbs', '/js/controllers/landingpage.js');" 
+         class="container mx-auto px-4 py-8">
+        
+        <!-- Login Form -->
+        {{> login }}
+        
+        <!-- Logged In Content -->
+        <main x-show="isLoggedIn">
+            <div id="menu-container"> {{> menu }} </div>
+            <div id="view-container"></div>
+        </main>    
+        
     </div>
 </body>
 </html> 

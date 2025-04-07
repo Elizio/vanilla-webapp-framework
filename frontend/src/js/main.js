@@ -1,7 +1,7 @@
 import Alpine from 'alpinejs';
 import Handlebars from 'handlebars';
 import '../styles/main.css';
-import { createAppState } from './state.js';
+import { createSpaApp } from './app.js';
 
 // Register Handlebars helpers
 Handlebars.registerHelper('json', function(context) {
@@ -10,5 +10,5 @@ Handlebars.registerHelper('json', function(context) {
 
 // Initialize Alpine.js
 window.Alpine = Alpine;
-window.appState = createAppState();
-Alpine.start(); 
+window.spaApp = createSpaApp();
+Alpine.start();
