@@ -5,21 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vanilla WebApp Demo</title>
     <script type="module" src="/js/main.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors duration-200">
     <div x-data="spaApp"
          x-init="isLoggedIn = !!token; 
+                 loadPage('menu-container', '/templates/partials/menu.hbs', '/js/controllers/menu.js');
                  loadPage('view-container', '/templates/pages/landingpage.hbs', '/js/controllers/landingpage.js');" 
-         class="container mx-auto px-4 py-8">
+         class="relative min-h-screen">
         
         <!-- Login Form -->
-        {{> login }}
+        <div x-show="!isLoggedIn" class="container mx-auto px-4 py-8">
+            {{> login }}
+        </div>
         
         <!-- Logged In Content -->
-        <main x-show="isLoggedIn">
-            <div id="menu-container"> {{> menu }} </div>
-            <div id="view-container"></div>
-        </main>    
+        <div x-show="isLoggedIn" class="flex">
+            <div id="menu-container"></div>
+            
+            <!-- Main Content Area -->
+            <div class="flex-1 min-h-screen ml-0 lg:ml-64 transition-all duration-300 ease-in-out"
+                 :class="{ 'ml-0': !sidebarOpen, 'ml-64': sidebarOpen }">
+                <div class="container mx-auto px-4 py-8 pt-16 lg:pt-8">
+                    <div id="view-container" class="dark:text-gray-100"></div>
+                </div>
+            </div>
+        </div>    
         
     </div>
 </body>
