@@ -83,7 +83,26 @@ vanilla-webapp-framework/
    pip install -e .
    ```
 
-2. **Development**
+2. **Environment Variables**
+   Create a `.env` file in the root directory with the following variables:
+   ```
+   FLASK_SECRET=<your-flask-secret-key>
+   JWT_SECRET=<your-jwt-secret-key>
+   
+   DATABASE_URI=<your-database-connection-string>
+   PROJECT_FOLDER=<your-project-folder-path>
+   APP_PROFILE=<development|production|testing>
+   ```
+   
+   | Variable | Description |
+   | --- | --- |
+   | `FLASK_SECRET` | Secret key used for Flask sessions and CSRF protection |
+   | `JWT_SECRET` | Secret key used for JWT token generation and validation |
+   | `DATABASE_URI` | URI for database connection (SQLite, PostgreSQL, MySQL, etc.) |
+   | `PROJECT_FOLDER` | Absolute path to the project folder |
+   | `APP_PROFILE` | Application environment profile (development, production, testing) |
+
+3. **Development**
    ```bash
    # Start backend server
    flask run
