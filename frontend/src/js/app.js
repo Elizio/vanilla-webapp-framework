@@ -1,4 +1,5 @@
 import { api } from './controllers/login.js';
+import './controllers/menu.js'; // Import early for dark mode initialization
 
 export const createSpaApp = () => ({
     isLoggedIn: false,
@@ -8,6 +9,7 @@ export const createSpaApp = () => ({
     response: null,
     error: null,
     isLoading: false,
+    sidebarOpen: window.innerWidth >= 1024, // Desktop should have sidebar open by default
 
     async login() {
         this.isLoading = true;
@@ -46,6 +48,11 @@ export const createSpaApp = () => ({
                 if (controller && typeof controller === 'object') {
                     // Merge controller methods with current app instance
                     Object.assign(this, controller);
+                    
+                    // Call init method if it exists
+                    if (typeof this.init === 'function') {
+                        this.init();
+                    }
                 }
             } catch (err) {
                 console.error('Failed to load controller:', err);

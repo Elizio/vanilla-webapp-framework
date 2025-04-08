@@ -1,6 +1,6 @@
-<div class="space-y-4 max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
+<div class="space-y-4 max-w-md mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
 
-    <h1 class="text-2xl font-bold mb-6 text-center text-gray-800">Vanilla WebApp Demo 2</h1>
+    <h1 class="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-white">Vanilla WebApp Demo 2</h1>
     <button @click="logout" 
             class="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors duration-200">
         Logout
@@ -27,14 +27,14 @@
 
     <!-- Error Message -->
     <div x-show="error" 
-        class="mt-4 p-4 bg-red-100 text-red-700 rounded-md" 
+        class="mt-4 p-4 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-md" 
         x-text="error">
     </div>
 
     <!-- Response Data -->
     <div x-show="response" class="mt-4">
-        <h2 class="text-lg font-semibold mb-2 text-gray-800">Response:</h2>
-        <pre class="bg-gray-100 p-4 rounded-md overflow-x-auto" x-text="JSON.stringify(response, null, 2)"></pre>
+        <h2 class="text-lg font-semibold mb-2 text-gray-800 dark:text-white">Response:</h2>
+        <pre class="bg-gray-100 dark:bg-gray-700 p-4 rounded-md overflow-x-auto text-gray-800 dark:text-gray-200" x-text="JSON.stringify(response, null, 2)"></pre>
     </div>
 
 </div>

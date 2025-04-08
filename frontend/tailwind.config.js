@@ -3,6 +3,7 @@ export default {
   content: [
     "./src/**/*.{html,js,hbs}",
   ],
+  darkMode: 'class',
   theme: {
     extend: {},
   },
