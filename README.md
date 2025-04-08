@@ -56,22 +56,34 @@ A modern, lightweight web application framework that combines Flask backend with
 vanilla-webapp-framework/
 ├── backend/
 │   ├── api/               # Flask blueprints
+│   ├── config/            # Application configuration
 │   ├── models/            # SQLAlchemy models
-│   ├── templates/         # Shared Flask/Handlebars base templates
-│   ├── db_repository/     
-│   └── tests/             # Backend tests
+│   ├── templates/         # Shared Flask templates
+│   ├── db_repository/     # Database migration scripts
+│   ├── tests/             # Backend tests
+│   ├── __init__.py        # Application initialization
+│   └── app.py             # Main Flask application
 ├── frontend/
 │   ├── src/
 │   │   ├── js/            # JavaScript modules
-│   │   │   └── api.js     # Centralized Fetch API calls
-│   │   └── styles/        # Tailwind styles
-│   │   └── templates/     # Handlebars templates
-│   ├── public/            # Static assets (favicon, etc.)
+│   │   │   ├── controllers/ # Page-specific controllers
+│   │   │   ├── app.js     # Application logic
+│   │   │   └── main.js    # Main entry point
+│   │   ├── styles/        # CSS and Tailwind styles
+│   │   ├── templates/     # Handlebars templates
+│   │   │   ├── pages/     # Page templates
+│   │   │   └── partials/  # Reusable template parts
+│   │   └── index.html     # Main HTML entry point
+│   ├── public/            # Static assets
+│   ├── package.json       # Frontend dependencies
+│   ├── vite.config.js     # Vite configuration
+│   └── tailwind.config.js # Tailwind CSS configuration
+├── .env                   # Environment variables
 ├── Dockerfile             # Docker configuration
-├── setup.cfg
-├── setup.py
-├── vite.config.js         # Vite setup
-└── .github/               # GitHub Actions workflows
+├── requirements.txt       # Python dependencies
+├── setup.cfg              # Python package configuration
+├── setup.py               # Python package setup
+└── package.json           # Root package configuration
 ```
 
 ## 🚀 Getting Started
