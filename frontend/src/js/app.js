@@ -1,65 +1,42 @@
-import { api } from './controllers/login.js';
+import { loginController } from './controllers/login.js';
 import './controllers/menu.js'; // Import early for dark mode initialization
 
-export const createSpaApp = () => ({
-    isLoggedIn: false,
-    token: localStorage.getItem('token'),
-    username: '',
-    password: '',
-    confirmPassword: '',
-    response: null,
-    error: null,
-    success: null,
-    isLoading: false,
-    isRegistering: false,
-    sidebarOpen: window.innerWidth >= 1024, // Desktop should have sidebar open by default
+export const createSpaApp = () => {
+    // Create the app object with all the necessary properties
+    const app = {
+        // UI state
+        sidebarOpen: window.innerWidth >= 1024, // Desktop should have sidebar open by default
 
-    async login() {
-        this.isLoading = true;
-        this.error = null;
-        try {
-            const data = await api.login(this.username, this.password);
-            this.token = data.token;
-            localStorage.setItem('token', data.token);
-            this.isLoggedIn = true;
-        } catch (err) {
-            this.error = 'Login failed';
-        } finally {
-            this.isLoading = false;
-        }
-    },
+        async loadPage(elementIdTarget, templatePath, controllerPath = null) {
+            // Load template
+            const response = await fetch(templatePath);
+            const template = await response.text();
+            document.getElementById(elementIdTarget).innerHTML = template;
 
-    logout() {
-        this.token = null;
-        localStorage.removeItem('token');
-        this.isLoggedIn = false;
-        this.response = null;
-    },
-
-    async loadPage(elementIdTarget, templatePath, controllerPath = null) {
-        // Load template
-        const response = await fetch(templatePath);
-        const template = await response.text();
-        document.getElementById(elementIdTarget).innerHTML = template;
-
-        // Load controller if specified
-        if (controllerPath) {
-            try {
-                const module = await import(controllerPath);
-                // Get the first exported object from the module
-                const controller = Object.values(module)[0];
-                if (controller && typeof controller === 'object') {
-                    // Merge controller methods with current app instance
-                    Object.assign(this, controller);
-                    
-                    // Call init method if it exists
-                    if (typeof this.init === 'function') {
-                        this.init();
+            // Load controller if specified
+            if (controllerPath) {
+                try {
+                    const module = await import(controllerPath);
+                    // Get the first exported object from the module
+                    const controller = Object.values(module)[0];
+                    if (controller && typeof controller === 'object') {
+                        // Merge controller methods with current app instance
+                        Object.assign(this, controller);
+                        
+                        // Call init method if it exists
+                        if (typeof this.init === 'function') {
+                            this.init();
+                        }
                     }
+                } catch (err) {
+                    console.error('Failed to load controller:', err);
                 }
-            } catch (err) {
-                console.error('Failed to load controller:', err);
             }
         }
-    }
-}); 
+    };
+    
+    // Initialize the app with login controller methods
+    Object.assign(app, loginController);
+    
+    return app;
+}; 

@@ -2,9 +2,10 @@
  * Login Controller
  * Handles user authentication and login functionality
  */
+
 // API module for handling login
 export const api = {
-    async login(username, password) {
+    async loginApi(username, password) {
         try {
             const response = await fetch('/api/login', {
                 method: 'POST',
@@ -24,10 +25,20 @@ export const api = {
     }
 };
 
-// Controller for login functionality
+// View Controller for login functionality
 export const loginController = {
+    // Add properties that match the template bindings
+    username: '',
+    password: '',
+    isLoading: false,
+    error: null,
+    response: null,
+    isLoggedIn: false,
+    token: null,
+    
     init() {
-        this.isLoggingIn = true;
+        this.isLoggedIn = !!localStorage.getItem('token');
+        this.token = localStorage.getItem('token');
     },
 
     async login() {
@@ -48,11 +59,14 @@ export const loginController = {
         }
         
         try {
-            const data = await api.login(this.username, this.password);
+            // Use the api object directly
+            const data = await api.loginApi(this.username, this.password);
             
             if (data.token) {
                 // Store the token
+                this.token = data.token;
                 localStorage.setItem('token', data.token);
+                this.isLoggedIn = true;
                 
                 // Redirect to home page
                 window.location.href = '/';
@@ -60,13 +74,17 @@ export const loginController = {
                 this.error = data.message || 'Login failed. Please try again.';
             }
         } catch (err) {
+            console.error('Login error:', err);
             this.error = 'Login failed. Please try again.';
         } finally {
             this.isLoading = false;
         }
     },
 
-    showRegisterForm() {
-        this.isLoggingIn = false;
+    logout() {
+        this.token = null;
+        localStorage.removeItem('token');
+        this.isLoggedIn = false;
+        this.response = null;
     }
 }; 

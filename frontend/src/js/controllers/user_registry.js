@@ -28,7 +28,6 @@ export const api = {
 export const userRegistryController = {
     init() {
         this.confirmPassword = '';
-        this.isRegistering = true;
     },
 
     async register() {
@@ -68,7 +67,7 @@ export const userRegistryController = {
                 
                 // Redirect to login page after delay
                 setTimeout(() => {
-                    this.isRegistering = false;
+                    this.loadPage('login-register-container', '/templates/partials/login.hbs', '/js/controllers/login.js');
                 }, 2000);
             } else {
                 this.error = data.message || 'Registration failed. Please try again.';
@@ -81,6 +80,7 @@ export const userRegistryController = {
     },
 
     showLoginForm() {
-        this.isRegistering = false;
+        // This method is called from the template but doesn't need to set isRegistering
+        // since we're using loadPage to switch between forms
     }
 };

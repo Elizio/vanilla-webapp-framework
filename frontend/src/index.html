@@ -14,17 +14,12 @@
          x-init="isLoggedIn = !!token; 
                  loadPage('menu-container', '/templates/partials/menu.hbs', '/js/controllers/menu.js');
                  loadPage('view-container', '/templates/pages/landingpage.hbs', '/js/controllers/landingpage.js');
-                 isRegistering = false;" 
+                 loadPage('login-register-container', '/templates/partials/login.hbs', '/js/controllers/login.js');" 
          class="relative min-h-screen">
         
-        <!-- Login Form -->
+        <!-- Login  Registration Content -->
         <div x-show="!isLoggedIn" class="container mx-auto px-4 py-8">
-            {{> login }}
-        </div>
-
-        <!-- Registration Content -->
-        <div x-show="isRegistering" class="container mx-auto px-4 py-8">
-            {{> user_registry }}
+            <div id="login-register-container"></div>
         </div>
         
         <!-- Logged In Content -->
