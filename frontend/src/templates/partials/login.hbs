@@ -24,6 +24,12 @@
             <span x-show="isLoading">Loading...</span>
         </button>
 
+        <div class="text-center mt-4">
+            <a href="#" @click.prevent="isRegistering = true; loadPage('register-container', '/templates/pages/user_registry.hbs', '/js/controllers/user_registry.js');" class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300">
+                Don't have an account? Register
+            </a>
+        </div>
+        
         {{!-- Error Message --}}
         <div x-show="error" 
             class="mt-4 p-4 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-md" 

@@ -6,9 +6,12 @@ export const createSpaApp = () => ({
     token: localStorage.getItem('token'),
     username: '',
     password: '',
+    confirmPassword: '',
     response: null,
     error: null,
+    success: null,
     isLoading: false,
+    isRegistering: false,
     sidebarOpen: window.innerWidth >= 1024, // Desktop should have sidebar open by default
 
     async login() {

@@ -13,12 +13,18 @@
     <div x-data="spaApp"
          x-init="isLoggedIn = !!token; 
                  loadPage('menu-container', '/templates/partials/menu.hbs', '/js/controllers/menu.js');
-                 loadPage('view-container', '/templates/pages/landingpage.hbs', '/js/controllers/landingpage.js');" 
+                 loadPage('view-container', '/templates/pages/landingpage.hbs', '/js/controllers/landingpage.js');
+                 isRegistering = false;" 
          class="relative min-h-screen">
         
         <!-- Login Form -->
         <div x-show="!isLoggedIn" class="container mx-auto px-4 py-8">
             {{> login }}
+        </div>
+
+        <!-- Registration Content -->
+        <div x-show="isRegistering" class="container mx-auto px-4 py-8">
+            {{> user_registry }}
         </div>
         
         <!-- Logged In Content -->
@@ -32,7 +38,7 @@
                     <div id="view-container" class="dark:text-gray-100"></div>
                 </div>
             </div>
-        </div>    
+        </div>
         
     </div>
 </body>
