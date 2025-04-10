@@ -2,9 +2,10 @@
  * User Registration Controller
  * Handles new user registration functionality
  */
+
 // API module for handling user registration
 export const api = {
-    async register(username, password) {
+    async registerApi(username, password) {
         try {
             const response = await fetch('/api/register', {
                 method: 'POST',
@@ -24,10 +25,23 @@ export const api = {
     }
 };
 
-// Controller for user registration
+// View Controller for user registration
 export const userRegistryController = {
+    // Add properties that match the template bindings
+    username: '',
+    password: '',
+    confirmPassword: '',
+    isLoading: false,
+    error: null,
+    success: null,
+    
     init() {
+        this.username = '';
+        this.password = '';
         this.confirmPassword = '';
+        this.isLoading = false;
+        this.error = null;
+        this.success = null;
     },
 
     async register() {
@@ -55,7 +69,7 @@ export const userRegistryController = {
         }
         
         try {
-            const data = await api.register(this.username, this.password);
+            const data = await api.registerApi(this.username, this.password);
             
             if (data.message === 'User created successfully') {
                 this.success = 'Account created successfully! You can now login.';
@@ -67,7 +81,7 @@ export const userRegistryController = {
                 
                 // Redirect to login page after delay
                 setTimeout(() => {
-                    this.loadPage('login-register-container', '/templates/partials/login.hbs', '/js/controllers/login.js');
+                    this.loadPage('login-register-container', '/templates/partials/login.hbs', '/js/controllers/login.js', 'loginController');
                 }, 2000);
             } else {
                 this.error = data.message || 'Registration failed. Please try again.';
@@ -77,10 +91,5 @@ export const userRegistryController = {
         } finally {
             this.isLoading = false;
         }
-    },
-
-    showLoginForm() {
-        // This method is called from the template but doesn't need to set isRegistering
-        // since we're using loadPage to switch between forms
     }
 };

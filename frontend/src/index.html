@@ -11,10 +11,10 @@
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors duration-200">
     <div x-data="spaApp"
-         x-init="isLoggedIn = !!token; 
-                 loadPage('menu-container', '/templates/partials/menu.hbs', '/js/controllers/menu.js');
-                 loadPage('view-container', '/templates/pages/landingpage.hbs', '/js/controllers/landingpage.js');
-                 loadPage('login-register-container', '/templates/partials/login.hbs', '/js/controllers/login.js');" 
+         x-init="isLoggedIn = !!localStorage.getItem('token'); 
+                 loadPage('menu-container', '/templates/partials/menu.hbs', '/js/controllers/menu.js', 'menuController');
+                 loadPage('view-container', '/templates/pages/landingpage.hbs', '/js/controllers/landingpage.js', 'landingPageController');
+                 loadPage('login-register-container', '/templates/partials/login.hbs', '/js/controllers/login.js', 'loginController');" 
          class="relative min-h-screen">
         
         <!-- Login  Registration Content -->

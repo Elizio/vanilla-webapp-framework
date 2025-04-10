@@ -35,8 +35,10 @@ export const loginController = {
     response: null,
     isLoggedIn: false,
     token: null,
+    appContext: null,
     
-    init() {
+    init(appContext) {
+        this.appContext = appContext;
         this.isLoggedIn = !!localStorage.getItem('token');
         this.token = localStorage.getItem('token');
     },
@@ -80,11 +82,4 @@ export const loginController = {
             this.isLoading = false;
         }
     },
-
-    logout() {
-        this.token = null;
-        localStorage.removeItem('token');
-        this.isLoggedIn = false;
-        this.response = null;
-    }
 }; 

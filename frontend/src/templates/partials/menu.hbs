@@ -1,5 +1,5 @@
 <!-- Sidebar Navigation -->
-<div x-data="{ localDarkMode: localStorage.getItem('darkMode') === 'true', hoveredItem: null }">
+<div x-data="{ hoveredItem: null }">
   <aside 
     class="fixed inset-y-0 left-0 z-10 w-16 hover:w-64 transform transition-all duration-300 ease-in-out bg-white dark:bg-gray-800 shadow-lg overflow-hidden group"
     :class="{ '-translate-x-full': !sidebarOpen, 'translate-x-0': sidebarOpen }">
@@ -16,7 +16,7 @@
       <!-- Nav Links -->
       <nav class="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
         <!-- Dashboard -->
-        <a href="#" @click.prevent="loadPage('view-container', '/templates/pages/landingpage.hbs', '/js/controllers/landingpage.js');"
+        <a href="#" @click.prevent="loadPage('view-container', '/templates/pages/landingpage.hbs', '/js/controllers/landingpage.js', 'landingPageController');"
            @mouseenter="hoveredItem = 'dashboard'" @mouseleave="hoveredItem = null"
            class="flex items-center px-4 py-2 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
           <div class="w-5 h-5 flex items-center justify-center">
@@ -28,7 +28,7 @@
         </a>
 
         <!-- Analytics -->
-        <a href="#" @click.prevent="loadPage('view-container', '/templates/pages/testpage.hbs', '/js/controllers/testpage.js');"
+        <a href="#" @click.prevent="loadPage('view-container', '/templates/pages/testpage.hbs', '/js/controllers/testpage.js', 'testPageController');"
            @mouseenter="hoveredItem = 'analytics'" @mouseleave="hoveredItem = null"
            class="flex items-center px-4 py-2 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
           <div class="w-5 h-5 flex items-center justify-center">
@@ -79,20 +79,20 @@
 
       <!-- Dark Mode Toggle -->
       <div class="p-2 border-t border-gray-200 dark:border-gray-700">
-        <button @click="toggleDarkMode(); localDarkMode = !localDarkMode" 
+        <button @click="currentPage.toggleDarkMode()"
                @mouseenter="hoveredItem = 'darkmode'" @mouseleave="hoveredItem = null"
                class="w-full flex items-center px-4 py-2 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
           <div class="w-5 h-5 flex items-center justify-center">
             <!-- Sun icon for light mode -->
-            <svg x-show="!localDarkMode" class="w-5 h-5 text-gray-500 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg x-show="!currentPage.darkMode" class="w-5 h-5 text-gray-500 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
             <!-- Moon icon for dark mode -->
-            <svg x-show="localDarkMode" class="w-5 h-5 text-gray-500 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg x-show="currentPage.darkMode" class="w-5 h-5 text-gray-500 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
             </svg>
           </div>
-          <span class="ml-3 hidden group-hover:inline-block whitespace-nowrap" x-text="localDarkMode ? 'Light Mode' : 'Dark Mode'"></span>
+          <span class="ml-3 hidden group-hover:inline-block whitespace-nowrap" x-text="currentPage.darkMode ? 'Light Mode' : 'Dark Mode'"></span>
         </button>
       </div>
     </div>

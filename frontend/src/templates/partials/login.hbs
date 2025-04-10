@@ -6,41 +6,41 @@
         <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Username</label>
             <input type="text" 
-                    x-model="username" 
+                    x-model="currentPage.username" 
                     class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:focus:ring-indigo-400"
-                    :disabled="isLoading">
+                    :disabled="currentPage.isLoading">
         </div>
         <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
             <input type="password" 
-                    x-model="password" 
+                    x-model="currentPage.password" 
                     class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:focus:ring-indigo-400"
-                    :disabled="isLoading">
+                    :disabled="currentPage.isLoading">
         </div>
-        <button @click="login()" 
+        <button @click="currentPage.login()" 
                 class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors duration-200 disabled:opacity-50"
-                :disabled="isLoading">
-            <span x-show="!isLoading">Login</span>
-            <span x-show="isLoading">Loading...</span>
+                :disabled="currentPage.isLoading">
+            <span x-show="!currentPage.isLoading">Login</span>
+            <span x-show="currentPage.isLoading">Loading...</span>
         </button>
 
         <div class="text-center mt-4">
-            <a href="#" @click.prevent="loadPage('login-register-container', '/templates/partials/user_registry.hbs', '/js/controllers/user_registry.js');" 
+            <a href="#" @click.prevent="loadPage('login-register-container', '/templates/partials/user_registry.hbs', '/js/controllers/user_registry.js', 'userRegistryController');" 
                 class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300">
                 Don't have an account? Register
             </a>
         </div>
         
         <!-- Error Message -->
-        <div x-show="error" 
+        <div x-show="currentPage.error" 
             class="mt-4 p-4 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-md" 
-            x-text="error">
+            x-text="currentPage.error">
         </div>
         
         <!-- Response Data -->
-        <div x-show="response" class="mt-4">
+        <div x-show="currentPage.response" class="mt-4">
             <h2 class="text-lg font-semibold mb-2 text-gray-800 dark:text-white">Response:</h2>
-            <pre class="bg-gray-100 dark:bg-gray-700 p-4 rounded-md overflow-x-auto text-gray-800 dark:text-gray-200" x-text="JSON.stringify(response, null, 2)"></pre>
+            <pre class="bg-gray-100 dark:bg-gray-700 p-4 rounded-md overflow-x-auto text-gray-800 dark:text-gray-200" x-text="JSON.stringify(currentPage.response, null, 2)"></pre>
         </div>
     </div>
 </div>
