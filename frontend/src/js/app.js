@@ -43,17 +43,12 @@ export const createSpaApp = () => {
             }
         },
 
-        // Add the global logout function here
+        // Updated logout function
         logout() {
             localStorage.removeItem('token');
-            this.isLoggedIn = false;
-            this.token = null; 
-            this.currentPage = {}; // Clear current page state
-            // Optionally, reload the login page immediately
-            this.loadPage('login-register-container', '/templates/partials/login.hbs', '/js/controllers/login.js', 'loginController');
-            this.loadPage('view-container', ''); // Clear main view
-            // Or maybe redirect to root which should show login state
-            // window.location.href = '/';
+            // No need to manually update isLoggedIn, token, or currentPage here.
+            // A full page reload will reset the entire application state based on the token's absence.
+            window.location.href = '/'; // Redirect to root to force reload and re-initialization
         }
     };
     

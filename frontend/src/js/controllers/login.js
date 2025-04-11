@@ -41,6 +41,7 @@ export const loginController = {
         this.appContext = appContext;
         this.isLoggedIn = !!localStorage.getItem('token');
         this.token = localStorage.getItem('token');
+        this.isLoggedIn = false;
     },
 
     async login() {
