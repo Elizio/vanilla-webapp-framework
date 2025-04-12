@@ -1,8 +1,7 @@
-
-<button @click="ttt(); loadPage('view-container', '/templates/pages/landingpage.hbs', '/js/controllers/landingpage.js');" 
-        x-init="abc = 27;"
+<button @click="currentPage.ttt(); loadPage('view-container', '/templates/pages/landingpage.hbs', '/js/controllers/landingpage.js', 'landingPageController');" 
+        x-init="currentPage.abc = 27;"
         class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50"
-        :disabled="isLoading">
-    <span x-show="!isLoading">Load Landing Page</span>
-    <span x-show="isLoading">Loading...</span>
+        :disabled="currentPage.isLoading">
+    <span x-show="!currentPage.isLoading">Load Landing Page</span>
+    <span x-show="currentPage.isLoading">Loading...</span>
 </button>

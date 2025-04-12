@@ -1,0 +1,63 @@
+<!-- User Registration Page -->
+
+<div class="max-w-md mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+    <div class="space-y-4">
+        <h1 class="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-white">Create an Account</h1>
+        
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Username</label>
+            <input 
+                type="text" 
+                x-model="currentPage.username" 
+                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:focus:ring-indigo-400"
+                :disabled="currentPage.isLoading">
+        </div>
+        
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
+            <input 
+                type="password" 
+                x-model="currentPage.password" 
+                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:focus:ring-indigo-400"
+                :disabled="currentPage.isLoading">
+        </div>
+        
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Confirm Password</label>
+            <input 
+                type="password" 
+                x-model="currentPage.confirmPassword" 
+                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:focus:ring-indigo-400"
+                :disabled="currentPage.isLoading">
+        </div>
+        
+        <button 
+            @click="currentPage.register()" 
+            class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors duration-200 disabled:opacity-50"
+            :disabled="currentPage.isLoading || !currentPage.username || !currentPage.password || currentPage.password !== currentPage.confirmPassword || currentPage.password.length < 6">
+            <span x-show="!currentPage.isLoading">Register</span>
+            <span x-show="currentPage.isLoading">Processing...</span>
+        </button>
+        
+        <div class="text-center mt-4">
+            <a href="#" @click.prevent="loadPage('login-register-container', '/templates/partials/login.hbs', '/js/controllers/login.js', 'loginController');" 
+                class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300">
+                Already have an account? Login
+            </a>
+        </div>
+        
+        <!-- Error Message -->
+        <div 
+            x-show="currentPage.error" 
+            class="mt-4 p-4 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-md" 
+            x-text="currentPage.error">
+        </div>
+        
+        <!-- Success Message -->
+        <div 
+            x-show="currentPage.success" 
+            class="mt-4 p-4 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-md" 
+            x-text="currentPage.success">
+        </div>
+    </div>
+</div>

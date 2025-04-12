@@ -5,36 +5,36 @@
             class="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors duration-200">
         Logout
     </button>
-    <button @click="fetchProtectedData" 
+    <button @click="currentPage.fetchProtectedData()" 
             class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors duration-200 disabled:opacity-50"
-            :disabled="isLoading">
-        <span x-show="!isLoading">Fetch Protected Data</span>
-        <span x-show="isLoading">Loading...</span>
+            :disabled="currentPage.isLoading">
+        <span x-show="!currentPage.isLoading">Fetch Protected Data</span>
+        <span x-show="currentPage.isLoading">Loading...</span>
     </button>
-    <button @click="fetchPublicData" 
+    <button @click="currentPage.fetchPublicData()" 
             class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50"
-            :disabled="isLoading">
-        <span x-show="!isLoading">Fetch Public Data</span>
-        <span x-show="isLoading">Loading...</span>
+            :disabled="currentPage.isLoading">
+        <span x-show="!currentPage.isLoading">Fetch Public Data</span>
+        <span x-show="currentPage.isLoading">Loading...</span>
     </button>
 
-    <button @click="loadPage('view-container', '/templates/pages/testpage.hbs', '/js/controllers/testpage.js');" 
+    <button @click="loadPage('view-container', '/templates/pages/testpage.hbs', '/js/controllers/testpage.js', 'testPageController');" 
             class="w-full bg-yellow-600 text-white py-2 px-4 rounded-md hover:bg-yellow-700 transition-colors duration-200 disabled:opacity-50"
-            :disabled="isLoading">
-        <span x-show="!isLoading">Load Test Page</span>
-        <span x-show="isLoading">Loading...</span>
+            :disabled="currentPage.isLoading">
+        <span x-show="!currentPage.isLoading">Load Test Page</span>
+        <span x-show="currentPage.isLoading">Loading...</span>
     </button>
 
     <!-- Error Message -->
-    <div x-show="error" 
+    <div x-show="currentPage.error" 
         class="mt-4 p-4 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-md" 
-        x-text="error">
+        x-text="currentPage.error">
     </div>
 
     <!-- Response Data -->
-    <div x-show="response" class="mt-4">
+    <div x-show="currentPage.response" class="mt-4">
         <h2 class="text-lg font-semibold mb-2 text-gray-800 dark:text-white">Response:</h2>
-        <pre class="bg-gray-100 dark:bg-gray-700 p-4 rounded-md overflow-x-auto text-gray-800 dark:text-gray-200" x-text="JSON.stringify(response, null, 2)"></pre>
+        <pre class="bg-gray-100 dark:bg-gray-700 p-4 rounded-md overflow-x-auto text-gray-800 dark:text-gray-200" x-text="JSON.stringify(currentPage.response, null, 2)"></pre>
     </div>
 
 </div>
