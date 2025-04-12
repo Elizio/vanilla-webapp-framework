@@ -7,12 +7,13 @@ if (isDarkMode) {
 }
 
 export const menuController = {
-    sidebarOpen: true,
+    // Initialize with default values
+    sidebarOpen: false,
     darkMode: false,
 
-    init() {
+    init() { // Remove appContext parameter to avoid recursion
         // Check if this is desktop size and keep sidebar open
-        if (window.innerWidth >= 1024) { // lg breakpoint in Tailwind
+        if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
             this.sidebarOpen = true;
         }
         
