@@ -35,10 +35,8 @@ export const loginController = {
     response: null,
     isLoggedIn: false,
     token: null,
-    appContext: null,
     
-    init(appContext) {
-        this.appContext = appContext;
+    init() {
         this.isLoggedIn = !!localStorage.getItem('token');
         this.token = localStorage.getItem('token');
         this.isLoggedIn = false;

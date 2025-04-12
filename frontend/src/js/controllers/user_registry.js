@@ -27,7 +27,8 @@ export const api = {
 
 // View Controller for user registration
 export const userRegistryController = {
-    // Add properties that match the template bindings
+    // Add app context reference
+    appContext: null,
     username: '',
     password: '',
     confirmPassword: '',
@@ -35,7 +36,9 @@ export const userRegistryController = {
     error: null,
     success: null,
     
-    init() {
+    init(appContext) {
+        // Store app reference when initialized
+        this.appContext = appContext;
         this.username = '';
         this.password = '';
         this.confirmPassword = '';
@@ -79,9 +82,9 @@ export const userRegistryController = {
                 this.password = '';
                 this.confirmPassword = '';
                 
-                // Redirect to login page after delay
+                // Use app.loadPage instead of this.loadPage
                 setTimeout(() => {
-                    this.loadPage('login-register-container', '/templates/partials/login.hbs', '/js/controllers/login.js', 'loginController');
+                    this.appContext.loadPage('login-register-container', '/templates/partials/login.hbs', '/js/controllers/login.js', 'loginController');
                 }, 2000);
             } else {
                 this.error = data.message || 'Registration failed. Please try again.';

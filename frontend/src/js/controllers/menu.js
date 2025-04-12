@@ -1,22 +1,21 @@
-// REMOVE initial dark mode check - Handled in init
-// const isDarkMode = localStorage.getItem('darkMode') === 'true';
-// if (isDarkMode) {
-//     document.documentElement.classList.add('dark');
-// } else {
-//     document.documentElement.classList.remove('dark');
-// }
+// Apply dark mode before Alpine initializes to prevent flicker
+const isDarkMode = localStorage.getItem('darkMode') === 'true';
+if (isDarkMode) {
+    document.documentElement.classList.add('dark');
+} else {
+    document.documentElement.classList.remove('dark');
+}
 
 export const menuController = {
-    // REMOVE sidebarOpen - Use global one from app.js
-    // sidebarOpen: true,
+    // Initialize with default values
+    sidebarOpen: false,
     darkMode: false,
 
-    init(appContext) { // Accept appContext (though not strictly needed here now)
-        this.appContext = appContext;
-        // REMOVE sidebar check - Relies on global app state now
-        // if (window.innerWidth >= 1024) { // lg breakpoint in Tailwind
-        //     this.sidebarOpen = true;
-        // }
+    init() { // Remove appContext parameter to avoid recursion
+        // Check if this is desktop size and keep sidebar open
+        if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
+            this.sidebarOpen = true;
+        }
         
         // Apply theme on initialization
         this.darkMode = localStorage.getItem('darkMode') === 'true';
@@ -31,11 +30,9 @@ export const menuController = {
 
         // Listen for system theme changes
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-            // Only update if the user hasn't manually set it
             if (localStorage.getItem('darkMode') === null) {
                 this.darkMode = e.matches;
-                // Don't automatically set localStorage here, let user toggle override system
-                // localStorage.setItem('darkMode', this.darkMode);
+                localStorage.setItem('darkMode', this.darkMode);
                 this.applyTheme();
             }
         });

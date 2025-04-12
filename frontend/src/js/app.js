@@ -1,12 +1,13 @@
 import { loginController } from './controllers/login.js';
-import './controllers/menu.js'; // Import early for dark mode initialization
+import { menuController } from './controllers/menu.js'; // Import menuController with named import
 
 export const createSpaApp = () => {
     // Create the app object with all the necessary properties
     const app = {
         // UI state
-        sidebarOpen: window.innerWidth >= 1024, // Desktop should have sidebar open by default
         currentPage: {}, // Object to hold the current page's state and methods
+        menuController: menuController, // Make menuController available 
+        loginController: loginController, // Make loginController available
 
         async loadPage(elementIdTarget, templatePath, controllerPath = null, controllerName = null) {
             // Load template
@@ -52,8 +53,12 @@ export const createSpaApp = () => {
         }
     };
     
-    // // Initialize the app with login controller methods - REMOVED, handled by x-init now
-    // Object.assign(app, loginController); 
+    // Initialize the controllers without passing app context
+    app.menuController.init();
+    app.loginController.init();
     
+    // Make menuController globally available for Alpine.js
+    window.menuController = app.menuController;
+    window.loginController = app.loginController;
     return app;
 }; 

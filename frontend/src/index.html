@@ -13,8 +13,8 @@
     <div x-data="spaApp"
          x-init="isLoggedIn = !!localStorage.getItem('token'); 
                  loadPage('menu-container', '/templates/partials/menu.hbs', '/js/controllers/menu.js', 'menuController');
-                 loadPage('view-container', '/templates/pages/landingpage.hbs', '/js/controllers/landingpage.js', 'landingPageController');
-                 loadPage('login-register-container', '/templates/partials/login.hbs', '/js/controllers/login.js', 'loginController');" 
+                 loadPage('login-register-container', '/templates/partials/login.hbs', '/js/controllers/login.js', 'loginController');
+                 loadPage('view-container', '/templates/pages/landingpage.hbs', '/js/controllers/landingpage.js', 'landingPageController');" 
          class="relative min-h-screen">
         
         <!-- Login  Registration Content -->
@@ -28,7 +28,7 @@
             
             <!-- Main Content Area -->
             <div class="flex-1 min-h-screen ml-16 transition-all duration-300 ease-in-out"
-                 :class="{ 'ml-16': !sidebarOpen, 'ml-16 lg:ml-16 lg:group-hover:ml-64': sidebarOpen }">
+                 :class="{ 'ml-16': !menuController.sidebarOpen, 'ml-16 lg:ml-16 lg:group-hover:ml-64': menuController.sidebarOpen }">
                 <div class="container mx-auto px-4 py-8 pt-16 lg:pt-8">
                     <div id="view-container" class="dark:text-gray-100"></div>
                 </div>
