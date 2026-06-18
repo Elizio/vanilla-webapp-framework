@@ -27,7 +27,6 @@ export const api = {
 
 // View Controller for login functionality
 export const loginController = {
-    // Add properties that match the template bindings
     username: '',
     password: '',
     isLoading: false,
@@ -39,7 +38,6 @@ export const loginController = {
     init() {
         this.isLoggedIn = !!localStorage.getItem('token');
         this.token = localStorage.getItem('token');
-        this.isLoggedIn = false;
     },
 
     async login() {

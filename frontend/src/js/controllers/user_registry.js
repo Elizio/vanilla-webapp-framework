@@ -6,22 +6,18 @@
 // API module for handling user registration
 export const api = {
     async registerApi(username, password) {
-        try {
-            const response = await fetch('/api/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
+        const response = await fetch('/api/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            return await response.json();
-        } catch (err) {
-            console.error('Registration failed:', err);
-            throw err;
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            throw new Error(data.message || `Registration failed (${response.status})`);
         }
+
+        return data;
     }
 };
 
@@ -90,7 +86,8 @@ export const userRegistryController = {
                 this.error = data.message || 'Registration failed. Please try again.';
             }
         } catch (err) {
-            this.error = 'Registration failed. Please try again.';
+            console.error('Registration failed:', err);
+            this.error = err.message || 'Registration failed. Please try again.';
         } finally {
             this.isLoading = false;
         }

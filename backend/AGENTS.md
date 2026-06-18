@@ -48,6 +48,7 @@ Error handlers and SPA fallback live in `web_routes.py`, registered from the fac
 | Blueprint | File | Routes |
 |-----------|------|--------|
 | `auth_bp` | `api/auth.py` | `POST /api/login`, `POST /api/register` |
+| `oauth_bp` | `api/oauth.py` | `GET /api/auth/<provider>/login`, `GET /api/auth/<provider>/callback`, `GET /api/auth/providers` |
 | `api_bp` | `api/routes.py` | `GET /api/health`, `GET /api/public`, `GET /api/data` (protected) |
 
 Register new blueprints in `create_app()`:
@@ -98,7 +99,8 @@ Flow:
 
 1. `POST /api/register` — creates user with werkzeug password hash
 2. `POST /api/login` — returns `{ "token": "<jwt>" }` (HS256, 1h expiry)
-3. Protected routes use `@token_required` — reads `Authorization: Bearer <token>`
+3. `GET /api/auth/<provider>/login` — OAuth redirect (Google, Facebook, Twitter); callback issues JWT via URL fragment
+4. Protected routes use `@token_required` — reads `Authorization: Bearer <token>`
 
 The decorator injects `current_user` as the first argument:
 

@@ -1,19 +1,12 @@
 from flask import Blueprint, request, jsonify, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
-from datetime import datetime, timedelta
 from functools import wraps
 from ..models.user import User
 from ..db_repository.database import db_session
+from .jwt_utils import JWT_ALGORITHM, _jwt_secret, generate_token
 
 auth_bp = Blueprint('auth', __name__)
-
-JWT_ALGORITHM = 'HS256'
-JWT_EXPIRATION = 3600
-
-
-def _jwt_secret():
-    return current_app.config.get('JWT_SECRET_KEY') or current_app.config.get('JWT_SECRET')
 
 
 def token_required(f):
@@ -71,11 +64,10 @@ def login():
     data = request.get_json()
     user = User.query.filter_by(username=data.get('username')).first()
 
-    if user and check_password_hash(user.password_hash, data.get('password')):
-        token = jwt.encode({
-            'user_id': user.id,
-            'exp': datetime.utcnow() + timedelta(seconds=JWT_EXPIRATION)
-        }, _jwt_secret(), algorithm=JWT_ALGORITHM)
+    if user and user.password_hash and check_password_hash(
+        user.password_hash, data.get('password')
+    ):
+        token = generate_token(user.id)
         return jsonify({'token': token})
 
     return jsonify({'message': 'Invalid credentials'}), 401
@@ -108,19 +100,26 @@ def register():
       400:
         description: Username already exists
     """
-    data = request.get_json()
-    if User.query.filter_by(username=data.get('username')).first():
+    data = request.get_json() or {}
+    username = (data.get('username') or '').strip()
+    password = data.get('password')
+
+    if not username or not password:
+        return jsonify({'message': 'Username and password are required'}), 400
+
+    if User.query.filter_by(username=username).first():
         return jsonify({'message': 'Username already exists'}), 400
 
     user = User(
-        username=data.get('username'),
-        password_hash=generate_password_hash(data.get('password'))
+        username=username,
+        password_hash=generate_password_hash(password),
     )
     try:
         db_session.add(user)
         db_session.commit()
-    except Exception:
+    except Exception as exc:
         db_session.rollback()
-        raise
+        current_app.logger.error('Registration failed: %s', exc)
+        return jsonify({'message': 'Registration failed due to a server error'}), 500
 
     return jsonify({'message': 'User created successfully'}), 201

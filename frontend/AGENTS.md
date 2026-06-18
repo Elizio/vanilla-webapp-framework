@@ -179,6 +179,8 @@ All calls use Fetch to `/api/*`:
 | Endpoint | Method | Auth | Controller |
 |----------|--------|------|------------|
 | `/api/login` | POST | No | `login.js` |
+| `/api/auth/providers` | GET | No | `login.js` |
+| `/api/auth/<provider>/login` | GET | No | `login.hbs` (redirect) |
 | `/api/register` | POST | No | `user_registry.js` |
 | `/api/public` | GET | No | `landingpage.js` |
 | `/api/data` | GET | Bearer token | `landingpage.js` |

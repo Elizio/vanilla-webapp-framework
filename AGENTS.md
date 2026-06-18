@@ -42,6 +42,13 @@ Create `.env` in the project root:
 | `DATABASE_URI` | DB connection string |
 | `PROJECT_FOLDER` | Log file directory |
 | `APP_PROFILE` | `development`, `testing`, or `production` |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth (optional) |
+| `FACEBOOK_CLIENT_ID` / `FACEBOOK_CLIENT_SECRET` | Facebook OAuth (optional) |
+| `TWITTER_CLIENT_ID` / `TWITTER_CLIENT_SECRET` | X/Twitter OAuth (optional) |
+| `FRONTEND_URL` | SPA URL after OAuth (default `http://localhost:5173` in dev) |
+| `OAUTH_REDIRECT_BASE` | OAuth callback base URL (default `http://localhost:5173` in dev) |
+
+Register each provider's redirect URI as `{OAUTH_REDIRECT_BASE}/api/auth/{provider}/callback` (e.g. `http://localhost:5173/api/auth/google/callback` in dev so the Vite proxy keeps the session cookie on one origin).
 
 ## Development workflow
 

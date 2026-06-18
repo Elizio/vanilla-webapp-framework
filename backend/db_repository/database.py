@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import sessionmaker, scoped_session, declarative_base
 import os
 
@@ -70,15 +70,44 @@ db_session = db.session
 
 def init_db():
     """Initialize the database."""
-    db.init_db() 
+    db.init_db()
 
 
-def run_migrations():
-    """Run Alembic migrations to head (production only)."""
-    import os
-    from alembic import command
+def _alembic_config():
     from alembic.config import Config
 
     backend_dir = os.path.dirname(os.path.dirname(__file__))
-    alembic_cfg = Config(os.path.join(backend_dir, 'alembic.ini'))
-    command.upgrade(alembic_cfg, 'head')
+    return Config(os.path.join(backend_dir, 'alembic.ini'))
+
+
+def run_migrations():
+    """Run Alembic migrations to head."""
+    from alembic import command
+
+    command.upgrade(_alembic_config(), 'head')
+
+
+def bootstrap_dev_database():
+    """Create or upgrade a development database, including legacy schemas."""
+    from alembic import command
+
+    alembic_cfg = _alembic_config()
+    inspector = inspect(db.engine)
+    tables = inspector.get_table_names()
+
+    if 'alembic_version' in tables:
+        command.upgrade(alembic_cfg, 'head')
+        return
+
+    if 'users' not in tables:
+        db.init_db()
+        command.stamp(alembic_cfg, 'head')
+        return
+
+    user_columns = {column['name'] for column in inspector.get_columns('users')}
+    if 'oauth_provider' not in user_columns:
+        command.stamp(alembic_cfg, '001')
+        command.upgrade(alembic_cfg, 'head')
+        return
+
+    command.stamp(alembic_cfg, 'head')

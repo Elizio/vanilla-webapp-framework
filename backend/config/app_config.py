@@ -91,6 +91,25 @@ class AppConfig:
         
         # API configuration
         self.API_HOST = os.getenv('API_HOST', 'localhost:5000')
+
+        # OAuth / social login (optional — missing keys disable that provider)
+        self.GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID')
+        self.GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
+        self.FACEBOOK_CLIENT_ID = os.getenv('FACEBOOK_CLIENT_ID')
+        self.FACEBOOK_CLIENT_SECRET = os.getenv('FACEBOOK_CLIENT_SECRET')
+        self.TWITTER_CLIENT_ID = os.getenv('TWITTER_CLIENT_ID')
+        self.TWITTER_CLIENT_SECRET = os.getenv('TWITTER_CLIENT_SECRET')
+
+        default_frontend = (
+            'http://localhost:5173'
+            if self.APP_PROFILE in ('development', 'testing')
+            else '/'
+        )
+        self.FRONTEND_URL = os.getenv('FRONTEND_URL', default_frontend)
+        self.OAUTH_REDIRECT_BASE = os.getenv(
+            'OAUTH_REDIRECT_BASE',
+            'http://localhost:5173' if self.APP_PROFILE in ('development', 'testing') else '',
+        )
         
         # Swagger configuration
         self.SWAGGER_CONFIG = {

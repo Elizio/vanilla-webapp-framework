@@ -6,7 +6,7 @@ import os
 from flask import Flask
 from flask_cors import CORS
 from flasgger import Swagger
-from .db_repository.database import db, db_session, init_db, run_migrations
+from .db_repository.database import db, db_session, init_db, run_migrations, bootstrap_dev_database
 from .config import AppConfig, UserConfig, setup_logging
 
 
@@ -30,8 +30,11 @@ def create_app():
 
     from .api.auth import auth_bp
     from .api.routes import api_bp
+    from .api.oauth import oauth_bp, register_oauth_clients
+    register_oauth_clients(app)
     app.register_blueprint(auth_bp)
     app.register_blueprint(api_bp)
+    app.register_blueprint(oauth_bp)
 
     @app.teardown_appcontext
     def shutdown_session(exception=None):
@@ -42,6 +45,8 @@ def create_app():
 
     if profile == 'production':
         run_migrations()
+    elif profile == 'development':
+        bootstrap_dev_database()
     else:
         init_db()
 

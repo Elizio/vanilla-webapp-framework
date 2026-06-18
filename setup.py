@@ -40,6 +40,8 @@ setup(
         "pytest-cov>=3.0.0",
         "python-dotenv>=1.0.0",
         "alembic>=1.13.0",
+        "authlib>=1.3.0",
+        "requests>=2.31.0",
         "gunicorn>=21.0.0",
     ],
     extras_require={

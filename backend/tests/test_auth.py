@@ -113,6 +113,23 @@ def test_register_rollback_on_commit_failure(test_app, test_db, monkeypatch):
     assert response.status_code == 201
 
 
+def test_login_oauth_only_user_returns_401(test_client, test_db):
+    user = User(
+        username='oauthonly',
+        oauth_provider='google',
+        oauth_id='999',
+        password_hash=None,
+    )
+    db_session.add(user)
+    db_session.commit()
+
+    response = test_client.post('/api/login', json={
+        'username': 'oauthonly',
+        'password': 'anything',
+    })
+    assert response.status_code == 401
+
+
 def test_jwt_uses_app_config_secret(test_client, test_db):
     import jwt
 
