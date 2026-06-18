@@ -1,0 +1,123 @@
+# Agent Guide — Vanilla WebApp Framework
+
+Flask REST API + vanilla JavaScript SPA (Alpine.js, Tailwind, Vite). Human onboarding lives in [README.md](README.md). Coding standards live in [.cursor/rules/](.cursor/rules/). This file covers what agents need to run, verify, and extend the project.
+
+## Documentation map
+
+| Doc | Scope |
+|-----|-------|
+| **This file** | Global setup, verification, full-stack checklist, debt summary |
+| [backend/AGENTS.md](backend/AGENTS.md) | Flask, DB, JWT, pytest recipes |
+| [frontend/AGENTS.md](frontend/AGENTS.md) | Vite, Alpine, controllers, templates |
+| [.cursor/rules/](.cursor/rules/) | Enforceable coding standards (do not duplicate here) |
+
+## Repository layout
+
+```
+vanilla-webapp-framework/
+├── backend/           # Flask API (see backend/AGENTS.md)
+├── frontend/          # Vite SPA (see frontend/AGENTS.md)
+├── .cursor/rules/     # Cursor rules (.mdc)
+├── .env               # Required secrets (not committed)
+├── requirements.txt   # Python deps
+├── setup.py           # pip install -e .
+└── Dockerfile         # Production image (incomplete — see debt)
+```
+
+## Environment setup
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
+```
+
+Create `.env` in the project root:
+
+| Variable | Purpose |
+|----------|---------|
+| `FLASK_SECRET` | Flask sessions / CSRF |
+| `JWT_SECRET` | JWT signing |
+| `DATABASE_URI` | DB connection string |
+| `PROJECT_FOLDER` | Log file directory |
+| `APP_PROFILE` | `development`, `testing`, or `production` |
+
+## Development workflow
+
+Run **both** servers during frontend work:
+
+```bash
+# Terminal 1 — API on :5000
+flask run
+
+# Terminal 2 — SPA on :5173
+cd frontend && npm install && npm run dev
+```
+
+**Use `http://localhost:5173` in the browser**, not `:5000`. Vite proxies `/api/*` to Flask.
+
+API-only work (no UI): `flask run` is sufficient. Swagger UI: `http://localhost:5000/docs`.
+
+## Verification checklist
+
+Run before claiming work is done:
+
+- [ ] `pytest` from project root (backend tests with coverage)
+- [ ] `cd frontend && npm run dev` — app loads at `:5173`
+- [ ] New API endpoints have Swagger docstrings and pytest coverage
+- [ ] Frontend changes work through Vite dev server (not Flask-only)
+
+## Architecture
+
+```
+Browser (:5173)
+  └─ Vite dev server
+       ├─ /api/*  → proxy → Flask (:5000)
+       └─ /js/*, /templates/*.hbs → frontend/src/
+
+Flask
+  ├─ auth_bp   → /api/login, /api/register
+  ├─ api_bp    → /api/public, /api/data
+  └─ db_session → SQLAlchemy singleton (not Flask-SQLAlchemy)
+```
+
+Canonical entry points: `backend/__init__.py` (`create_app`), `frontend/src/js/app.js` (`createSpaApp`).
+
+## Full-stack feature checklist
+
+When adding a feature that spans backend and frontend:
+
+1. **Model** (if needed) — `backend/models/`, extend `db.Base`
+2. **API** — new or extended blueprint in `backend/api/`, Swagger docstring
+3. **Auth** — use `@token_required` for protected routes (see `backend/api/auth.py`)
+4. **Test** — `backend/tests/test_*.py` with `test_client` + `test_db` fixtures
+5. **Controller** — `frontend/src/js/controllers/<feature>.js`
+6. **Template** — `frontend/src/templates/pages/<feature>.hbs` (Alpine markup)
+7. **Navigation** — wire `loadPage(...)` in `frontend/src/templates/partials/menu.hbs`
+
+Backend-first: ship API + tests before frontend integration.
+
+## Known technical debt
+
+Document actual behavior; do not assume README or cursor rules match the code.
+
+| Issue | Actual state |
+|-------|--------------|
+| Flask templates | `template_folder` points to `frontend/src/templates/` but `index.html` is at `frontend/src/index.html` |
+| Vite build | `npm run build` outputs to `backend/templates/`; Flask does not read that path today |
+| Handlebars | `.hbs` files are Alpine HTML fragments fetched at runtime — not Handlebars-rendered |
+| Database | Custom singleton uses `db_session`, not Flask-SQLAlchemy `db.session` |
+| Migrations | `create_all()` only — no Alembic scripts |
+| CI/CD | No `.github/workflows/` yet |
+| Docker | No Vite build step; uses `DATABASE_URL` but app expects `DATABASE_URI` |
+| Logging | `backend/config/logging_config.py` (not `infra/logger.py`) |
+
+When cursor rules and code disagree, **follow the code** until explicitly aligned.
+
+## Agent principles
+
+- Minimize scope; match existing patterns in neighboring files
+- Reference canonical files (`@backend/api/routes.py`) instead of copying code
+- Backend work → read [backend/AGENTS.md](backend/AGENTS.md)
+- Frontend work → read [frontend/AGENTS.md](frontend/AGENTS.md)
+- Standards (PEP 8, Blueprints, Tailwind) → [.cursor/rules/](.cursor/rules/)
