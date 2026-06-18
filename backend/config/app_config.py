@@ -44,12 +44,12 @@ class AppConfig:
         parser.add_argument('--ENV_FILE',
                           help='Path to the .env file')
 
-        args = parser.parse_args()
+        args, _ = parser.parse_known_args()
         
         # Load environment file
         env_file = args.ENV_FILE or os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
         if os.path.exists(env_file):
-            load_dotenv(dotenv_path=env_file)
+            load_dotenv(dotenv_path=env_file, override=False)
             if args.APP_PROFILE:
                 set_key(env_file, "APP_PROFILE", args.APP_PROFILE)
         else:
@@ -58,7 +58,7 @@ class AppConfig:
     def _initialize_config(self) -> None:
         """Initialize configuration values from environment variables."""
         # Environment
-        self.APP_PROFILE = os.getenv('APP_PROFILE', 'development')
+        self.APP_PROFILE = os.getenv('APP_PROFILE', 'development').strip("'\"")
         
         # Flask configuration
         self.FLASK_APP = os.getenv('FLASK_APP', 'backend.app')

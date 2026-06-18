@@ -1,7 +1,7 @@
 ---
-description: 
-globs: 
-alwaysApply: true
+description: Docker, CI/CD, and environment management conventions
+globs: Dockerfile,.github/**,setup.*,requirements.txt
+alwaysApply: false
 ---
 ## **3. DevOps & Deployment Rules**
 ### **Docker**

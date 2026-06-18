@@ -7,13 +7,16 @@ Flask REST API with JWT auth, custom SQLAlchemy layer, and Flasgger Swagger. Glo
 ```
 backend/
 ├── __init__.py          # create_app() factory, blueprint registration, init_db()
-├── app.py               # GET /, @app.errorhandler, dev entrypoint
+├── app.py               # Dev entrypoint
+├── web_routes.py        # SPA fallback + error handlers
+├── alembic.ini          # Alembic config
 ├── api/
 │   ├── auth.py          # auth_bp — login, register, @token_required
 │   └── routes.py        # api_bp — public and protected endpoints
 ├── models/              # Data-only SQLAlchemy models
 ├── db_repository/
-│   └── database.py      # Engine, session, Base singleton
+│   ├── database.py      # Engine, session, Base singleton
+│   └── migrations/      # Alembic migrations
 ├── config/
 │   ├── app_config.py    # AppConfig singleton (.env, APP_PROFILE)
 │   ├── user_config.py   # PROJECT_FOLDER, log paths
@@ -31,11 +34,12 @@ backend/
 4. Calls `setup_logging(app)`
 5. Initializes Flasgger Swagger (`/docs`)
 6. Registers `auth_bp` and `api_bp`
-7. Calls `init_db()` (creates tables via `create_all`)
+7. Registers web routes via `register_web_routes(app)`
+8. Runs `init_db()` (dev/test) or `run_migrations()` (production)
 
 A module-level `app = create_app()` runs at import time. Tests call `create_app()` again via fixtures in `tests/conftest.py`.
 
-Error handlers (`404`, `500`, catch-all `Exception`) live in `app.py`, not inside the factory.
+Error handlers and SPA fallback live in `web_routes.py`, registered from the factory.
 
 **Canonical references:** `@backend/__init__.py`, `@backend/app.py`
 
@@ -44,7 +48,7 @@ Error handlers (`404`, `500`, catch-all `Exception`) live in `app.py`, not insid
 | Blueprint | File | Routes |
 |-----------|------|--------|
 | `auth_bp` | `api/auth.py` | `POST /api/login`, `POST /api/register` |
-| `api_bp` | `api/routes.py` | `GET /api/public`, `GET /api/data` (protected) |
+| `api_bp` | `api/routes.py` | `GET /api/health`, `GET /api/public`, `GET /api/data` (protected) |
 
 Register new blueprints in `create_app()`:
 
@@ -205,15 +209,24 @@ Coverage is configured in `setup.cfg` (`--cov=backend`).
 - Every endpoint needs a Flasgger YAML docstring (`---` block)
 - Protected routes include `security: [{ Bearer: [] }]`
 
-## Backend debt register
+## Alembic migrations
 
-| Issue | Detail |
-|-------|--------|
-| Template path | `template_folder='../frontend/src/templates'` but `index.html` is outside that dir |
-| Eager global app | Module-level `create_app()` may run before test env is set |
-| Config split | `auth.py` / `database.py` use `os.environ`; `AppConfig` uses different attribute names |
-| No migrations | `db_repository/` has no Alembic — only `database.py` |
-| No rollback | `register()` in auth.py commits without try/rollback |
+- Config: `backend/alembic.ini`
+- Scripts: `backend/db_repository/migrations/`
+- Dev/test: `init_db()` via `create_all()`
+- Production: `alembic upgrade head` via `run_migrations()` in `create_app()`
+
+```bash
+# From project root with DATABASE_URI set
+alembic -c backend/alembic.ini upgrade head
+alembic -c backend/alembic.ini revision --autogenerate -m "describe change"
+```
+
+## Notes
+
+- Session teardown: `db._Session.remove()` on `teardown_appcontext`
+- JWT config read from `current_app.config` in request handlers
+- `register()` wraps commits with rollback on error
 
 ## See also
 

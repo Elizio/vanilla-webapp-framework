@@ -71,3 +71,14 @@ db_session = db.session
 def init_db():
     """Initialize the database."""
     db.init_db() 
+
+
+def run_migrations():
+    """Run Alembic migrations to head (production only)."""
+    import os
+    from alembic import command
+    from alembic.config import Config
+
+    backend_dir = os.path.dirname(os.path.dirname(__file__))
+    alembic_cfg = Config(os.path.join(backend_dir, 'alembic.ini'))
+    command.upgrade(alembic_cfg, 'head')

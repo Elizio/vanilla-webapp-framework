@@ -84,7 +84,7 @@ export const userRegistryController = {
                 
                 // Use app.loadPage instead of this.loadPage
                 setTimeout(() => {
-                    this.appContext.loadPage('login-register-container', '/templates/partials/login.hbs', '/js/controllers/login.js', 'loginController');
+                    this.appContext.loadPage('login-register-container', 'login');
                 }, 2000);
             } else {
                 this.error = data.message || 'Registration failed. Please try again.';

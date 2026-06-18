@@ -16,7 +16,7 @@
       <!-- Nav Links -->
       <nav class="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
         <!-- Dashboard -->
-        <a href="#" @click.prevent="loadPage('view-container', '/templates/pages/landingpage.hbs', '/js/controllers/landingpage.js', 'landingPageController');"
+        <a href="#" @click.prevent="loadPage('view-container', 'landingpage');"
            @mouseenter="hoveredItem = 'dashboard'" @mouseleave="hoveredItem = null"
            class="flex items-center px-4 py-2 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
           <div class="w-5 h-5 flex items-center justify-center">
@@ -28,7 +28,7 @@
         </a>
 
         <!-- Analytics -->
-        <a href="#" @click.prevent="loadPage('view-container', '/templates/pages/testpage.hbs', '/js/controllers/testpage.js', 'testPageController');"
+        <a href="#" @click.prevent="loadPage('view-container', 'testpage');"
            @mouseenter="hoveredItem = 'analytics'" @mouseleave="hoveredItem = null"
            class="flex items-center px-4 py-2 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
           <div class="w-5 h-5 flex items-center justify-center">

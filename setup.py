@@ -38,7 +38,9 @@ setup(
         "werkzeug>=2.0.0",
         "pytest>=7.0.0",
         "pytest-cov>=3.0.0",
-        "python-dotenv>=1.0.0",  # Added for environment variable management
+        "python-dotenv>=1.0.0",
+        "alembic>=1.13.0",
+        "gunicorn>=21.0.0",
     ],
     extras_require={
         "dev": [

@@ -13,6 +13,7 @@ frontend/
     ├── index.html              # Shell: x-data="spaApp", x-init loadPage calls
     ├── js/
     │   ├── main.js             # Entry: Alpine.start(), imports CSS
+    │   ├── pages.js            # Page registry (bundled templates + controllers)
     │   ├── app.js              # createSpaApp(), loadPage() router
     │   └── controllers/        # One named export per page/partial
     ├── templates/
@@ -28,7 +29,7 @@ frontend/
 index.html
   └─ <script type="module" src="/js/main.js">
        └─ main.js
-            ├─ import Alpine, Handlebars, main.css
+            ├─ import Alpine, main.css
             ├─ window.spaApp = createSpaApp()
             └─ Alpine.start()
                  └─ x-init on root div:
@@ -38,26 +39,40 @@ index.html
 
 **Canonical references:** `@frontend/src/index.html`, `@frontend/src/js/main.js`, `@frontend/src/js/app.js`
 
+## Page registry (`pages.js`)
+
+All controllers and templates are statically imported in `frontend/src/js/pages.js` (Vite bundles them):
+
+```javascript
+import landingTpl from '../templates/pages/landingpage.hbs?raw';
+import { landingPageController } from './controllers/landingpage.js';
+
+export const pages = {
+  landingpage: { template: landingTpl, controller: landingPageController },
+  // ...
+};
+```
+
 ## SPA router: `loadPage()`
 
 Defined in `app.js`:
 
 ```javascript
-loadPage(elementIdTarget, templatePath, controllerPath, controllerName)
+loadPage(elementIdTarget, pageKey)
 ```
 
 | Step | Action |
 |------|--------|
-| 1 | `fetch(templatePath)` — loads raw `.hbs` text |
-| 2 | Sets `innerHTML` on target element |
-| 3 | Dynamic `import(controllerPath)` |
-| 4 | Shallow-copies controller to `this.currentPage` |
-| 5 | Calls `currentPage.init(this)` if present |
+| 1 | Lookup `pages[pageKey]` |
+| 2 | Set `innerHTML` on target element |
+| 3 | Shallow-copy controller to `this.currentPage` |
+| 4 | Call `currentPage.init(this)` if present |
+| 5 | Call `Alpine.initTree(targetEl)` |
 
 Navigation example from `menu.hbs`:
 
 ```html
-<a href="#" @click.prevent="loadPage('view-container', '/templates/pages/landingpage.hbs', '/js/controllers/landingpage.js', 'landingPageController')">
+<a href="#" @click.prevent="loadPage('view-container', 'landingpage')">
 ```
 
 ## Controller types
@@ -217,14 +232,18 @@ npm run preview  # Preview production build
 
 Flask must be running on `:5000` for API calls during dev.
 
+## Testing
+
+```bash
+cd frontend && npm run test   # Vitest + jsdom
+```
+
 ## Frontend debt register
 
 | Issue | Detail |
 |-------|--------|
-| Handlebars unused | Runtime rendering is fetch + innerHTML, not Handlebars |
 | Full page reloads | Login success and logout use `window.location.href = '/'` |
 | No `Alpine.initTree()` | Dynamic innerHTML may not reliably init nested Alpine directives |
-| Flask/Vite path mismatch | Build output dir ≠ Flask `template_folder` |
 | Controller binding inconsistency | Partials use `loginController.*`; pages use `currentPage.*` |
 | No frontend tests | No lint/test CI for JS |
 | Dead menu links | Settings / Profile nav items have no handlers |

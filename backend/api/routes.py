@@ -3,11 +3,30 @@ from .auth import token_required
 
 api_bp = Blueprint('api', __name__)
 
+
+@api_bp.route('/api/health', methods=['GET'])
+def health():
+    """
+    Health check endpoint.
+    ---
+    tags:
+      - Public
+    responses:
+      200:
+        description: Service is healthy
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+    """
+    return jsonify({'status': 'ok'})
+
+
 @api_bp.route('/api/public', methods=['GET'])
 def public_data():
     """
     Get public data endpoint.
-    
     ---
     tags:
       - Public
@@ -22,12 +41,12 @@ def public_data():
     """
     return jsonify({'info': 'Hello world'})
 
+
 @api_bp.route('/api/data', methods=['GET'])
 @token_required
 def protected_data(current_user):
     """
     Get protected data endpoint.
-    
     ---
     tags:
       - Protected
@@ -44,4 +63,4 @@ def protected_data(current_user):
       401:
         description: Unauthorized access
     """
-    return jsonify({'message': 'Secure data'}) 
+    return jsonify({'message': 'Secure data'})

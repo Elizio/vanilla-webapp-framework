@@ -116,23 +116,23 @@ vanilla-webapp-framework/
 
 3. **Development**
    ```bash
-   # Start backend server
+   # Terminal 1 — API
    flask run
-   
-   # Start frontend dev server
-   npm run dev
+
+   # Terminal 2 — SPA (use http://localhost:5173 in browser)
+   cd frontend && npm install && npm run dev
    ```
 
-3. **Docker Setup**
+4. **Docker Setup**
    ```bash
-   # Build and run the Docker container
    docker build -t vanilla-webapp .
-   docker run -p 5000:5000 vanilla-webapp
+   docker run -p 5000:5000      -e DATABASE_URI=sqlite:////data/app.db      -e FLASK_SECRET=your-secret      -e JWT_SECRET=your-jwt-secret      -e PROJECT_FOLDER=/data      -e APP_PROFILE=production      vanilla-webapp
    ```
 
-4. **Testing**
+5. **Testing**
    ```bash
    pytest
+   cd frontend && npm run build && npm run test
    ```
 
 ## 📝 Development Guidelines

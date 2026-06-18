@@ -21,7 +21,8 @@ vanilla-webapp-framework/
 ├── .env               # Required secrets (not committed)
 ├── requirements.txt   # Python deps
 ├── setup.py           # pip install -e .
-└── Dockerfile         # Production image (incomplete — see debt)
+├── .github/workflows/ # CI (pytest + frontend build/test)
+└── Dockerfile         # Multi-stage production image
 ```
 
 ## Environment setup
@@ -63,23 +64,28 @@ API-only work (no UI): `flask run` is sufficient. Swagger UI: `http://localhost:
 Run before claiming work is done:
 
 - [ ] `pytest` from project root (backend tests with coverage)
+- [ ] `cd frontend && npm run build && npm run test`
 - [ ] `cd frontend && npm run dev` — app loads at `:5173`
+- [ ] Production smoke: `cd frontend && npm run build && APP_PROFILE=production flask run` → `:5000`
 - [ ] New API endpoints have Swagger docstrings and pytest coverage
-- [ ] Frontend changes work through Vite dev server (not Flask-only)
 
 ## Architecture
 
-```
-Browser (:5173)
-  └─ Vite dev server
-       ├─ /api/*  → proxy → Flask (:5000)
-       └─ /js/*, /templates/*.hbs → frontend/src/
+**Development** — dual server (browser uses `:5173`):
 
-Flask
-  ├─ auth_bp   → /api/login, /api/register
-  ├─ api_bp    → /api/public, /api/data
-  └─ db_session → SQLAlchemy singleton (not Flask-SQLAlchemy)
 ```
+Browser (:5173) → Vite → /api/* proxy → Flask (:5000)
+```
+
+**Production** — single Flask server serves Vite build from `backend/static/`:
+
+```
+Browser (:5000) → Flask
+  ├─ /api/*     → blueprints (auth, routes)
+  └─ /*         → SPA fallback (backend/static/index.html + assets)
+```
+
+Flask uses a custom SQLAlchemy singleton (`db_session`), not Flask-SQLAlchemy.
 
 Canonical entry points: `backend/__init__.py` (`create_app`), `frontend/src/js/app.js` (`createSpaApp`).
 
@@ -93,26 +99,20 @@ When adding a feature that spans backend and frontend:
 4. **Test** — `backend/tests/test_*.py` with `test_client` + `test_db` fixtures
 5. **Controller** — `frontend/src/js/controllers/<feature>.js`
 6. **Template** — `frontend/src/templates/pages/<feature>.hbs` (Alpine markup)
-7. **Navigation** — wire `loadPage(...)` in `frontend/src/templates/partials/menu.hbs`
+7. **Registry** — register in `frontend/src/js/pages.js` (controller + `?raw` template import)
+8. **Navigation** — wire `loadPage('view-container', '<pageKey>')` in menu template
 
 Backend-first: ship API + tests before frontend integration.
 
-## Known technical debt
+## Remaining follow-ups
 
-Document actual behavior; do not assume README or cursor rules match the code.
+| Item | Status |
+|------|--------|
+| DigitalOcean deploy automation | Not implemented (devops rule 3.4) |
+| Login/logout full-page reload | Still uses `window.location.href = '/'` |
+| Flask-SQLAlchemy migration | Deferred — stay on `db_session` singleton |
 
-| Issue | Actual state |
-|-------|--------------|
-| Flask templates | `template_folder` points to `frontend/src/templates/` but `index.html` is at `frontend/src/index.html` |
-| Vite build | `npm run build` outputs to `backend/templates/`; Flask does not read that path today |
-| Handlebars | `.hbs` files are Alpine HTML fragments fetched at runtime — not Handlebars-rendered |
-| Database | Custom singleton uses `db_session`, not Flask-SQLAlchemy `db.session` |
-| Migrations | `create_all()` only — no Alembic scripts |
-| CI/CD | No `.github/workflows/` yet |
-| Docker | No Vite build step; uses `DATABASE_URL` but app expects `DATABASE_URI` |
-| Logging | `backend/config/logging_config.py` (not `infra/logger.py`) |
-
-When cursor rules and code disagree, **follow the code** until explicitly aligned.
+Resolved in this foundation pass: production static pipeline, page registry, Alembic, CI, slim Docker, cursor rules alignment.
 
 ## Agent principles
 

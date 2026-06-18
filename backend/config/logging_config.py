@@ -16,7 +16,7 @@ def setup_logging(app):
     """
     # Create logs directory if it doesn't exist
     log_dir = Path(user_config.log_folder)
-    log_dir.mkdir(exist_ok=True)
+    log_dir.mkdir(parents=True, exist_ok=True)
     
     # Configure file handler
     file_handler = RotatingFileHandler(
