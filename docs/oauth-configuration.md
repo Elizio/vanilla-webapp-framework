@@ -112,30 +112,82 @@ Uses OpenID Connect via Authlib with scopes `openid email profile`.
 
 ## Facebook
 
-Uses Facebook Graph API v19.0 with scope `email` (profile via `me?fields=id,name,email`).
-
 **Console:** [Meta for Developers](https://developers.facebook.com/)
 
-1. Sign in at [https://developers.facebook.com/](https://developers.facebook.com/) and create an app.
-2. Add the **Facebook Login** product to the app.
-3. Go to **Facebook Login → Settings**.
-4. Under **Valid OAuth Redirect URIs**, add:
-   - Development: `http://localhost:5173/api/auth/facebook/callback`
-   - Production: `https://<your-domain>/api/auth/facebook/callback`
-5. Note credentials from **App settings → Basic**:
-   - **App ID** → `FACEBOOK_CLIENT_ID`
-   - **App Secret** → `FACEBOOK_CLIENT_SECRET`
-6. Add to `.env`:
+This app uses standard **Facebook Login** (not [Facebook Login for Business](https://developers.facebook.com/docs/facebook-login/facebook-login-for-business/)) with permissions `public_profile` and `email`. The callback URL is:
 
-   ```env
-   FACEBOOK_CLIENT_ID=your-app-id
-   FACEBOOK_CLIENT_SECRET=your-app-secret
-   ```
+```
+{OAUTH_REDIRECT_BASE}/api/auth/facebook/callback
+```
 
-7. **App mode:**
-   - **Development:** only test users and app roles can log in.
-   - **Live:** required for public users; the `email` permission may need Meta app review.
-8. Restart Flask and confirm `facebook` appears in `/api/auth/providers`.
+### What you need
+
+| Item | Local dev | Production |
+|------|-----------|------------|
+| Meta **app** (App ID + Secret) | Yes | Yes |
+| Business portfolio | No | May be required for App Review |
+| App published (Live) | No — keep **Unpublished** | Yes |
+| Redirect URI in Meta settings | No — `localhost` is auto-allowed in dev | Yes — register your HTTPS URL |
+| App Review for `email` | No | Yes |
+
+You must create a **Meta app** at [developers.facebook.com](https://developers.facebook.com/). A [business portfolio](https://www.facebook.com/business/help/1710077379203657) alone does not provide OAuth credentials.
+
+### Setup
+
+#### 1. Create the app
+
+1. Go to [developers.facebook.com](https://developers.facebook.com/) → **Create App**.
+2. Select the use case **Authenticate and request data from users with Facebook Login** ([setup guide](https://developers.facebook.com/docs/facebook-login/create-an-app)).
+3. Do **not** choose **Business** app type or **Facebook Login for Business**.
+
+#### 2. Add permissions (do not skip)
+
+1. **Use cases** → **Customize** your Facebook Login use case.
+2. Open **Permissions**.
+3. Add **`email`**. Keep **`public_profile`** (usually already present).
+
+If `email` is missing, Facebook shows **Invalid Scopes: email** and blocks login.
+
+#### 3. OAuth settings
+
+1. In the same use case, open **Settings**.
+2. Under **Client OAuth Settings**, ensure **Client OAuth Login** and **Web OAuth Login** are **On**.
+3. **Redirect URIs (development):** while the app is **Unpublished**, Meta allows `http://localhost` automatically. You do **not** need to add `http://localhost:5173/api/auth/facebook/callback` manually. If you do, Meta may show a warning — that is fine; remove the entry or ignore it.
+4. **Redirect URIs (production):** add `https://<your-domain>/api/auth/facebook/callback` and click **Save changes**.
+
+#### 4. Configure `.env` and restart
+
+Copy **App ID** and **App Secret** from **App settings → Basic**:
+
+```env
+FACEBOOK_CLIENT_ID=your-app-id
+FACEBOOK_CLIENT_SECRET=your-app-secret
+FRONTEND_URL=http://localhost:5173
+OAUTH_REDIRECT_BASE=http://localhost:5173
+```
+
+Restart Flask, then verify:
+
+```bash
+curl http://localhost:5173/api/auth/providers
+# ["facebook"]
+```
+
+#### 5. Test login
+
+1. Run Flask and Vite; open **http://localhost:5173**.
+2. Your Facebook account must have a **role on the app** (Admin, Developer, or Tester) while the app is Unpublished.
+3. Click **Facebook** → **Continue** on the consent screen.
+
+An orange banner such as *Submit for login review* is **normal in development**. It does not block you from clicking **Continue** as an app admin/developer.
+
+### Production
+
+Before switching the app to **Live**:
+
+1. Register `https://<your-domain>/api/auth/facebook/callback` in Facebook Login settings.
+2. Complete [App Review](https://developers.facebook.com/docs/development/build-and-test/) for Advanced Access to `email` and `public_profile`.
+3. Set `FRONTEND_URL` and `OAUTH_REDIRECT_BASE` to your public HTTPS origin.
 
 ---
 
@@ -170,10 +222,14 @@ Uses OAuth 2.0 with PKCE (scopes: `users.read`, `tweet.read`, `offline.access`).
 |---------|--------------|-----|
 | Social button grayed out or "not configured" | Missing env vars or Flask not restarted | Set both `*_CLIENT_ID` and `*_CLIENT_SECRET`; restart Flask |
 | `redirect_uri_mismatch` from provider | Redirect URI in provider console does not match | Register exactly `{OAUTH_REDIRECT_BASE}/api/auth/<provider>/callback` |
+| Facebook **Invalid Scopes: email** | `email` permission not added to the use case | Use cases → Customize → Permissions → add **email** |
+| Facebook localhost URI warning | `localhost` is auto-allowed when the app is Unpublished | Remove the manual entry or ignore; no action needed in dev |
+| Facebook **Submit for login review** banner | App not reviewed yet — expected in dev | Click **Continue** if you are an app Admin/Developer/Tester |
+| Facebook login blocked for a user | App is Unpublished and user has no app role | Add the user under App settings → Roles, or invite a consumer tester |
 | OAuth works on `:5000` but not `:5173` | `OAUTH_REDIRECT_BASE` points to `:5000` in dev | Use `http://localhost:5173` for both `FRONTEND_URL` and `OAUTH_REDIRECT_BASE` |
 | `Provider not configured` (404) | Only one of the two env vars is set | Both ID and secret are required per provider |
 | `Authentication failed` after provider redirect | Token exchange or profile fetch failed | Check `{PROJECT_FOLDER}/logs/app.log` |
-| Facebook login works but no email | App permissions or user denied email | Ensure `email` scope; app may need to be Live with review |
+| Facebook user has no email after login | User denied email or app lacks Advanced Access in Live mode | Request App Review for `email` before going Live |
 | Twitter user has no email | Expected behavior | X OAuth 2.0 does not provide email in this integration |
 
 ---
@@ -203,6 +259,6 @@ Uses OAuth 2.0 with PKCE (scopes: `users.read`, `tweet.read`, `offline.access`).
 
 5. For Google: publish the OAuth consent screen or keep test users if still in Testing.
 
-6. For Facebook: switch app to **Live** and complete any required permission review.
+6. For Facebook: complete [App Review](https://developers.facebook.com/docs/development/build-and-test/) for Advanced Access to `email` and `public_profile`, then switch the app to **Live**. A verified business portfolio may be required.
 
 7. Verify: `curl https://<your-domain>/api/auth/providers` lists your configured providers.
