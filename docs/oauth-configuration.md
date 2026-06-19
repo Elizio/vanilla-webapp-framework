@@ -47,7 +47,7 @@ Configure these once in `.env` (see [`.env.example`](../.env.example)):
 
    ```bash
    # Terminal 1 — API on :5000
-   flask run
+   cd backend && flask run
 
    # Terminal 2 — SPA on :5173
    cd frontend && npm run dev
