@@ -7,6 +7,7 @@ Flask REST API + vanilla JavaScript SPA (Alpine.js, Tailwind, Vite). Human onboa
 | Doc | Scope |
 |-----|-------|
 | **This file** | Global setup, verification, full-stack checklist, debt summary |
+| [docs/oauth-configuration.md](docs/oauth-configuration.md) | OAuth setup (human): Google, Facebook, X |
 | [backend/AGENTS.md](backend/AGENTS.md) | Flask, DB, JWT, pytest recipes |
 | [frontend/AGENTS.md](frontend/AGENTS.md) | Vite, Alpine, controllers, templates |
 | [.cursor/rules/](.cursor/rules/) | Enforceable coding standards (do not duplicate here) |

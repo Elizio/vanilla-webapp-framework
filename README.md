@@ -74,7 +74,8 @@ vanilla-webapp-framework/
 │   ├── package.json
 │   ├── vite.config.js
 │   └── tailwind.config.js
-├── docs/                       # Design specs and plans
+├── docs/                       # How-tos, design specs, and plans
+│   └── oauth-configuration.md  # OAuth setup (Google, Facebook, X)
 ├── .cursor/rules/              # Cursor coding standards
 ├── .env.example                # Environment variable template
 ├── Dockerfile
@@ -130,7 +131,7 @@ Use the Vite dev server in the browser (not Flask directly):
 
 ```bash
 # Terminal 1 — API on :5000
-flask run
+cd backend && flask run
 
 # Terminal 2 — SPA on :5173
 cd frontend && npm run dev
@@ -171,7 +172,7 @@ cd frontend && npm run build && npm run test
 
 ### Configure & operate
 
-- **OAuth redirect URIs:** register `{OAUTH_REDIRECT_BASE}/api/auth/{provider}/callback` for each provider (e.g. `http://localhost:5173/api/auth/google/callback` in dev so the Vite proxy keeps the session cookie on one origin).
+- **OAuth / social login:** optional Google, Facebook, and X (Twitter). See [docs/oauth-configuration.md](docs/oauth-configuration.md) for provider console setup, redirect URIs, and troubleshooting. Env vars remain in the table above.
 - **Logs:** written to `{PROJECT_FOLDER}/logs/app.log`.
 - **API docs:** Swagger UI at `/docs` when Flask is running.
 - **Migrations (production):**
@@ -221,7 +222,7 @@ cd frontend && npm run build && npm run test
 
 ## 📚 Documentation
 
-- **How-to guides:** this README (setup, run, configure)
+- **How-to guides:** this README (setup, run, configure); [OAuth configuration](docs/oauth-configuration.md) (Google, Facebook, X)
 - **API reference:** Swagger UI at `/docs` when the Flask server is running
 - **In-code docs:** Python docstrings + type hints; JavaScript JSDoc (see [AGENTS.md](AGENTS.md) and `.cursor/rules/documentation.mdc`)
 - **Agent workflows:** [AGENTS.md](AGENTS.md), [backend/AGENTS.md](backend/AGENTS.md), [frontend/AGENTS.md](frontend/AGENTS.md)
