@@ -26,7 +26,7 @@ A modern, lightweight web application framework that combines Flask backend with
   - Docker support with multi-stage builds
   - GitHub Actions CI/CD pipeline
   - Automated testing with pytest
-  - DigitalOcean deployment integration
+  - DigitalOcean deployment (planned — not yet automated; see Deployment)
 
 ## 🛠️ Tech Stack
 
@@ -48,92 +48,140 @@ A modern, lightweight web application framework that combines Flask backend with
 - Docker
 - GitHub Actions
 - pytest
-- DigitalOcean
+- DigitalOcean (planned)
 
 ## 📁 Project Structure
 
 ```
 vanilla-webapp-framework/
 ├── backend/
-│   ├── api/               # Flask blueprints
-│   ├── config/            # Application configuration
-│   ├── models/            # SQLAlchemy models
-│   ├── templates/         # Shared Flask templates
-│   ├── db_repository/     # Database migration scripts
-│   ├── tests/             # Backend tests
-│   ├── __init__.py        # Application initialization
-│   └── app.py             # Main Flask application
+│   ├── api/                    # Flask blueprints
+│   ├── config/                 # Application configuration
+│   ├── models/                 # SQLAlchemy models
+│   ├── db_repository/          # Database layer + Alembic migrations
+│   ├── static/                 # Vite production build output
+│   ├── tests/                  # Backend tests
+│   ├── __init__.py             # create_app() factory
+│   ├── app.py                  # Dev entrypoint
+│   └── web_routes.py           # SPA fallback + error handlers
 ├── frontend/
 │   ├── src/
-│   │   ├── js/            # JavaScript modules
-│   │   │   ├── controllers/ # Page-specific controllers
-│   │   │   ├── app.js     # Application logic
-│   │   │   └── main.js    # Main entry point
-│   │   ├── styles/        # CSS and Tailwind styles
-│   │   ├── templates/     # Handlebars templates
-│   │   │   ├── pages/     # Page templates
-│   │   │   └── partials/  # Reusable template parts
-│   │   └── index.html     # Main HTML entry point
-│   ├── public/            # Static assets
-│   ├── package.json       # Frontend dependencies
-│   ├── vite.config.js     # Vite configuration
-│   └── tailwind.config.js # Tailwind CSS configuration
-├── .env                   # Environment variables
-├── Dockerfile             # Docker configuration
-├── requirements.txt       # Python dependencies
-├── setup.cfg              # Python package configuration
-├── setup.py               # Python package setup
-└── package.json           # Root package configuration
+│   │   ├── js/                 # Alpine controllers, router, page registry
+│   │   ├── styles/             # Tailwind entry CSS
+│   │   ├── templates/          # Alpine HTML partials (.hbs)
+│   │   └── index.html          # SPA shell
+│   ├── tests/                  # Vitest tests
+│   ├── package.json
+│   ├── vite.config.js
+│   └── tailwind.config.js
+├── docs/                       # Design specs and plans
+├── .cursor/rules/              # Cursor coding standards
+├── .env.example                # Environment variable template
+├── Dockerfile
+├── requirements.txt
+├── setup.py
+└── AGENTS.md                   # Agent guide (AI contributors)
 ```
 
-## 🚀 Getting Started
+## 🚀 How-To Guides
 
-1. **Environment Setup**
+Copy `.env.example` to `.env` and adjust values before running.
+
+### Setup
+
+1. **Install dependencies**
+
    ```bash
    python -m venv .venv
    source .venv/bin/activate
    pip install -e .
+   cd frontend && npm install
    ```
 
-2. **Environment Variables**
-   Create a `.env` file in the root directory with the following variables:
-   ```
-   FLASK_SECRET=<your-flask-secret-key>
-   JWT_SECRET=<your-jwt-secret-key>
-   
-   DATABASE_URI=<your-database-connection-string>
-   PROJECT_FOLDER=<your-project-folder-path>
-   APP_PROFILE=<development|production|testing>
-   ```
-   
+2. **Environment variables**
+
+   Create `.env` in the project root (see `.env.example`):
+
    | Variable | Description |
    | --- | --- |
-   | `FLASK_SECRET` | Secret key used for Flask sessions and CSRF protection |
-   | `JWT_SECRET` | Secret key used for JWT token generation and validation |
-   | `DATABASE_URI` | URI for database connection (SQLite, PostgreSQL, MySQL, etc.) |
-   | `PROJECT_FOLDER` | Absolute path to the project folder |
-   | `APP_PROFILE` | Application environment profile (development, production, testing) |
+   | `FLASK_SECRET` | Secret key for Flask sessions and CSRF protection |
+   | `JWT_SECRET` | Secret key for JWT token generation and validation |
+   | `DATABASE_URI` | Database connection string (SQLite, PostgreSQL, MySQL, etc.) |
+   | `PROJECT_FOLDER` | Directory for log files (must exist and be writable) |
+   | `APP_PROFILE` | `development`, `testing`, or `production` |
+   | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth (optional) |
+   | `FACEBOOK_CLIENT_ID` / `FACEBOOK_CLIENT_SECRET` | Facebook OAuth (optional) |
+   | `TWITTER_CLIENT_ID` / `TWITTER_CLIENT_SECRET` | X/Twitter OAuth (optional) |
+   | `FRONTEND_URL` | SPA URL after OAuth (default `http://localhost:5173` in dev) |
+   | `OAUTH_REDIRECT_BASE` | OAuth callback base URL (default `http://localhost:5173` in dev) |
 
-3. **Development**
-   ```bash
-   # Terminal 1 — API
-   flask run
+3. **Database**
 
-   # Terminal 2 — SPA (use http://localhost:5173 in browser)
-   cd frontend && npm install && npm run dev
-   ```
+   - **Development / testing:** tables are created automatically via `init_db()` when Flask starts (`APP_PROFILE=development` or `testing`).
+   - **Production:** run Alembic migrations before serving traffic:
 
-4. **Docker Setup**
-   ```bash
-   docker build -t vanilla-webapp .
-   docker run -p 5000:5000      -e DATABASE_URI=sqlite:////data/app.db      -e FLASK_SECRET=your-secret      -e JWT_SECRET=your-jwt-secret      -e PROJECT_FOLDER=/data      -e APP_PROFILE=production      vanilla-webapp
-   ```
+     ```bash
+     alembic -c backend/alembic.ini upgrade head
+     ```
 
-5. **Testing**
-   ```bash
-   pytest
-   cd frontend && npm run build && npm run test
-   ```
+### Run — development
+
+Use the Vite dev server in the browser (not Flask directly):
+
+```bash
+# Terminal 1 — API on :5000
+flask run
+
+# Terminal 2 — SPA on :5173
+cd frontend && npm run dev
+```
+
+Open **http://localhost:5173**. Vite proxies `/api/*` to Flask on port 5000.
+
+API-only work: `flask run` is enough. Swagger UI: http://localhost:5000/docs
+
+### Run — production (local smoke test)
+
+```bash
+cd frontend && npm run build
+APP_PROFILE=production flask run
+```
+
+Open **http://localhost:5000**. Flask serves the Vite build from `backend/static/`.
+
+### Run — Docker
+
+```bash
+docker build -t vanilla-webapp .
+docker run -p 5000:5000 \
+  -e DATABASE_URI=sqlite:////data/app.db \
+  -e FLASK_SECRET=your-secret \
+  -e JWT_SECRET=your-jwt-secret \
+  -e PROJECT_FOLDER=/data \
+  -e APP_PROFILE=production \
+  vanilla-webapp
+```
+
+### Run — testing
+
+```bash
+pytest
+cd frontend && npm run build && npm run test
+```
+
+### Configure & operate
+
+- **OAuth redirect URIs:** register `{OAUTH_REDIRECT_BASE}/api/auth/{provider}/callback` for each provider (e.g. `http://localhost:5173/api/auth/google/callback` in dev so the Vite proxy keeps the session cookie on one origin).
+- **Logs:** written to `{PROJECT_FOLDER}/logs/app.log`.
+- **API docs:** Swagger UI at `/docs` when Flask is running.
+- **Migrations (production):**
+
+  ```bash
+  alembic -c backend/alembic.ini revision --autogenerate -m "describe change"
+  alembic -c backend/alembic.ini upgrade head
+  ```
+
+- **AI contributors:** see [AGENTS.md](AGENTS.md) for agent workflows and verification checklists.
 
 ## 📝 Development Guidelines
 
@@ -167,17 +215,16 @@ vanilla-webapp-framework/
 
 ## 📦 Deployment
 
-- Docker-based deployment
-- Multi-stage builds for optimized images
-- Automated CI/CD pipeline
-- DigitalOcean deployment integration
+- Docker multi-stage build (see **Run — Docker** above)
+- GitHub Actions CI runs `pytest` and frontend build/test
+- DigitalOcean deployment automation is **not yet implemented** (see [AGENTS.md](AGENTS.md) follow-ups)
 
 ## 📚 Documentation
 
-- API documentation via Swagger
-- Code documentation with JSDoc/type hints
-- Comprehensive README files
-- Development guidelines
+- **How-to guides:** this README (setup, run, configure)
+- **API reference:** Swagger UI at `/docs` when the Flask server is running
+- **In-code docs:** Python docstrings + type hints; JavaScript JSDoc (see [AGENTS.md](AGENTS.md) and `.cursor/rules/documentation.mdc`)
+- **Agent workflows:** [AGENTS.md](AGENTS.md), [backend/AGENTS.md](backend/AGENTS.md), [frontend/AGENTS.md](frontend/AGENTS.md)
 
 ## 🤝 Contributing
 

@@ -210,8 +210,8 @@ Dev server (`npm run dev`):
 
 Build (`npm run build`):
 
-- Output: `backend/templates/` (with `emptyOutDir: true`)
-- Flask does **not** read this path today — production alignment is pending
+- Output: `backend/static/` (with `emptyOutDir: true`)
+- Production Flask serves this directory via SPA fallback (see root AGENTS.md Architecture)
 
 PostCSS runs Tailwind + Autoprefixer inline in `vite.config.js`.
 
@@ -228,7 +228,7 @@ PostCSS runs Tailwind + Autoprefixer inline in `vite.config.js`.
 cd frontend
 npm install
 npm run dev      # Development — use :5173 in browser
-npm run build    # Production bundle → backend/templates/
+npm run build    # Production bundle → backend/static/
 npm run preview  # Preview production build
 ```
 
@@ -249,6 +249,52 @@ cd frontend && npm run test   # Vitest + jsdom
 | Controller binding inconsistency | Partials use `loginController.*`; pages use `currentPage.*` |
 | No frontend tests | No lint/test CI for JS |
 | Dead menu links | Settings / Profile nav items have no handlers |
+
+## Code documentation
+
+Enforceable rules: [../.cursor/rules/documentation.mdc](../.cursor/rules/documentation.mdc).
+
+### Module / router
+
+```javascript
+/**
+ * SPA shell: page registry router, OAuth fragment handler, Alpine root state.
+ * @module app
+ */
+
+/**
+ * Create the Alpine root application object.
+ * @returns {object} Alpine x-data root (isLoggedIn, loadPage, controllers, …)
+ */
+export const createSpaApp = () => { /* … */ };
+
+/**
+ * Load a registered page into a DOM target and init Alpine on it.
+ * @param {string} elementIdTarget - DOM id of the mount point (e.g. ``view-container``).
+ * @param {string} pageKey - Key in ``pages.js`` registry.
+ */
+loadPage(elementIdTarget, pageKey) { /* … */ }
+```
+
+### Page controller
+
+```javascript
+/**
+ * Landing page: fetches public and protected API samples for demo.
+ * Bound in templates as ``currentPage.*`` after loadPage().
+ */
+export const landingPageController = {
+    appContext: null,
+    response: null,
+
+    /** @param {object} appContext - Root spaApp from createSpaApp(). */
+    init(appContext) {
+        this.appContext = appContext;
+    },
+};
+```
+
+**Canonical references:** `@frontend/src/js/app.js`, `@frontend/src/js/controllers/landingpage.js`
 
 ## See also
 

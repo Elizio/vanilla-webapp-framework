@@ -24,5 +24,6 @@ alwaysApply: false
 ### **Performance (Vite JS)**
 - **Rule 2.10**: Lazy-load non-critical JS/CSS with Vite.
 - **Rule 2.11**: Optimize images and assets via Vite's build pipeline.
+- **Rule 2.12**: File-level JSDoc on exported modules; `@param` / `@returns` on exported functions when not self-evident. See [documentation.mdc](documentation.mdc) and `frontend/AGENTS.md`.
 
 See `frontend/AGENTS.md` for extension recipes.

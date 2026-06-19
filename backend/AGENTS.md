@@ -230,6 +230,58 @@ alembic -c backend/alembic.ini revision --autogenerate -m "describe change"
 - JWT config read from `current_app.config` in request handlers
 - `register()` wraps commits with rollback on error
 
+## Code documentation
+
+Enforceable rules: [../.cursor/rules/documentation.mdc](../.cursor/rules/documentation.mdc). API routes also require Swagger (see Swagger section below).
+
+### Module docstring
+
+```python
+"""OAuth 2.0 social login via Authlib (Google, Facebook, X/Twitter)."""
+```
+
+### Public function (Google-style + type hints)
+
+```python
+from backend.models.user import User
+
+def find_or_create_oauth_user(provider: str, subject: str, email: str | None) -> User:
+    """Find an existing OAuth user or create a new OAuth-only account.
+
+    Args:
+        provider: OAuth provider key (e.g. ``google``).
+        subject: Provider-specific user id.
+        email: Email from provider profile, if available.
+
+    Returns:
+        The matched or newly created User.
+
+    Raises:
+        SQLAlchemyError: On database commit failure.
+    """
+```
+
+### API route handler
+
+Use the Flasgger YAML block only — no separate docstring duplicating Swagger:
+
+```python
+@api_bp.route('/api/public', methods=['GET'])
+def public_data():
+    """
+    Get public data
+    ---
+    tags:
+      - Public
+    responses:
+      200:
+        description: Success
+    """
+    return jsonify({'message': 'Public data'})
+```
+
+**Canonical references:** `@backend/api/oauth.py`, `@backend/api/routes.py`
+
 ## See also
 
 - [../AGENTS.md](../AGENTS.md) — global setup and verification

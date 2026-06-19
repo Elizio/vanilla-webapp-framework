@@ -10,6 +10,7 @@ Flask REST API + vanilla JavaScript SPA (Alpine.js, Tailwind, Vite). Human onboa
 | [backend/AGENTS.md](backend/AGENTS.md) | Flask, DB, JWT, pytest recipes |
 | [frontend/AGENTS.md](frontend/AGENTS.md) | Vite, Alpine, controllers, templates |
 | [.cursor/rules/](.cursor/rules/) | Enforceable coding standards (do not duplicate here) |
+| [.cursor/rules/documentation.mdc](.cursor/rules/documentation.mdc) | README how-to sync + in-code doc enforcement |
 
 ## Repository layout
 
@@ -75,6 +76,49 @@ Run before claiming work is done:
 - [ ] `cd frontend && npm run dev` — app loads at `:5173`
 - [ ] Production smoke: `cd frontend && npm run build && APP_PROFILE=production flask run` → `:5000`
 - [ ] New API endpoints have Swagger docstrings and pytest coverage
+- [ ] README how-tos checked against diff triggers (setup, run per environment, configure/operate)
+- [ ] `.env.example` updated if env vars changed
+- [ ] New/modified modules have docstrings; public APIs documented per documentation.mdc
+
+## Documentation policy
+
+Human **how-to guides** live in [README.md](README.md). Agents keep them accurate — do not relocate how-to prose here.
+
+### README how-to categories
+
+| Category | Update when |
+|----------|-------------|
+| **Project setup** | Install steps, env vars, database init/migrations change |
+| **Run by environment** | Dev, production, Docker, or test run commands change |
+| **Configure & operate** | OAuth, logs, Swagger, Alembic, CI, or troubleshooting steps change |
+
+### README sync triggers
+
+| Trigger | README section |
+|---------|----------------|
+| New env var or config | Project setup → Environment Variables; update `.env.example` |
+| Database or migration change | Project setup + Configure & operate (Alembic) |
+| Setup / install command change | Project setup |
+| Run / start command change | Run by environment |
+| New `APP_PROFILE` behavior | Run by environment for that profile |
+| User-facing feature or API | Features, Tech Stack |
+| Project layout change | Project Structure |
+| Deployment / CI change | Run by environment, Deployment |
+| OAuth or auth flow change | Project setup + Configure & operate |
+| Capability added or removed | Features (remove unimplemented claims) |
+
+**When NOT to update README:** pure refactors, internal-only changes, test-only edits, agent recipes that belong in AGENTS only.
+
+### In-code documentation
+
+| Layer | Standard |
+|-------|----------|
+| Python | Module docstring; Google-style + type hints on public APIs; Flasgger Swagger on routes |
+| JavaScript | File-level JSDoc; `@param` / `@returns` on exports when needed |
+
+Details and examples: [backend/AGENTS.md](backend/AGENTS.md), [frontend/AGENTS.md](frontend/AGENTS.md). Enforceable rules: [.cursor/rules/documentation.mdc](.cursor/rules/documentation.mdc).
+
+**Scope:** document new and modified code; when editing a file, add missing module docs and document public symbols you touch.
 
 ## Architecture
 
@@ -128,3 +172,5 @@ Resolved in this foundation pass: production static pipeline, page registry, Ale
 - Backend work → read [backend/AGENTS.md](backend/AGENTS.md)
 - Frontend work → read [frontend/AGENTS.md](frontend/AGENTS.md)
 - Standards (PEP 8, Blueprints, Tailwind) → [.cursor/rules/](.cursor/rules/)
+- README how-tos → update [README.md](README.md) when triggers match; see Documentation policy above
+- In-code docs → follow [.cursor/rules/documentation.mdc](.cursor/rules/documentation.mdc)
