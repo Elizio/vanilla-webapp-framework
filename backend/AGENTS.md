@@ -99,7 +99,7 @@ Flow:
 
 1. `POST /api/register` — creates user with werkzeug password hash
 2. `POST /api/login` — returns `{ "token": "<jwt>" }` (HS256, 1h expiry)
-3. `GET /api/auth/<provider>/login` — OAuth redirect (Google, Facebook, Twitter); callback issues JWT via URL fragment
+3. `GET /api/auth/<provider>/login` — OAuth redirect (Google, Facebook); callback issues JWT via URL fragment
 4. Protected routes use `@token_required` — reads `Authorization: Bearer <token>`
 
 The decorator injects `current_user` as the first argument:
@@ -237,7 +237,7 @@ Enforceable rules: [../.cursor/rules/documentation.mdc](../.cursor/rules/documen
 ### Module docstring
 
 ```python
-"""OAuth 2.0 social login via Authlib (Google, Facebook, X/Twitter)."""
+"""OAuth 2.0 social login via Authlib (Google, Facebook)."""
 ```
 
 ### Public function (Google-style + type hints)

@@ -97,8 +97,6 @@ class AppConfig:
         self.GOOGLE_CLIENT_SECRET = os.getenv('GOOGLE_CLIENT_SECRET')
         self.FACEBOOK_CLIENT_ID = os.getenv('FACEBOOK_CLIENT_ID')
         self.FACEBOOK_CLIENT_SECRET = os.getenv('FACEBOOK_CLIENT_SECRET')
-        self.TWITTER_CLIENT_ID = os.getenv('TWITTER_CLIENT_ID')
-        self.TWITTER_CLIENT_SECRET = os.getenv('TWITTER_CLIENT_SECRET')
 
         default_frontend = (
             'http://localhost:5173'

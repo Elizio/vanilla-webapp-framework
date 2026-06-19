@@ -47,7 +47,7 @@ export const createSpaApp = () => {
 
         startSocialLogin(provider) {
             if (!this.isOAuthEnabled(provider)) {
-                const envPrefix = provider === 'twitter' ? 'TWITTER' : provider.toUpperCase();
+                const envPrefix = provider.toUpperCase();
                 loginController.error =
                     `${provider.charAt(0).toUpperCase()}${provider.slice(1)} login is not configured. ` +
                     `Add ${envPrefix}_CLIENT_ID and ${envPrefix}_CLIENT_SECRET to .env, then restart Flask.`;

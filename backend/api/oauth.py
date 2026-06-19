@@ -1,4 +1,4 @@
-"""OAuth 2.0 social login via Authlib (Google, Facebook, X/Twitter)."""
+"""OAuth 2.0 social login via Authlib (Google, Facebook)."""
 import re
 from urllib.parse import quote
 
@@ -50,23 +50,6 @@ def register_oauth_clients(app):
             client_kwargs={'scope': 'email'},
         )
         _ENABLED_PROVIDERS.add('facebook')
-
-    if cfg.get('TWITTER_CLIENT_ID') and cfg.get('TWITTER_CLIENT_SECRET'):
-        oauth.register(
-            name='twitter',
-            overwrite=True,
-            client_id=cfg['TWITTER_CLIENT_ID'],
-            client_secret=cfg['TWITTER_CLIENT_SECRET'],
-            authorize_url='https://twitter.com/i/oauth2/authorize',
-            access_token_url='https://api.twitter.com/2/oauth2/token',
-            api_base_url='https://api.twitter.com/',
-            client_kwargs={
-                'scope': 'users.read tweet.read offline.access',
-                'code_challenge_method': 'S256',
-            },
-            token_endpoint_auth_method='client_secret_basic',
-        )
-        _ENABLED_PROVIDERS.add('twitter')
 
 
 def enabled_providers():
@@ -147,16 +130,6 @@ def _fetch_userinfo(client, provider, token):
             'name': data.get('name'),
         }
 
-    if provider == 'twitter':
-        resp = client.get('2/users/me', token=token)
-        data = resp.json()
-        user = data.get('data', {})
-        return {
-            'oauth_id': user['id'],
-            'email': None,
-            'name': user.get('username'),
-        }
-
     raise ValueError(f'Unsupported provider: {provider}')
 
 
@@ -186,7 +159,7 @@ def oauth_login(provider):
         name: provider
         required: true
         type: string
-        enum: [google, facebook, twitter]
+        enum: [google, facebook]
     responses:
       302:
         description: Redirect to provider authorization page
@@ -212,7 +185,7 @@ def oauth_callback(provider):
         name: provider
         required: true
         type: string
-        enum: [google, facebook, twitter]
+        enum: [google, facebook]
     responses:
       302:
         description: Redirect to SPA with JWT in URL fragment

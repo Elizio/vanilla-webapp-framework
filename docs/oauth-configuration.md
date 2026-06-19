@@ -1,6 +1,6 @@
 # OAuth Configuration How-To
 
-This guide explains how to enable optional social login for **Google**, **Facebook**, and **X (Twitter)** in the Vanilla WebApp Framework.
+This guide explains how to enable optional social login for **Google** and **Facebook** in the Vanilla WebApp Framework.
 
 ## Overview
 
@@ -10,7 +10,6 @@ Social login is optional. Each provider is enabled only when **both** its `*_CLI
 |--------------|----------|----------|
 | `google` | Google | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` |
 | `facebook` | Facebook | `FACEBOOK_CLIENT_ID`, `FACEBOOK_CLIENT_SECRET` |
-| `twitter` | X (Twitter) | `TWITTER_CLIENT_ID`, `TWITTER_CLIENT_SECRET` |
 
 API endpoints:
 
@@ -26,7 +25,6 @@ API endpoints:
 |----------|-------------|
 | Google | [https://console.cloud.google.com/](https://console.cloud.google.com/) |
 | Facebook | [https://developers.facebook.com/](https://developers.facebook.com/) |
-| X (Twitter) | [https://developer.x.com/](https://developer.x.com/) |
 
 ## Shared setup (all providers)
 
@@ -191,31 +189,6 @@ Before switching the app to **Live**:
 
 ---
 
-## X (Twitter)
-
-Uses OAuth 2.0 with PKCE (scopes: `users.read`, `tweet.read`, `offline.access`).
-
-**Console:** [X Developer Portal](https://developer.x.com/)
-
-1. Sign in at [https://developer.x.com/](https://developer.x.com/) and create a project and app.
-2. Enable **OAuth 2.0** for the app.
-3. App type: **Web App**, confidential client (Client ID + Client Secret).
-4. Set **Callback URL**:
-   - Development: `http://localhost:5173/api/auth/twitter/callback`
-   - Production: `https://<your-domain>/api/auth/twitter/callback`
-5. Add to `.env`:
-
-   ```env
-   TWITTER_CLIENT_ID=your-client-id
-   TWITTER_CLIENT_SECRET=your-client-secret
-   ```
-
-6. Restart Flask and confirm `twitter` appears in `/api/auth/providers`.
-
-**Important:** X does not return an email address. The app uses the X username as the display name and generates a local username from it. OAuth-only Twitter accounts will have `email` set to `null` in the database.
-
----
-
 ## Troubleshooting
 
 | Symptom | Likely cause | Fix |
@@ -230,7 +203,6 @@ Uses OAuth 2.0 with PKCE (scopes: `users.read`, `tweet.read`, `offline.access`).
 | `Provider not configured` (404) | Only one of the two env vars is set | Both ID and secret are required per provider |
 | `Authentication failed` after provider redirect | Token exchange or profile fetch failed | Check `{PROJECT_FOLDER}/logs/app.log` |
 | Facebook user has no email after login | User denied email or app lacks Advanced Access in Live mode | Request App Review for `email` before going Live |
-| Twitter user has no email | Expected behavior | X OAuth 2.0 does not provide email in this integration |
 
 ---
 
@@ -255,7 +227,6 @@ Uses OAuth 2.0 with PKCE (scopes: `users.read`, `tweet.read`, `offline.access`).
 
    - `https://<your-domain>/api/auth/google/callback`
    - `https://<your-domain>/api/auth/facebook/callback`
-   - `https://<your-domain>/api/auth/twitter/callback`
 
 5. For Google: publish the OAuth consent screen or keep test users if still in Testing.
 

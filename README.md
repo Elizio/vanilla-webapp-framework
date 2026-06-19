@@ -75,7 +75,7 @@ vanilla-webapp-framework/
 │   ├── vite.config.js
 │   └── tailwind.config.js
 ├── docs/                       # How-tos, design specs, and plans
-│   └── oauth-configuration.md  # OAuth setup (Google, Facebook, X)
+│   └── oauth-configuration.md  # OAuth setup (Google, Facebook)
 ├── .cursor/rules/              # Cursor coding standards
 ├── .env.example                # Environment variable template
 ├── Dockerfile
@@ -112,7 +112,6 @@ Copy `.env.example` to `.env` and adjust values before running.
    | `APP_PROFILE` | `development`, `testing`, or `production` |
    | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth (optional) |
    | `FACEBOOK_CLIENT_ID` / `FACEBOOK_CLIENT_SECRET` | Facebook OAuth (optional) |
-   | `TWITTER_CLIENT_ID` / `TWITTER_CLIENT_SECRET` | X/Twitter OAuth (optional) |
    | `FRONTEND_URL` | SPA URL after OAuth (default `http://localhost:5173` in dev) |
    | `OAUTH_REDIRECT_BASE` | OAuth callback base URL (default `http://localhost:5173` in dev) |
 
@@ -172,7 +171,7 @@ cd frontend && npm run build && npm run test
 
 ### Configure & operate
 
-- **OAuth / social login:** optional Google, Facebook, and X (Twitter). See [docs/oauth-configuration.md](docs/oauth-configuration.md) for provider console setup, redirect URIs, and troubleshooting. Env vars remain in the table above.
+- **OAuth / social login:** optional Google and Facebook. See [docs/oauth-configuration.md](docs/oauth-configuration.md) for provider console setup, redirect URIs, and troubleshooting. Env vars remain in the table above.
 - **Logs:** written to `{PROJECT_FOLDER}/logs/app.log`.
 - **API docs:** Swagger UI at `/docs` when Flask is running.
 - **Migrations (production):**
@@ -222,7 +221,7 @@ cd frontend && npm run build && npm run test
 
 ## 📚 Documentation
 
-- **How-to guides:** this README (setup, run, configure); [OAuth configuration](docs/oauth-configuration.md) (Google, Facebook, X)
+- **How-to guides:** this README (setup, run, configure); [OAuth configuration](docs/oauth-configuration.md) (Google, Facebook)
 - **API reference:** Swagger UI at `/docs` when the Flask server is running
 - **In-code docs:** Python docstrings + type hints; JavaScript JSDoc (see [AGENTS.md](AGENTS.md) and `.cursor/rules/documentation.mdc`)
 - **Agent workflows:** [AGENTS.md](AGENTS.md), [backend/AGENTS.md](backend/AGENTS.md), [frontend/AGENTS.md](frontend/AGENTS.md)

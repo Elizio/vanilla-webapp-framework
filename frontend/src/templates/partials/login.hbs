@@ -60,18 +60,6 @@
                 </svg>
                 <span class="text-white font-medium">Facebook</span>
             </button>
-
-            <button type="button"
-                    @click="startSocialLogin('twitter')"
-                    :class="isOAuthEnabled('twitter')
-                        ? 'hover:bg-gray-900 dark:hover:bg-gray-800 cursor-pointer'
-                        : 'opacity-60 cursor-not-allowed'"
-                    class="flex items-center justify-center gap-3 w-full py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md bg-black dark:bg-gray-900 transition-colors duration-200">
-                <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
-                    <path fill="#ffffff" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
-                </svg>
-                <span class="text-white font-medium">X (Twitter)</span>
-            </button>
         </div>
 
         <p x-show="oauthProviders.length === 0"

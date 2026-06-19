@@ -7,7 +7,7 @@ Flask REST API + vanilla JavaScript SPA (Alpine.js, Tailwind, Vite). Human onboa
 | Doc | Scope |
 |-----|-------|
 | **This file** | Global setup, verification, full-stack checklist, debt summary |
-| [docs/oauth-configuration.md](docs/oauth-configuration.md) | OAuth setup (human): Google, Facebook, X |
+| [docs/oauth-configuration.md](docs/oauth-configuration.md) | OAuth setup (human): Google, Facebook |
 | [backend/AGENTS.md](backend/AGENTS.md) | Flask, DB, JWT, pytest recipes |
 | [frontend/AGENTS.md](frontend/AGENTS.md) | Vite, Alpine, controllers, templates |
 | [.cursor/rules/](.cursor/rules/) | Enforceable coding standards (do not duplicate here) |
@@ -46,7 +46,6 @@ Create `.env` in the project root:
 | `APP_PROFILE` | `development`, `testing`, or `production` |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth (optional) |
 | `FACEBOOK_CLIENT_ID` / `FACEBOOK_CLIENT_SECRET` | Facebook OAuth (optional) |
-| `TWITTER_CLIENT_ID` / `TWITTER_CLIENT_SECRET` | X/Twitter OAuth (optional) |
 | `FRONTEND_URL` | SPA URL after OAuth (default `http://localhost:5173` in dev) |
 | `OAUTH_REDIRECT_BASE` | OAuth callback base URL (default `http://localhost:5173` in dev) |
 

@@ -11,7 +11,7 @@ class User(db.Base):
         username (str): Unique username for login (max 80 chars)
         password_hash (str): Hashed password (max 128 chars), null for OAuth-only users
         email (str): Optional email from OAuth provider (not unique)
-        oauth_provider (str): OAuth provider name (google, facebook, twitter)
+        oauth_provider (str): OAuth provider name (google, facebook)
         oauth_id (str): Provider-specific user id
     """
     __tablename__ = 'users'
