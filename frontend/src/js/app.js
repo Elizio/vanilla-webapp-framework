@@ -1,6 +1,7 @@
 import { loginController } from './controllers/login.js';
 import { menuController } from './controllers/menu.js';
 import { pages } from './pages.js';
+import { applySeo, SEO_MODE } from './seo.js';
 
 function handleOAuthFragment(app) {
     const hash = window.location.hash.slice(1);
@@ -78,6 +79,10 @@ export const createSpaApp = () => {
 
             if (window.Alpine && typeof window.Alpine.initTree === 'function') {
                 window.Alpine.initTree(targetEl);
+            }
+
+            if (elementIdTarget === 'view-container' && page.seo) {
+                applySeo(page.seo, SEO_MODE);
             }
 
             if (pageKey === 'login') {

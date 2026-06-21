@@ -26,4 +26,10 @@ alwaysApply: false
 - **Rule 2.11**: Optimize images and assets via Vite's build pipeline.
 - **Rule 2.12**: File-level JSDoc on exported modules; `@param` / `@returns` on exported functions when not self-evident. See [documentation.mdc](documentation.mdc) and `frontend/AGENTS.md`.
 
+### **SEO & discoverability**
+- **Rule 2.13**: Classify each page as `public`, `app`, or `auth` in the `pages.js` registry `seo` block; unset `visibility` inherits the fork `SEO_MODE` default.
+- **Rule 2.14**: Public pages require one `<h1>`, logical heading order, semantic landmarks (`main`, `nav`, `article`), real `<a href>` links, unique title + meta description, and critical copy in template HTML (not fetch-only).
+- **Rule 2.15**: `app` and `auth` pages use `noindex`; do not keyword-stuff UI copy.
+- **Rule 2.16**: Images require meaningful `alt` text.
+
 See `frontend/AGENTS.md` for extension recipes.

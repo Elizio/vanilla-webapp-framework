@@ -108,7 +108,10 @@ class AppConfig:
             'OAUTH_REDIRECT_BASE',
             'http://localhost:5173' if self.APP_PROFILE in ('development', 'testing') else '',
         )
-        
+
+        seo_mode = os.getenv('SEO_MODE', 'auth-first').strip("'\"")
+        self.SEO_MODE = seo_mode if seo_mode in ('auth-first', 'public-first') else 'auth-first'
+
         # Swagger configuration
         self.SWAGGER_CONFIG = {
             "headers": [],
@@ -157,6 +160,7 @@ class AppConfig:
             'API_HOST': self.API_HOST,
             'SQLALCHEMY_DATABASE_URI': self.SQLALCHEMY_DATABASE_URI,
             'SQLALCHEMY_TRACK_MODIFICATIONS': self.SQLALCHEMY_TRACK_MODIFICATIONS,
+            'SEO_MODE': self.SEO_MODE,
         }
 
 # Create a global configuration instance

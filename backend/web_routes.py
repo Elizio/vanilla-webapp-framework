@@ -1,10 +1,44 @@
 """SPA static serving and global error handlers."""
 import os
-from flask import jsonify, request, send_from_directory, abort
+from flask import Response, current_app, jsonify, request, send_from_directory, abort
+
+
+def build_robots_txt(seo_mode: str) -> str:
+    """Build robots.txt body from fork SEO_MODE.
+
+    Args:
+        seo_mode: ``auth-first`` or ``public-first``.
+
+    Returns:
+        robots.txt file contents.
+    """
+    if seo_mode == 'public-first':
+        return '\n'.join([
+            'User-agent: *',
+            'Allow: /',
+            'Disallow: /api/',
+            'Disallow: /docs',
+            'Disallow: /apispec.json',
+            'Disallow: /flasgger_static/',
+            '',
+        ])
+
+    return '\n'.join([
+        'User-agent: *',
+        'Disallow: /',
+        '',
+    ])
 
 
 def register_web_routes(app):
     """Register SPA static serving and error handlers on the Flask app."""
+
+    @app.route('/robots.txt')
+    def robots_txt():
+        """Serve crawl directives driven by SEO_MODE."""
+        seo_mode = current_app.config.get('SEO_MODE', os.getenv('SEO_MODE', 'auth-first'))
+        body = build_robots_txt(seo_mode)
+        return Response(body, mimetype='text/plain')
 
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')

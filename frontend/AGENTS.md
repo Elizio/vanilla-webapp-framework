@@ -147,6 +147,67 @@ export const myFeatureController = {
 
 4. **Verify** via `cd frontend && npm run dev` at `http://localhost:5173`
 
+5. **SEO defaults** — classify the page and fill its `seo` block in `pages.js`:
+
+```javascript
+myfeature: {
+    template: myFeatureTpl,
+    controller: myFeatureController,
+    seo: {
+        visibility: 'app',  // public | app | auth — omit to inherit SEO_MODE default
+        title: 'My Feature — Your Product',
+        description: 'Short summary for search and social previews.',
+    },
+},
+```
+
+If indexability is unclear, **ask the user** to confirm `public` vs `app`/`auth` before finishing — do not guess.
+
+### SEO definition-of-done checklist
+
+Before claiming a page complete, verify:
+
+- [ ] `visibility` classified (`public`, `app`, or `auth`) in the registry `seo` block
+- [ ] Public pages: unique `title` + `description`, one `<h1>`, semantic landmarks, real `<a href>` links
+- [ ] `app`/`auth` pages: `noindex` via `applySeo()` (automatic when visibility is not `public`)
+- [ ] Images have meaningful `alt` text
+- [ ] Tab title updates after `loadPage('view-container', …)`; view-source shows expected meta tags
+
+## SEO toolbox
+
+Per-fork switch in project root `.env`:
+
+| Variable | Values | Default | Purpose |
+|----------|--------|---------|---------|
+| `SEO_MODE` | `auth-first`, `public-first` | `auth-first` | Default page visibility when `seo.visibility` is unset; drives `robots.txt` |
+
+- **`auth-first`** — pages default to `app` (noindex). Best for SaaS / authenticated products.
+- **`public-first`** — pages default to `public` (indexable). Best for ad/content sites.
+
+Vite reads `SEO_MODE` at build time and exposes it to the browser as `import.meta.env.VITE_SEO_MODE`. Rebuild the frontend after changing `SEO_MODE`.
+
+**Mechanism:** `applySeo()` in `@frontend/src/js/seo.js` runs inside `loadPage()` when the target is `view-container`. It sets `document.title`, meta description, robots, and canonical.
+
+**Backend:** Flask serves `/robots.txt` from `@backend/web_routes.py` using the same `SEO_MODE`.
+
+### Page registry `seo` field
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `visibility` | No | `public`, `app`, or `auth`; inherits `SEO_MODE` default when omitted |
+| `title` | Recommended | Browser tab title |
+| `description` | Public pages | Meta description for search/social |
+| `canonical` | No | Canonical URL; defaults to current location for public pages |
+
+### Ready-to-activate recipes (organic-traffic forks)
+
+When a fork's business depends on search traffic, flag and activate these — the metadata helper alone is a partial measure for SPAs:
+
+1. **History API URL routing** — map `pageKey` to paths (`/pricing`), use `history.pushState` in `loadPage()`, parse `pathname` on boot, replace `href="#"` with real links for public pages.
+2. **Build-time prerender / SSR** — serve full HTML for public pages so crawlers receive content without executing JS.
+
+Open Graph tags and structured data can be added per fork when sharing previews matter.
+
 ## Templates (.hbs)
 
 **Actual pattern:** `.hbs` files are **static HTML + Alpine directives** fetched at runtime. They are **not** Handlebars-rendered.

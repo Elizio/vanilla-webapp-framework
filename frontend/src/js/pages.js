@@ -10,10 +10,51 @@ import userRegistryTpl from '../templates/partials/user_registry.hbs?raw';
 import landingTpl from '../templates/pages/landingpage.hbs?raw';
 import testTpl from '../templates/pages/testpage.hbs?raw';
 
+const frameworkDescription =
+    'Vanilla WebApp Framework — lightweight Flask and Alpine.js starter for entrepreneur solutions.';
+
 export const pages = {
-    menu:          { template: menuTpl,         controller: menuController },
-    login:         { template: loginTpl,        controller: loginController },
-    user_registry: { template: userRegistryTpl, controller: userRegistryController },
-    landingpage:   { template: landingTpl,      controller: landingPageController },
-    testpage:      { template: testTpl,         controller: testPageController },
+    menu: {
+        template: menuTpl,
+        controller: menuController,
+        seo: {
+            visibility: 'app',
+            title: 'Menu — Vanilla WebApp Demo',
+        },
+    },
+    login: {
+        template: loginTpl,
+        controller: loginController,
+        seo: {
+            visibility: 'auth',
+            title: 'Login — Vanilla WebApp Demo',
+            description: frameworkDescription,
+        },
+    },
+    user_registry: {
+        template: userRegistryTpl,
+        controller: userRegistryController,
+        seo: {
+            visibility: 'auth',
+            title: 'Register — Vanilla WebApp Demo',
+            description: frameworkDescription,
+        },
+    },
+    landingpage: {
+        template: landingTpl,
+        controller: landingPageController,
+        seo: {
+            visibility: 'app',
+            title: 'Vanilla WebApp Demo',
+            description: frameworkDescription,
+        },
+    },
+    testpage: {
+        template: testTpl,
+        controller: testPageController,
+        seo: {
+            visibility: 'app',
+            title: 'Test Page — Vanilla WebApp Demo',
+        },
+    },
 };

@@ -19,6 +19,7 @@ A modern, lightweight web application framework that combines Flask backend with
   - Alpine.js for lightweight state management
   - Tailwind CSS for utility-first styling
   - Responsive design support
+  - Per-fork SEO toolbox (`SEO_MODE`, page metadata, `robots.txt`)
 
 ### Development & DevOps
 - **Modern Development Workflow**
@@ -114,6 +115,7 @@ Copy `.env.example` to `.env` and adjust values before running.
    | `FACEBOOK_CLIENT_ID` / `FACEBOOK_CLIENT_SECRET` | Facebook OAuth (optional) |
    | `FRONTEND_URL` | SPA URL after OAuth (default `http://localhost:5173` in dev) |
    | `OAUTH_REDIRECT_BASE` | OAuth callback base URL (default `http://localhost:5173` in dev) |
+   | `SEO_MODE` | `auth-first` (default, noindex app pages) or `public-first` (indexable by default); drives frontend meta tags and `/robots.txt` |
 
 3. **Database**
 
