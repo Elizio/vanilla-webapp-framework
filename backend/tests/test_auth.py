@@ -12,7 +12,7 @@ def test_register(test_client, test_db):
         'password': 'testpass'
     })
     assert response.status_code == 201
-    assert response.json['message'] == 'User created successfully'
+    assert response.json['code'] == 'USER_CREATED'
 
 def test_login(test_client, test_db):
     """Test user login."""
@@ -53,7 +53,7 @@ def test_protected_route(test_client, test_db):
 def test_protected_route_missing_token(test_client, test_db):
     response = test_client.get('/api/data')
     assert response.status_code == 401
-    assert response.json['message'] == 'Token is missing'
+    assert response.json['code'] == 'TOKEN_MISSING'
 
 
 def test_protected_route_malformed_token(test_client, test_db):
@@ -78,7 +78,7 @@ def test_protected_route_expired_token(test_client, test_db):
     )
     response = test_client.get('/api/data', headers={'Authorization': f'Bearer {expired}'})
     assert response.status_code == 401
-    assert response.json['message'] == 'Token has expired'
+    assert response.json['code'] == 'TOKEN_EXPIRED'
 
 
 def test_register_duplicate_user(test_client, test_db):
@@ -86,7 +86,7 @@ def test_register_duplicate_user(test_client, test_db):
     test_client.post('/api/register', json=payload)
     response = test_client.post('/api/register', json=payload)
     assert response.status_code == 400
-    assert response.json['message'] == 'Username already exists'
+    assert response.json['code'] == 'USERNAME_EXISTS'
 
 
 def test_register_rollback_on_commit_failure(test_app, test_db, monkeypatch):
@@ -111,6 +111,15 @@ def test_register_rollback_on_commit_failure(test_app, test_db, monkeypatch):
 
     response = client.post('/api/register', json={'username': 'rollbackuser2', 'password': 'testpass'})
     assert response.status_code == 201
+
+
+def test_login_invalid_credentials_returns_code(test_client, test_db):
+    response = test_client.post('/api/login', json={
+        'username': 'nobody',
+        'password': 'wrong',
+    })
+    assert response.status_code == 401
+    assert response.json['code'] == 'INVALID_CREDENTIALS'
 
 
 def test_login_oauth_only_user_returns_401(test_client, test_db):

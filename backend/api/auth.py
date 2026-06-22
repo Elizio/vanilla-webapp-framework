@@ -4,6 +4,17 @@ import jwt
 from functools import wraps
 from ..models.user import User
 from ..db_repository.database import db_session
+from .error_codes import (
+    TOKEN_MISSING,
+    TOKEN_EXPIRED,
+    INVALID_TOKEN,
+    INVALID_CREDENTIALS,
+    USERNAME_PASSWORD_REQUIRED,
+    USERNAME_EXISTS,
+    REGISTRATION_FAILED,
+    USER_CREATED,
+    error_response,
+)
 from .jwt_utils import JWT_ALGORITHM, _jwt_secret, generate_token
 
 auth_bp = Blueprint('auth', __name__)
@@ -14,17 +25,17 @@ def token_required(f):
     def decorated(*args, **kwargs):
         token = request.headers.get('Authorization')
         if not token:
-            return jsonify({'message': 'Token is missing'}), 401
+            return error_response(TOKEN_MISSING, 401)
         try:
             token = token.split(' ')[1]
             data = jwt.decode(token, _jwt_secret(), algorithms=[JWT_ALGORITHM])
             current_user = db_session.get(User, data['user_id'])
             if not current_user:
-                return jsonify({'message': 'Invalid token'}), 401
+                return error_response(INVALID_TOKEN, 401)
         except jwt.ExpiredSignatureError:
-            return jsonify({'message': 'Token has expired'}), 401
+            return error_response(TOKEN_EXPIRED, 401)
         except (jwt.InvalidTokenError, IndexError):
-            return jsonify({'message': 'Invalid token'}), 401
+            return error_response(INVALID_TOKEN, 401)
         return f(current_user, *args, **kwargs)
     return decorated
 
@@ -70,7 +81,7 @@ def login():
         token = generate_token(user.id)
         return jsonify({'token': token})
 
-    return jsonify({'message': 'Invalid credentials'}), 401
+    return error_response(INVALID_CREDENTIALS, 401)
 
 
 @auth_bp.route('/api/register', methods=['POST'])
@@ -105,10 +116,10 @@ def register():
     password = data.get('password')
 
     if not username or not password:
-        return jsonify({'message': 'Username and password are required'}), 400
+        return error_response(USERNAME_PASSWORD_REQUIRED, 400)
 
     if User.query.filter_by(username=username).first():
-        return jsonify({'message': 'Username already exists'}), 400
+        return error_response(USERNAME_EXISTS, 400)
 
     user = User(
         username=username,
@@ -120,6 +131,6 @@ def register():
     except Exception as exc:
         db_session.rollback()
         current_app.logger.error('Registration failed: %s', exc)
-        return jsonify({'message': 'Registration failed due to a server error'}), 500
+        return error_response(REGISTRATION_FAILED, 500)
 
-    return jsonify({'message': 'User created successfully'}), 201
+    return jsonify({'code': USER_CREATED}), 201
