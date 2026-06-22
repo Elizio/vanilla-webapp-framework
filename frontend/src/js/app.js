@@ -210,7 +210,7 @@ export const createSpaApp = () => {
     };
 
     app.menuController.init();
-    app.loginController.init(app);
+    app.loginController.init();
     app.welcomeController.init();
     app.refreshOAuthProviders();
 

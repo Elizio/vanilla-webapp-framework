@@ -28,9 +28,16 @@ export const api = {
     },
 };
 
-/** View Controller for login functionality */
+/**
+ * View Controller for login functionality.
+ *
+ * NOTE: this controller must NOT store a reference to the spaApp object as a
+ * property. loginController lives directly on the Alpine root scope; storing
+ * app as a property creates a circular reference (app → loginController →
+ * appContext → app) that causes Alpine's initInterceptors to blow the stack.
+ * Access the app via ``window.spaApp`` inside methods instead.
+ */
 export const loginController = {
-    appContext: null,
     username: '',
     password: '',
     isLoading: false,
@@ -39,25 +46,24 @@ export const loginController = {
     isLoggedIn: false,
     token: null,
 
-    /** @param {object} [appContext] - Root spaApp from createSpaApp(). */
-    init(appContext) {
-        this.appContext = appContext;
+    init() {
         this.isLoggedIn = !!localStorage.getItem('token');
         this.token = localStorage.getItem('token');
     },
 
     async login() {
+        const app = window.spaApp;
         this.isLoading = true;
         this.error = null;
 
         if (!this.username || !this.username.trim()) {
-            this.error = this.appContext.t('errors.USERNAME_REQUIRED');
+            this.error = app.t('errors.USERNAME_REQUIRED');
             this.isLoading = false;
             return;
         }
 
         if (!this.password || !this.password.trim()) {
-            this.error = this.appContext.t('errors.PASSWORD_REQUIRED');
+            this.error = app.t('errors.PASSWORD_REQUIRED');
             this.isLoading = false;
             return;
         }
@@ -71,11 +77,11 @@ export const loginController = {
                 this.isLoggedIn = true;
                 window.location.href = '/';
             } else {
-                this.error = this.appContext.tError(data.code || 'LOGIN_FAILED');
+                this.error = app.tError(data.code || 'LOGIN_FAILED');
             }
         } catch (err) {
             console.error('Login error:', err);
-            this.error = this.appContext.tError(err.code || 'LOGIN_FAILED');
+            this.error = app.tError(err.code || 'LOGIN_FAILED');
         } finally {
             this.isLoading = false;
         }
