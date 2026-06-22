@@ -7,6 +7,7 @@ from flask import Blueprint, current_app, jsonify, redirect
 
 from ..db_repository.database import db_session
 from ..models.user import User
+from .error_codes import PROVIDER_NOT_CONFIGURED
 from .jwt_utils import generate_token
 
 oauth = OAuth()
@@ -167,7 +168,7 @@ def oauth_login(provider):
         description: Provider not configured
     """
     if provider not in _ENABLED_PROVIDERS:
-        return jsonify({'message': 'Provider not configured'}), 404
+        return jsonify({'code': PROVIDER_NOT_CONFIGURED}), 404
 
     client = oauth.create_client(provider)
     return client.authorize_redirect(_redirect_uri(provider))
@@ -193,7 +194,7 @@ def oauth_callback(provider):
         description: Provider not configured
     """
     if provider not in _ENABLED_PROVIDERS:
-        return jsonify({'message': 'Provider not configured'}), 404
+        return jsonify({'code': PROVIDER_NOT_CONFIGURED}), 404
 
     client = oauth.create_client(provider)
     try:
@@ -209,4 +210,4 @@ def oauth_callback(provider):
         return _frontend_redirect(token=jwt_token)
     except Exception as exc:
         current_app.logger.error('OAuth callback failed for %s: %s', provider, exc)
-        return _frontend_redirect(auth_error='Authentication failed')
+        return _frontend_redirect(auth_error='AUTH_FAILED')

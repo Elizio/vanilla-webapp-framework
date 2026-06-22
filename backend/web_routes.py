@@ -1,6 +1,8 @@
 """SPA static serving and global error handlers."""
 import os
-from flask import Response, current_app, jsonify, request, send_from_directory, abort
+from flask import Response, current_app, request, send_from_directory, abort
+
+from .api.error_codes import NOT_FOUND, INTERNAL_ERROR, error_response
 
 
 def build_robots_txt(seo_mode: str) -> str:
@@ -60,14 +62,14 @@ def register_web_routes(app):
     @app.errorhandler(404)
     def not_found_error(error):
         app.logger.error(f'Page not found: {request.url}')
-        return jsonify({'error': 'Not found'}), 404
+        return error_response(NOT_FOUND, 404)
 
     @app.errorhandler(500)
     def internal_error(error):
         app.logger.error(f'Server Error: {error}')
-        return jsonify({'error': 'Internal server error'}), 500
+        return error_response(INTERNAL_ERROR, 500)
 
     @app.errorhandler(Exception)
     def unhandled_exception(e):
         app.logger.error(f'Unhandled Exception: {e}')
-        return jsonify({'error': 'Internal server error'}), 500
+        return error_response(INTERNAL_ERROR, 500)
