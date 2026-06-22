@@ -13,21 +13,20 @@
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 min-h-screen transition-colors duration-200">
     <div x-data="spaApp"
-         x-init="isLoggedIn = !!localStorage.getItem('token'); 
-                 loadPage('menu-container', 'menu');
-                 loadPage('login-register-container', 'login');
-                 loadPage('view-container', 'landingpage');" 
          class="relative min-h-screen">
-        
-        <!-- Login  Registration Content -->
-        <div x-show="!isLoggedIn" class="container mx-auto px-4 py-8">
+
+        <!-- Public welcome page -->
+        <div x-show="!isLoggedIn && !showLogin" id="public-container" class="min-h-screen"></div>
+
+        <!-- Login / Registration -->
+        <div x-show="!isLoggedIn && showLogin" class="container mx-auto px-4 py-8">
             <div id="login-register-container"></div>
         </div>
-        
+
         <!-- Logged In Content -->
         <div x-show="isLoggedIn" class="flex">
             <div id="menu-container"></div>
-            
+
             <!-- Main Content Area -->
             <div class="flex-1 min-h-screen ml-16 transition-all duration-300 ease-in-out"
                  :class="{ 'ml-16': !menuController.sidebarOpen, 'ml-16 lg:ml-16 lg:group-hover:ml-64': menuController.sidebarOpen }">
@@ -36,7 +35,7 @@
                 </div>
             </div>
         </div>
-        
+
     </div>
 </body>
-</html> 
+</html>

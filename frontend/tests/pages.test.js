@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { pages } from '../src/js/pages.js';
 
-const expectedKeys = ['menu', 'login', 'user_registry', 'landingpage', 'testpage'];
+const expectedKeys = ['menu', 'login', 'user_registry', 'welcome', 'landingpage', 'testpage'];
 
 describe('pages registry', () => {
   it('contains all expected page keys', () => {

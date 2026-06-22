@@ -2,6 +2,12 @@
 
 <div x-show="!isLoggedIn" class="max-w-md mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-md p-6" >
     <div class="space-y-4">
+        <div class="text-center">
+            <a href="#" @click.prevent="showWelcomePage()"
+               class="text-sm text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300">
+                ← Back to welcome
+            </a>
+        </div>
         <h1 class="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-white">Vanilla WebApp Demo</h1>
         <div>
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Username</label>
@@ -36,7 +42,7 @@
         <div class="space-y-3">
             <button type="button"
                     @click="startSocialLogin('google')"
-                    :class="isOAuthEnabled('google')
+                    :class="oauthProviders.includes('google')
                         ? 'hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer'
                         : 'opacity-60 cursor-not-allowed'"
                     class="flex items-center justify-center gap-3 w-full py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 transition-colors duration-200">
@@ -51,7 +57,7 @@
 
             <button type="button"
                     @click="startSocialLogin('facebook')"
-                    :class="isOAuthEnabled('facebook')
+                    :class="oauthProviders.includes('facebook')
                         ? 'hover:bg-[#166FE5] cursor-pointer'
                         : 'opacity-60 cursor-not-allowed'"
                     class="flex items-center justify-center gap-3 w-full py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md bg-[#1877F2] transition-colors duration-200">
