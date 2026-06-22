@@ -41,10 +41,19 @@ def test_client(test_app):
 
 @pytest.fixture
 def test_db():
-    """Create a test database."""
+    """Provide a clean schema per test.
+
+    Recreate tables on setup and drop them on teardown. The in-memory SQLite
+    engine is intentionally *not* disposed between tests: disposing it drops
+    the database held by the single pooled connection, which made schema
+    visibility order-dependent across tests.
+    """
+    db._Session.remove()
+    db.Base.metadata.drop_all(db.engine)
     db.init_db()
     yield db
-    db.close()
+    db._Session.remove()
+    db.Base.metadata.drop_all(db.engine)
 
 
 @pytest.fixture

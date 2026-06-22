@@ -11,8 +11,8 @@ See [AGENTS.md](../AGENTS.md) for narrative policy. These rules are enforceable 
 - **Rule 5.1a**: `README.md` is the canonical human how-to. Keep these categories accurate and runnable:
   1. **Project setup** — install, `.env` / `.env.example`, database init (`init_db` vs Alembic).
   2. **Run by environment** — development (dual server), production, Docker, testing.
-  3. **Configure & operate** — OAuth redirects, logs, Swagger, migrations, troubleshooting.
-- **Rule 5.1b**: Before claiming work done, scan your diff against README sync triggers in `AGENTS.md` → Documentation policy. Update matching how-to sections and `.env.example` when env vars change.
+  3. **Configure & operate** — OAuth redirects, **billing provider dashboards/webhooks** (see `docs/billing-configuration.md`), logs, Swagger, migrations, troubleshooting.
+- **Rule 5.1b**: Before claiming work done, scan your diff against README sync triggers in `AGENTS.md` → Documentation policy. Update matching how-to sections and `.env.example` when env vars change. Multi-step provider setup (OAuth, billing) belongs in `docs/oauth-configuration.md` or `docs/billing-configuration.md` — link from README, do not duplicate steps.
 - **Rule 5.1c**: Do not copy AGENTS recipes into README. Do not duplicate README prose in AGENTS.
 
 ### **In-code documentation (Rule 5.2)**

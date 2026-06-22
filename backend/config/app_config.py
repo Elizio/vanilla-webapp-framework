@@ -112,6 +112,15 @@ class AppConfig:
         seo_mode = os.getenv('SEO_MODE', 'auth-first').strip("'\"")
         self.SEO_MODE = seo_mode if seo_mode in ('auth-first', 'public-first') else 'auth-first'
 
+        # Billing (optional — checkout disabled until provider keys are set)
+        self.BILLING_PROVIDER = os.getenv('BILLING_PROVIDER', 'lemon_squeezy')
+        self.LEMON_SQUEEZY_API_KEY = os.getenv('LEMON_SQUEEZY_API_KEY')
+        self.LEMON_SQUEEZY_STORE_ID = os.getenv('LEMON_SQUEEZY_STORE_ID')
+        self.LEMON_SQUEEZY_WEBHOOK_SECRET = os.getenv('LEMON_SQUEEZY_WEBHOOK_SECRET')
+        self.LEMON_SQUEEZY_VARIANT_ID_SUPPORTER = os.getenv(
+            'LEMON_SQUEEZY_VARIANT_ID_SUPPORTER'
+        )
+
         # Swagger configuration
         self.SWAGGER_CONFIG = {
             "headers": [],

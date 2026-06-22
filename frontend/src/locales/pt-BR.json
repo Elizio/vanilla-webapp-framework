@@ -16,6 +16,7 @@
     "appName": "Vanilla App",
     "dashboard": "Painel",
     "analytics": "Análises",
+    "billing": "Pagamentos",
     "settings": "Configurações",
     "profile": "Perfil",
     "logout": "Sair"
@@ -44,6 +45,25 @@
   },
   "testpage": {
     "loadLanding": "Carregar página inicial"
+  },
+  "billing": {
+    "title": "Apoio e Pagamentos",
+    "subtitle": "Faça uma contribuição única. O mesmo fluxo serve para compras avulsas e recarga de créditos em forks.",
+    "yourStatus": "Seu status",
+    "creditBalance": "Saldo de créditos",
+    "noEntitlements": "Nenhum plano ativo ainda.",
+    "noPlans": "Nenhum plano disponível no momento.",
+    "amountLabel": "Valor",
+    "checkout": "Ir para o pagamento",
+    "successMessage": "Obrigado! Seu pagamento está sendo processado e aparecerá aqui em instantes.",
+    "amountTooLow": "O valor mínimo é {min}.",
+    "notConfigured": "Pagamentos ainda não configurados. Adicione as chaves do provedor ao .env e reinicie o Flask.",
+    "plans": {
+      "supporter": {
+        "name": "Apoiador",
+        "description": "Uma doação única para apoiar o projeto. Escolha qualquer valor."
+      }
+    }
   },
   "welcome": {
     "signIn": "Entrar",
@@ -140,6 +160,7 @@
       "description": "Vanilla WebApp Framework — starter leve Flask e Alpine.js para soluções empreendedoras."
     },
     "landing": { "title": "Demo Vanilla WebApp" },
-    "testpage": { "title": "Página de teste — Demo Vanilla WebApp" }
+    "testpage": { "title": "Página de teste — Demo Vanilla WebApp" },
+    "billing": { "title": "Pagamentos — Demo Vanilla WebApp" }
   }
 }

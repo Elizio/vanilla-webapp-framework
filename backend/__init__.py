@@ -31,10 +31,12 @@ def create_app():
     from .api.auth import auth_bp
     from .api.routes import api_bp
     from .api.oauth import oauth_bp, register_oauth_clients
+    from .api.billing import billing_bp
     register_oauth_clients(app)
     app.register_blueprint(auth_bp)
     app.register_blueprint(api_bp)
     app.register_blueprint(oauth_bp)
+    app.register_blueprint(billing_bp)
 
     @app.teardown_appcontext
     def shutdown_session(exception=None):

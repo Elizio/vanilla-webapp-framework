@@ -10,6 +10,11 @@ sys.path.insert(0, project_root)
 
 from backend.db_repository.database import db  # noqa: E402
 from backend.models.user import User  # noqa: E402, F401
+from backend.models.billing_entitlement import BillingEntitlement  # noqa: E402, F401
+from backend.models.billing_event import BillingEvent  # noqa: E402, F401
+from backend.models.billing_credit_ledger import (  # noqa: E402, F401
+    BillingCreditLedger,
+)
 
 config = context.config
 

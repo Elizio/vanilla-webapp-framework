@@ -1,5 +1,6 @@
 from flask import Blueprint, jsonify
 from .auth import token_required
+from ..billing.entitlements import entitlement_required
 
 api_bp = Blueprint('api', __name__)
 
@@ -64,3 +65,25 @@ def protected_data(current_user):
         description: Unauthorized access
     """
     return jsonify({'message': 'Secure data'})
+
+
+@api_bp.route('/api/supporter-badge', methods=['GET'])
+@token_required
+@entitlement_required('supporter')
+def supporter_badge(current_user):
+    """
+    Example feature gated by the 'supporter' entitlement.
+    ---
+    tags:
+      - Billing
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: Supporter-only content
+      401:
+        description: Unauthorized
+      403:
+        description: Entitlement required
+    """
+    return jsonify({'badge': 'supporter', 'message': 'Thanks for your support!'})

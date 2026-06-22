@@ -12,7 +12,14 @@ backend/
 ├── alembic.ini          # Alembic config
 ├── api/
 │   ├── auth.py          # auth_bp — login, register, @token_required
+│   ├── billing.py       # billing_bp — plans, checkout, webhooks
 │   └── routes.py        # api_bp — public and protected endpoints
+├── billing/             # Provider-agnostic billing (see Billing section)
+│   ├── plans.py         # Plan catalog (outcome: entitlement / credits / none)
+│   ├── service.py       # Checkout + webhook orchestration
+│   ├── entitlements.py  # Feature gates, @entitlement_required
+│   ├── credits.py       # Credit ledger helpers
+│   └── providers/       # One adapter per payment provider
 ├── models/              # Data-only SQLAlchemy models
 ├── db_repository/
 │   ├── database.py      # Engine, session, Base singleton
@@ -33,7 +40,7 @@ backend/
 3. Merges `UserConfig` values
 4. Calls `setup_logging(app)`
 5. Initializes Flasgger Swagger (`/docs`)
-6. Registers `auth_bp` and `api_bp`
+6. Registers `auth_bp`, `api_bp`, `oauth_bp`, and `billing_bp`
 7. Registers web routes via `register_web_routes(app)`
 8. Runs `init_db()` (dev/test) or `run_migrations()` (production)
 
@@ -49,7 +56,8 @@ Error handlers and SPA fallback live in `web_routes.py`, registered from the fac
 |-----------|------|--------|
 | `auth_bp` | `api/auth.py` | `POST /api/login`, `POST /api/register` |
 | `oauth_bp` | `api/oauth.py` | `GET /api/auth/<provider>/login`, `GET /api/auth/<provider>/callback`, `GET /api/auth/providers` |
-| `api_bp` | `api/routes.py` | `GET /api/health`, `GET /api/public`, `GET /api/data` (protected) |
+| `billing_bp` | `api/billing.py` | `GET /api/billing/plans`, `GET /api/billing/status`, `POST /api/billing/checkout`, `POST /api/billing/webhook/lemon-squeezy` |
+| `api_bp` | `api/routes.py` | `GET /api/health`, `GET /api/public`, `GET /api/data` (protected), `GET /api/supporter-badge` (entitlement-gated demo) |
 
 Register new blueprints in `create_app()`:
 
@@ -92,6 +100,100 @@ def get_myfeature(current_user):
 4. **Verify** at `http://localhost:5000/docs`
 
 Copy Swagger docstring format from `@backend/api/routes.py` or `@backend/api/auth.py`.
+
+## Billing — add a payment provider
+
+Billing is **provider-agnostic**: plans, entitlements, credits, the SPA billing page, and feature gates live in the app. Each payment processor is a thin **adapter** that creates hosted checkout URLs and normalizes webhooks into `BillingWebhookResult`.
+
+**Canonical references:** `@backend/billing/providers/base.py` (contract), `@backend/billing/providers/lemon_squeezy.py` (working adapter), `@backend/billing/providers/stripe.py` (stub + step-by-step template), `@backend/billing/service.py`, `@backend/billing/plans.py`, `@backend/api/billing.py`, `@backend/tests/test_billing.py`
+
+### Layering
+
+| Layer | Role | Provider-specific? |
+|-------|------|--------------------|
+| `billing/plans.py` | Plan catalog (`outcome`: `entitlement`, `credits`, or `none`) | No — provider ids come from env vars referenced in each plan |
+| `billing/providers/*.py` | Checkout creation, webhook verify + parse | Yes — one class per provider |
+| `billing/service.py` | Validate checkout, apply parsed webhook to DB (idempotent) | No |
+| `billing/entitlements.py` / `credits.py` | App-owned access state | No |
+| `models/billing_*` | Entitlements, webhook audit log, credit ledger | No |
+| `api/billing.py` | HTTP routes; frontend talks only here | Webhook route per provider |
+
+Checkout uses a **single active provider** selected by `BILLING_PROVIDER` (default `lemon_squeezy`). Entitlements are keyed by `(user_id, plan_key, provider)` so the same user can hold parallel grants during a provider migration.
+
+### Recipe: new provider adapter
+
+1. **Create** `backend/billing/providers/<provider>.py` implementing `BillingProvider` (`@backend/billing/providers/base.py`):
+
+   | Method | Responsibility |
+   |--------|----------------|
+   | `name` | Stable key (e.g. `mercado_pago`) |
+   | `is_configured()` | True when required env vars are set |
+   | `create_checkout(...)` | Return hosted checkout URL; embed `user.id` in provider metadata/custom fields so webhooks can resolve the user |
+   | `verify_webhook(raw_body, headers)` | Validate signature; raise `WebhookVerificationError` on failure |
+   | `parse_webhook(raw_body, headers)` | Return `BillingWebhookResult` with stable `event_id` for idempotency |
+
+   Copy structure from `@backend/billing/providers/lemon_squeezy.py`. Use `@backend/billing/providers/stripe.py` module docstring for a second worked outline (Stripe Checkout Session events).
+
+2. **Register** the class in `backend/billing/providers/__init__.py` → `_PROVIDERS` dict.
+
+3. **Wire plans** in `backend/billing/plans.py` — under each plan's `providers` map, add an entry pointing to env var **names** (never hardcode ids):
+
+   ```python
+   'providers': {
+       'lemon_squeezy': {'variant_env': 'LEMON_SQUEEZY_VARIANT_ID_SUPPORTER'},
+       'mercado_pago': {'price_env': 'MERCADO_PAGO_PRICE_ID_SUPPORTER'},  # example
+   },
+   ```
+
+4. **Configuration** — add provider env vars to `AppConfig` (`backend/config/app_config.py`), `.env.example`, and [docs/billing-configuration.md](../docs/billing-configuration.md) (human dashboard setup for that provider). README env table only — no console steps in README or AGENTS.
+
+5. **Webhook route** in `backend/api/billing.py`:
+
+   ```python
+   @billing_bp.route('/api/billing/webhook/<provider-key>', methods=['POST'])
+   def provider_webhook():
+       # raw_body = request.get_data(); service.handle_webhook(...)
+   ```
+
+   Today `service.handle_webhook` uses `get_billing_provider()` from `BILLING_PROVIDER`. For a **second concurrent provider** (e.g. global card + Brazil PIX), extend `handle_webhook` to accept an optional provider key before adding the route.
+
+6. **Tests** in `backend/tests/test_billing.py` (or `test_<provider>_billing.py`) — mock the provider HTTP API for checkout; construct signed webhook payloads; assert entitlements/credits and idempotency. See existing Lemon Squeezy tests.
+
+7. **Verify** — `pytest`; optional manual test with provider sandbox + webhook tunnel (ngrok/cloudflared).
+
+### Webhook → domain mapping
+
+`parse_webhook` must populate `BillingWebhookResult` so `service._apply_result` can branch on `plan.outcome`:
+
+| Plan `outcome` | Set on result | Service action |
+|----------------|---------------|----------------|
+| `entitlement` | `entitlement_status` (`active` / `canceled` / `expired` / `past_due`), `provider_reference_id`, optional `current_period_end` | `upsert_entitlement()` |
+| `credits` | `amount_cents`, `provider_reference_id` | `add_credits()` (guarded by provider order id) |
+| `none` | `handled=False` or omit grant fields | Audit log only |
+
+Always set a **stable** `event_id` (e.g. `{event_type}:{provider_object_id}:{updated_at}`) — duplicates are ignored via `billing_events`.
+
+### Feature gating (unchanged when swapping providers)
+
+```python
+from backend.billing.entitlements import entitlement_required, user_has_plan
+
+@api_bp.route('/api/my-feature')
+@token_required
+@entitlement_required('supporter')
+def my_feature(current_user):
+    ...
+```
+
+Spend in-app budget with `billing.credits.spend_credits()` in fork feature code.
+
+### Do not change when adding a provider
+
+- Entitlement/credit tables and helpers
+- Frontend billing page (`frontend/src/js/controllers/billing.js`) — it only calls `/api/billing/*`
+- Plan `outcome` semantics
+
+Human provider setup (dashboard, webhooks, test mode) → [docs/billing-configuration.md](../docs/billing-configuration.md).
 
 ## JWT authentication
 
@@ -146,7 +248,7 @@ except Exception:
     raise
 ```
 
-No migrations yet — schema changes require coordinating `create_all()` across environments.
+No manual schema coordination in dev/test — use Alembic for production (see Alembic section).
 
 **Canonical references:** `@backend/db_repository/database.py`, `@backend/models/user.py`
 
@@ -190,7 +292,7 @@ Fixtures in `tests/conftest.py`:
 | `set_test_env` | Sets `APP_PROFILE=testing` (session-scoped) |
 | `test_app` | Fresh `create_app()` with `TESTING=True` |
 | `test_client` | Flask test client |
-| `test_db` | Calls `db.init_db()`, tears down with `db.close()` |
+| `test_db` | Clean schema per test (`drop_all` → `init_db`; engine not disposed) |
 
 **Test pattern:**
 

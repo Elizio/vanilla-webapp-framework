@@ -4,6 +4,7 @@ import { welcomeController } from './controllers/welcome.js';
 import { landingPageController } from './controllers/landingpage.js';
 import { testPageController } from './controllers/testpage.js';
 import { userRegistryController } from './controllers/user_registry.js';
+import { billingController } from './controllers/billing.js';
 
 import menuTpl from '../templates/partials/menu.hbs?raw';
 import loginTpl from '../templates/partials/login.hbs?raw';
@@ -11,6 +12,7 @@ import userRegistryTpl from '../templates/partials/user_registry.hbs?raw';
 import welcomeTpl from '../templates/pages/welcome.hbs?raw';
 import landingTpl from '../templates/pages/landingpage.hbs?raw';
 import testTpl from '../templates/pages/testpage.hbs?raw';
+import billingTpl from '../templates/pages/billing.hbs?raw';
 
 export const pages = {
     menu: {
@@ -63,6 +65,14 @@ export const pages = {
         seo: {
             visibility: 'app',
             titleKey: 'seo.testpage.title',
+        },
+    },
+    billing: {
+        template: billingTpl,
+        controller: billingController,
+        seo: {
+            visibility: 'app',
+            titleKey: 'seo.billing.title',
         },
     },
 };

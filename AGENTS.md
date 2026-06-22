@@ -8,7 +8,8 @@ Flask REST API + vanilla JavaScript SPA (Alpine.js, Tailwind, Vite). Human onboa
 |-----|-------|
 | **This file** | Global setup, verification, full-stack checklist, debt summary |
 | [docs/oauth-configuration.md](docs/oauth-configuration.md) | OAuth setup (human): Google, Facebook |
-| [backend/AGENTS.md](backend/AGENTS.md) | Flask, DB, JWT, pytest recipes |
+| [docs/billing-configuration.md](docs/billing-configuration.md) | Billing setup (human): Lemon Squeezy, webhooks |
+| [backend/AGENTS.md](backend/AGENTS.md) | Flask, DB, JWT, pytest recipes; **billing — add a provider** (code) |
 | [frontend/AGENTS.md](frontend/AGENTS.md) | Vite, Alpine, controllers, templates |
 | [.cursor/rules/](.cursor/rules/) | Enforceable coding standards (do not duplicate here) |
 | [.cursor/rules/documentation.mdc](.cursor/rules/documentation.mdc) | README how-to sync + in-code doc enforcement |
@@ -49,6 +50,8 @@ Create `.env` in the project root:
 | `FRONTEND_URL` | SPA URL after OAuth (default `http://localhost:5173` in dev) |
 | `OAUTH_REDIRECT_BASE` | OAuth callback base URL (default `http://localhost:5173` in dev) |
 | `SEO_MODE` | `auth-first` (default) or `public-first`; frontend meta defaults + `/robots.txt` |
+| `BILLING_PROVIDER` | Active billing adapter (default `lemon_squeezy`; optional) |
+| `LEMON_SQUEEZY_*` | Lemon Squeezy API key, store id, webhook secret, variant ids (optional) |
 
 Register each provider's redirect URI as `{OAUTH_REDIRECT_BASE}/api/auth/{provider}/callback` (e.g. `http://localhost:5173/api/auth/google/callback` in dev so the Vite proxy keeps the session cookie on one origin).
 
@@ -91,7 +94,7 @@ Human **how-to guides** live in [README.md](README.md). Agents keep them accurat
 |----------|-------------|
 | **Project setup** | Install steps, env vars, database init/migrations change |
 | **Run by environment** | Dev, production, Docker, or test run commands change |
-| **Configure & operate** | OAuth, logs, Swagger, Alembic, CI, or troubleshooting steps change |
+| **Configure & operate** | OAuth, **billing provider dashboards/webhooks**, logs, Swagger, Alembic, CI, or troubleshooting steps change |
 
 ### README sync triggers
 
@@ -105,7 +108,9 @@ Human **how-to guides** live in [README.md](README.md). Agents keep them accurat
 | User-facing feature or API | Features, Tech Stack |
 | Project layout change | Project Structure |
 | Deployment / CI change | Run by environment, Deployment |
-| OAuth or auth flow change | Project setup + Configure & operate |
+| OAuth or auth flow change | Project setup (vars), **Configure & operate** (link to [docs/oauth-configuration.md](docs/oauth-configuration.md)) |
+| Billing provider setup, webhook URL, or checkout flow change | **Configure & operate** (link to [docs/billing-configuration.md](docs/billing-configuration.md)); env table; `.env.example` |
+| New billing provider adapter (code only) | [backend/AGENTS.md](backend/AGENTS.md) → Billing; optional stub section in billing-configuration.md when human setup exists |
 | Capability added or removed | Features (remove unimplemented claims) |
 
 **When NOT to update README:** pure refactors, internal-only changes, test-only edits, agent recipes that belong in AGENTS only.
@@ -155,6 +160,8 @@ When adding a feature that spans backend and frontend:
 8. **Navigation** — wire `loadPage('view-container', '<pageKey>')` in menu template
 
 Backend-first: ship API + tests before frontend integration.
+
+**Billing:** optional Lemon Squeezy demo is wired. Human dashboard setup → [docs/billing-configuration.md](docs/billing-configuration.md). To add or swap payment providers in code → **Billing — add a payment provider** in [backend/AGENTS.md](backend/AGENTS.md).
 
 ## Remaining follow-ups
 

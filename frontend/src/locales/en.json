@@ -16,6 +16,7 @@
     "appName": "Vanilla App",
     "dashboard": "Dashboard",
     "analytics": "Analytics",
+    "billing": "Billing",
     "settings": "Settings",
     "profile": "Profile",
     "logout": "Logout"
@@ -44,6 +45,25 @@
   },
   "testpage": {
     "loadLanding": "Load Landing Page"
+  },
+  "billing": {
+    "title": "Support & Billing",
+    "subtitle": "Make a one-time contribution. The same flow powers spot purchases and credit top-ups in forks.",
+    "yourStatus": "Your status",
+    "creditBalance": "Credit balance",
+    "noEntitlements": "No active plans yet.",
+    "noPlans": "No plans are available right now.",
+    "amountLabel": "Amount",
+    "checkout": "Continue to checkout",
+    "successMessage": "Thank you! Your payment is being processed and will appear here shortly.",
+    "amountTooLow": "Minimum amount is {min}.",
+    "notConfigured": "Billing is not configured yet. Add provider keys to .env and restart Flask.",
+    "plans": {
+      "supporter": {
+        "name": "Supporter",
+        "description": "A one-time donation to support the project. Choose any amount."
+      }
+    }
   },
   "welcome": {
     "signIn": "Sign In",
@@ -140,6 +160,7 @@
       "description": "Vanilla WebApp Framework — lightweight Flask and Alpine.js starter for entrepreneur solutions."
     },
     "landing": { "title": "Vanilla WebApp Demo" },
-    "testpage": { "title": "Test Page — Vanilla WebApp Demo" }
+    "testpage": { "title": "Test Page — Vanilla WebApp Demo" },
+    "billing": { "title": "Billing — Vanilla WebApp Demo" }
   }
 }
