@@ -301,6 +301,31 @@ Flask must be running on `:5000` for API calls during dev.
 cd frontend && npm run test   # Vitest + jsdom
 ```
 
+## i18n (internationalization)
+
+Supported locales: `en`, `pt-BR`. Locale files live in `frontend/src/locales/`. The `i18n.js` module provides `t(key, params?)`, `tError(code)`, and `setLocale()`.
+
+### Add a translatable string
+
+1. Add the key to `locales/en.json` (source of truth).
+2. Add the same key to `locales/pt-BR.json` (and any future locale files).
+3. In templates: `x-text="t('section.key')"` or `:aria-label="t('section.key')"`.
+4. In controllers: `this.appContext.t('section.key')` or `this.appContext.tError(apiCode)`.
+
+### Add a new locale
+
+1. Create `frontend/src/locales/<locale>.json` mirroring `en.json`.
+2. Register in `SUPPORTED_LOCALES` in `i18n.js` and extend `resolveLocale()` if needed.
+3. Add a button to the EN | PT switcher in `menu.hbs` and `welcome.hbs`.
+
+### API errors
+
+Backend returns `{ "code": "INVALID_CREDENTIALS" }`. Map codes under `errors.*` in locale files. Use `tError(code)` in controllers — never display raw API codes to users.
+
+### SEO
+
+Page registry uses `titleKey` / `descriptionKey` (not literal strings). `applySeo()` resolves via `t()`.
+
 ## Frontend debt register
 
 | Issue | Detail |

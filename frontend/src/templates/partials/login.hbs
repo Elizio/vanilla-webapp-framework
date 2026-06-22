@@ -4,20 +4,20 @@
     <div class="space-y-4">
         <div class="text-center">
             <a href="#" @click.prevent="showWelcomePage()"
-               class="text-sm text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300">
-                ← Back to welcome
+               class="text-sm text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
+               x-text="t('login.backToWelcome')">
             </a>
         </div>
-        <h1 class="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-white">Vanilla WebApp Demo</h1>
+        <h1 class="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-white" x-text="t('login.title')"></h1>
         <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Username</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300" x-text="t('login.username')"></label>
             <input type="text" 
                     x-model="loginController.username" 
                     class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:focus:ring-indigo-400"
                     :disabled="loginController.isLoading">
         </div>
         <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Password</label>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300" x-text="t('login.password')"></label>
             <input type="password" 
                     x-model="loginController.password" 
                     class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:focus:ring-indigo-400"
@@ -26,8 +26,8 @@
         <button @click="loginController.login()" 
                 class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors duration-200 disabled:opacity-50"
                 :disabled="loginController.isLoading">
-            <span x-show="!loginController.isLoading">Login</span>
-            <span x-show="loginController.isLoading">Loading...</span>
+            <span x-show="!loginController.isLoading" x-text="t('common.login')"></span>
+            <span x-show="loginController.isLoading" x-text="t('common.loading')"></span>
         </button>
 
         <div class="relative my-6">
@@ -35,7 +35,7 @@
                 <div class="w-full border-t border-gray-300 dark:border-gray-600"></div>
             </div>
             <div class="relative flex justify-center text-sm">
-                <span class="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400">or continue with</span>
+                <span class="px-2 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400" x-text="t('common.orContinueWith')"></span>
             </div>
         </div>
 
@@ -69,27 +69,24 @@
         </div>
 
         <p x-show="oauthProviders.length === 0"
-           class="text-xs text-center text-gray-500 dark:text-gray-400">
-            Social login requires provider keys in <code class="text-indigo-600 dark:text-indigo-400">.env</code>.
-            Restart Flask after adding them.
+           class="text-xs text-center text-gray-500 dark:text-gray-400"
+           x-text="t('login.oauthHint')">
         </p>
 
         <div class="text-center mt-4">
             <a href="#" @click.prevent="loadPage('login-register-container', 'user_registry');" 
-                class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300">
-                Don't have an account? Register
+                class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
+                x-text="t('login.noAccount')">
             </a>
         </div>
         
-        <!-- Error Message -->
         <div x-show="loginController.error" 
             class="mt-4 p-4 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-md" 
             x-text="loginController.error">
         </div>
         
-        <!-- Response Data -->
         <div x-show="loginController.response" class="mt-4">
-            <h2 class="text-lg font-semibold mb-2 text-gray-800 dark:text-white">Response:</h2>
+            <h2 class="text-lg font-semibold mb-2 text-gray-800 dark:text-white" x-text="t('common.response')"></h2>
             <pre class="bg-gray-100 dark:bg-gray-700 p-4 rounded-md overflow-x-auto text-gray-800 dark:text-gray-200" x-text="JSON.stringify(loginController.response, null, 2)"></pre>
         </div>
     </div>

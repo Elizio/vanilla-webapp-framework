@@ -1,25 +1,27 @@
+/**
+ * Landing page: fetches public and protected API samples for demo.
+ * Bound in templates as ``currentPage.*`` after loadPage().
+ */
 export const landingPageController = {
-    appContext: null, // To store the main app context
-    isLoading: false, // Initialize isLoading state
-    error: null,      // Initialize error state
-    response: null,   // Initialize response state
+    appContext: null,
+    isLoading: false,
+    error: null,
+    response: null,
     token: null,
-    
+
+    /** @param {object} appContext - Root spaApp from createSpaApp(). */
     init(appContext) {
-        this.appContext = appContext; // Store the context
-        // Reset state on init
+        this.appContext = appContext;
         this.isLoading = false;
         this.error = null;
         this.response = null;
         this.token = localStorage.getItem('token');
-
     },
 
     async fetchProtectedData() {
-        // Access global state/methods via appContext
         if (!this.appContext || !this.token) {
-            this.error = 'Not logged in';
-            this.appContext?.logout(); // Use optional chaining
+            this.error = this.appContext?.t('errors.NOT_LOGGED_IN') ?? 'Not logged in';
+            this.appContext?.logout();
             return;
         }
 
@@ -27,23 +29,22 @@ export const landingPageController = {
         this.error = null;
         try {
             const response = await fetch('/api/data', {
-                headers: { 'Authorization': `Bearer ${this.token}` }
+                headers: { Authorization: `Bearer ${this.token}` },
             });
             if (!response.ok) {
                 if (response.status === 401) {
-                    this.error = 'Unauthorized';
+                    this.error = this.appContext.t('errors.UNAUTHORIZED');
                     this.appContext.logout();
                 } else {
-                    this.error = `Error: ${response.status}`;
+                    this.error = this.appContext.t('errors.HTTP_ERROR', { status: response.status });
                 }
                 this.response = null;
             } else {
                 this.response = await response.json();
             }
         } catch (err) {
-            this.error = 'Failed to fetch data';
-            // Optional: Check error type if needed before logging out
-            this.appContext.logout(); 
+            this.error = this.appContext.t('errors.FETCH_FAILED');
+            this.appContext.logout();
         } finally {
             this.isLoading = false;
         }
@@ -54,17 +55,16 @@ export const landingPageController = {
         this.error = null;
         try {
             const response = await fetch('/api/public');
-             if (!response.ok) {
-                this.error = `Error: ${response.status}`;
+            if (!response.ok) {
+                this.error = this.appContext.t('errors.HTTP_ERROR', { status: response.status });
                 this.response = null;
             } else {
                 this.response = await response.json();
             }
         } catch (err) {
-            this.error = 'Failed to fetch data';
+            this.error = this.appContext.t('errors.FETCH_FAILED');
         } finally {
             this.isLoading = false;
         }
     },
-
 };

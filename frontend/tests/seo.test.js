@@ -78,4 +78,17 @@ describe('applySeo', () => {
 
         expect(document.querySelector('meta[name="robots"]').content).toBe('noindex, nofollow');
     });
+
+    it('resolves titleKey and descriptionKey via t()', () => {
+        applySeo(
+            {
+                visibility: 'public',
+                titleKey: 'seo.welcome.title',
+                descriptionKey: 'seo.welcome.description',
+            },
+            'auth-first',
+        );
+        expect(document.title).toBe('Vanilla WebApp Framework — Ship your SaaS faster');
+        expect(document.querySelector('meta[name="description"]').content).toContain('Vanilla WebApp Framework');
+    });
 });

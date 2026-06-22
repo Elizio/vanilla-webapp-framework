@@ -1,39 +1,37 @@
 <div class="space-y-4 max-w-md mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
 
-    <h1 class="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-white">Vanilla WebApp Demo 2</h1>
+    <h1 class="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-white" x-text="t('landing.title')"></h1>
     <button @click="logout" 
-            class="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors duration-200">
-        Logout
+            class="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors duration-200"
+            x-text="t('common.logout')">
     </button>
     <button @click="currentPage.fetchProtectedData()" 
             class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors duration-200 disabled:opacity-50"
             :disabled="currentPage.isLoading">
-        <span x-show="!currentPage.isLoading">Fetch Protected Data</span>
-        <span x-show="currentPage.isLoading">Loading...</span>
+        <span x-show="!currentPage.isLoading" x-text="t('landing.fetchProtected')"></span>
+        <span x-show="currentPage.isLoading" x-text="t('common.loading')"></span>
     </button>
     <button @click="currentPage.fetchPublicData()" 
             class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors duration-200 disabled:opacity-50"
             :disabled="currentPage.isLoading">
-        <span x-show="!currentPage.isLoading">Fetch Public Data</span>
-        <span x-show="currentPage.isLoading">Loading...</span>
+        <span x-show="!currentPage.isLoading" x-text="t('landing.fetchPublic')"></span>
+        <span x-show="currentPage.isLoading" x-text="t('common.loading')"></span>
     </button>
 
     <button @click="loadPage('view-container', 'testpage');" 
             class="w-full bg-yellow-600 text-white py-2 px-4 rounded-md hover:bg-yellow-700 transition-colors duration-200 disabled:opacity-50"
             :disabled="currentPage.isLoading">
-        <span x-show="!currentPage.isLoading">Load Test Page</span>
-        <span x-show="currentPage.isLoading">Loading...</span>
+        <span x-show="!currentPage.isLoading" x-text="t('landing.loadTestPage')"></span>
+        <span x-show="currentPage.isLoading" x-text="t('common.loading')"></span>
     </button>
 
-    <!-- Error Message -->
     <div x-show="currentPage.error" 
         class="mt-4 p-4 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-md" 
         x-text="currentPage.error">
     </div>
 
-    <!-- Response Data -->
     <div x-show="currentPage.response" class="mt-4">
-        <h2 class="text-lg font-semibold mb-2 text-gray-800 dark:text-white">Response:</h2>
+        <h2 class="text-lg font-semibold mb-2 text-gray-800 dark:text-white" x-text="t('common.response')"></h2>
         <pre class="bg-gray-100 dark:bg-gray-700 p-4 rounded-md overflow-x-auto text-gray-800 dark:text-gray-200" x-text="JSON.stringify(currentPage.response, null, 2)"></pre>
     </div>
 

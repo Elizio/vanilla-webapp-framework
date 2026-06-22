@@ -12,16 +12,13 @@ import welcomeTpl from '../templates/pages/welcome.hbs?raw';
 import landingTpl from '../templates/pages/landingpage.hbs?raw';
 import testTpl from '../templates/pages/testpage.hbs?raw';
 
-const frameworkDescription =
-    'Vanilla WebApp Framework — lightweight Flask and Alpine.js starter for entrepreneur solutions.';
-
 export const pages = {
     menu: {
         template: menuTpl,
         controller: menuController,
         seo: {
             visibility: 'app',
-            title: 'Menu — Vanilla WebApp Demo',
+            titleKey: 'seo.menu.title',
         },
     },
     login: {
@@ -29,8 +26,8 @@ export const pages = {
         controller: loginController,
         seo: {
             visibility: 'auth',
-            title: 'Login — Vanilla WebApp Demo',
-            description: frameworkDescription,
+            titleKey: 'seo.login.title',
+            descriptionKey: 'seo.frameworkDescription',
         },
     },
     user_registry: {
@@ -38,8 +35,8 @@ export const pages = {
         controller: userRegistryController,
         seo: {
             visibility: 'auth',
-            title: 'Register — Vanilla WebApp Demo',
-            description: frameworkDescription,
+            titleKey: 'seo.register.title',
+            descriptionKey: 'seo.frameworkDescription',
         },
     },
     welcome: {
@@ -47,8 +44,8 @@ export const pages = {
         controller: welcomeController,
         seo: {
             visibility: 'public',
-            title: 'Vanilla WebApp Framework — Ship your SaaS faster',
-            description: frameworkDescription,
+            titleKey: 'seo.welcome.title',
+            descriptionKey: 'seo.welcome.description',
         },
     },
     landingpage: {
@@ -56,8 +53,8 @@ export const pages = {
         controller: landingPageController,
         seo: {
             visibility: 'app',
-            title: 'Vanilla WebApp Demo',
-            description: frameworkDescription,
+            titleKey: 'seo.landing.title',
+            descriptionKey: 'seo.frameworkDescription',
         },
     },
     testpage: {
@@ -65,7 +62,7 @@ export const pages = {
         controller: testPageController,
         seo: {
             visibility: 'app',
-            title: 'Test Page — Vanilla WebApp Demo',
+            titleKey: 'seo.testpage.title',
         },
     },
 };

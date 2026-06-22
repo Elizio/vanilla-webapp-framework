@@ -1,9 +1,23 @@
+/**
+ * SPA shell: page registry router, OAuth fragment handler, Alpine root state.
+ * @module app
+ */
 import { loginController } from './controllers/login.js';
 import { menuController } from './controllers/menu.js';
 import { welcomeController } from './controllers/welcome.js';
 import { pages } from './pages.js';
 import { applySeo, SEO_MODE } from './seo.js';
+import {
+    initLocale,
+    setLocale as applyLocale,
+    getLocale,
+    t as translate,
+    tError as translateError,
+} from './i18n.js';
 
+/**
+ * @param {object} app - Root spaApp instance.
+ */
 function handleOAuthFragment(app) {
     const hash = window.location.hash.slice(1);
     if (!hash) {
@@ -20,21 +34,66 @@ function handleOAuthFragment(app) {
         localStorage.setItem('token', token);
         app.isLoggedIn = true;
     } else if (authError) {
-        loginController.error = decodeURIComponent(authError);
+        loginController.error = app.tError(authError);
         app.showLogin = true;
         applySeo(pages.login.seo, SEO_MODE);
     }
 }
 
+/**
+ * Create the Alpine root application object.
+ * @returns {object} Alpine x-data root (isLoggedIn, loadPage, controllers, …)
+ */
 export const createSpaApp = () => {
     const app = {
         isLoggedIn: !!localStorage.getItem('token'),
         showLogin: false,
         oauthProviders: [],
         currentPage: {},
+        activeViewPageKey: 'landingpage',
+        activeAuthPageKey: 'login',
+        locale: initLocale(),
         menuController: menuController,
         loginController: loginController,
         welcomeController: welcomeController,
+
+        /**
+         * @param {string} key
+         * @param {Record<string, string|number>} [params]
+         * @returns {string}
+         */
+        t(key, params) {
+            return translate(key, params);
+        },
+
+        /**
+         * @param {string} code
+         * @returns {string}
+         */
+        tError(code) {
+            return translateError(code);
+        },
+
+        /**
+         * @param {string} locale
+         */
+        setLocale(locale) {
+            applyLocale(locale);
+            this.locale = getLocale();
+            this.refreshMountedPages();
+        },
+
+        refreshMountedPages() {
+            if (this.isLoggedIn) {
+                this.loadPage('menu-container', 'menu');
+                this.loadPage('view-container', this.activeViewPageKey);
+            } else if (this.showLogin) {
+                this.loadPage('login-register-container', this.activeAuthPageKey);
+            } else {
+                this.loadPage('public-container', 'welcome');
+            }
+            this.applyInitialSeo();
+        },
 
         showLoginPage() {
             this.showLogin = true;
@@ -49,7 +108,9 @@ export const createSpaApp = () => {
 
         applyInitialSeo() {
             if (this.isLoggedIn) {
-                applySeo(pages.landingpage.seo, SEO_MODE);
+                applySeo(pages[this.activeViewPageKey]?.seo ?? pages.landingpage.seo, SEO_MODE);
+            } else if (this.showLogin) {
+                applySeo(pages[this.activeAuthPageKey]?.seo ?? pages.login.seo, SEO_MODE);
             } else {
                 applySeo(pages.welcome.seo, SEO_MODE);
             }
@@ -72,15 +133,21 @@ export const createSpaApp = () => {
 
         startSocialLogin(provider) {
             if (!this.isOAuthEnabled(provider)) {
-                const envPrefix = provider.toUpperCase();
-                loginController.error =
-                    `${provider.charAt(0).toUpperCase()}${provider.slice(1)} login is not configured. ` +
-                    `Add ${envPrefix}_CLIENT_ID and ${envPrefix}_CLIENT_SECRET to .env, then restart Flask.`;
+                const label = provider.charAt(0).toUpperCase() + provider.slice(1);
+                loginController.error = this.t('errors.OAUTH_NOT_CONFIGURED', {
+                    provider: label,
+                    envPrefix: provider.toUpperCase(),
+                });
                 return;
             }
             window.location.href = `/api/auth/${provider}/login`;
         },
 
+        /**
+         * Load a registered page into a DOM target and init Alpine on it.
+         * @param {string} elementIdTarget - DOM id of the mount point.
+         * @param {string} pageKey - Key in pages.js registry.
+         */
         loadPage(elementIdTarget, pageKey) {
             const page = pages[pageKey];
             if (!page) {
@@ -92,6 +159,13 @@ export const createSpaApp = () => {
             if (!targetEl) {
                 console.error(`Element not found: ${elementIdTarget}`);
                 return;
+            }
+
+            if (elementIdTarget === 'view-container') {
+                this.activeViewPageKey = pageKey;
+            }
+            if (elementIdTarget === 'login-register-container') {
+                this.activeAuthPageKey = pageKey;
             }
 
             window.Alpine.mutateDom(() => {
@@ -132,11 +206,11 @@ export const createSpaApp = () => {
         logout() {
             localStorage.removeItem('token');
             window.location.href = '/';
-        }
+        },
     };
 
     app.menuController.init();
-    app.loginController.init();
+    app.loginController.init(app);
     app.welcomeController.init();
     app.refreshOAuthProviders();
 

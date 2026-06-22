@@ -35,7 +35,7 @@ describe('loadPage', () => {
 
         const container = document.getElementById('public-container');
         expect(container.innerHTML.length).toBeGreaterThan(0);
-        expect(container.innerHTML).toContain('Ship your entrepreneur SaaS faster');
+        expect(container.innerHTML).toContain("t('welcome.heroTitle')");
     });
 
     it('showLoginPage toggles showLogin and showWelcomePage resets it', () => {

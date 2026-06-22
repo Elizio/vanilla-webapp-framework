@@ -2,6 +2,7 @@
  * Client-side SEO metadata for SPA pages.
  * @module seo
  */
+import { t } from './i18n.js';
 
 /** @type {'auth-first' | 'public-first'} Fork SEO mode from build env. */
 export const SEO_MODE = import.meta.env.VITE_SEO_MODE || 'auth-first';
@@ -78,12 +79,15 @@ export function applySeo(seo = {}, mode = SEO_MODE) {
     const visibility = resolveVisibility(seo, mode);
     const indexable = isIndexable(visibility);
 
-    if (seo.title) {
-        document.title = seo.title;
+    const title = seo.titleKey ? t(seo.titleKey) : seo.title;
+    const description = seo.descriptionKey ? t(seo.descriptionKey) : seo.description;
+
+    if (title) {
+        document.title = title;
     }
 
-    if (seo.description) {
-        upsertMeta('description', seo.description);
+    if (description) {
+        upsertMeta('description', description);
     }
 
     upsertMeta('robots', indexable ? 'index, follow' : 'noindex, nofollow');

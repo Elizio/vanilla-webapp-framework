@@ -67,15 +67,16 @@ export const welcomeController = {
 
     /** Copy the git clone command to the clipboard. */
     async copyCloneCommand() {
+        const translate = window.spaApp?.t?.bind(window.spaApp) ?? ((key) => key);
         try {
             if (navigator.clipboard?.writeText) {
                 await navigator.clipboard.writeText(this.cloneCommand);
-                this.copyFeedback = 'Copied!';
+                this.copyFeedback = translate('welcome.copied');
             } else {
-                this.copyFeedback = 'Copy unavailable';
+                this.copyFeedback = translate('welcome.copyUnavailable');
             }
         } catch {
-            this.copyFeedback = 'Copy failed';
+            this.copyFeedback = translate('welcome.copyFailed');
         }
 
         setTimeout(() => {
