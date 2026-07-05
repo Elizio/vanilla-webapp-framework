@@ -77,9 +77,7 @@ export const userRegistryController = {
 
             if (data.authenticated || data.code === 'USER_CREATED') {
                 this.success = this.appContext.t('register.success');
-                this.appContext.isLoggedIn = true;
-                this.appContext.showLogin = false;
-                this.appContext.refreshMountedPages();
+                this.appContext.enterAuthenticatedApp();
             } else {
                 this.error = this.appContext.tError(data.code || 'REGISTRATION_FAILED');
             }

@@ -3,6 +3,9 @@ import '../styles/main.css';
 import { createSpaApp } from './app.js';
 
 window.Alpine = Alpine;
-window.spaApp = createSpaApp();
+
+document.addEventListener('alpine:init', () => {
+    Alpine.data('spaApp', () => createSpaApp());
+});
+
 Alpine.start();
-window.spaApp.bootApp();

@@ -38,14 +38,39 @@ describe('loadPage', () => {
         expect(container.innerHTML).toContain("t('welcome.heroTitle')");
     });
 
-    it('showLoginPage toggles showLogin and showWelcomePage resets it', () => {
+    it('showLoginPage toggles showLogin and loads login template', () => {
+        document.body.innerHTML =
+            '<div id="login-register-container"></div><div id="public-container"></div>';
         const app = createSpaApp();
+
         expect(app.showLogin).toBe(false);
 
         app.showLoginPage();
         expect(app.showLogin).toBe(true);
+        expect(document.getElementById('login-register-container').innerHTML.length).toBeGreaterThan(0);
 
         app.showWelcomePage();
         expect(app.showLogin).toBe(false);
+        expect(document.getElementById('public-container').innerHTML.length).toBeGreaterThan(0);
+    });
+
+    it('enterAuthenticatedApp mounts app shell and routes to /app', async () => {
+        document.body.innerHTML = `
+            <div id="menu-container"></div>
+            <div id="view-container"></div>
+        `;
+        window.Alpine.nextTick = (cb) => cb();
+
+        const app = createSpaApp();
+        window.history.replaceState(null, '', '/');
+
+        app.enterAuthenticatedApp();
+
+        expect(app.isLoggedIn).toBe(true);
+        expect(app.showLogin).toBe(false);
+        expect(app.activeViewPageKey).toBe('landingpage');
+        expect(document.getElementById('view-container').innerHTML.length).toBeGreaterThan(0);
+        expect(document.getElementById('menu-container').innerHTML.length).toBeGreaterThan(0);
+        expect(window.location.pathname).toBe('/app');
     });
 });

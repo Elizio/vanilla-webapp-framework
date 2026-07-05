@@ -6,7 +6,7 @@ import { loginController } from './controllers/login.js';
 import { menuController } from './controllers/menu.js';
 import { welcomeController } from './controllers/welcome.js';
 import { pages, PAGE_ROUTES, PATH_TO_PAGE } from './pages.js';
-import { applySeo, SEO_MODE } from './seo.js';
+import { applySeo, resolveVisibility, SEO_MODE } from './seo.js';
 import {
     initLocale,
     setLocale as applyLocale,
@@ -32,6 +32,52 @@ function pageKeyFromPath() {
 }
 
 /**
+ * Pick the in-app page for an authenticated session from the current URL.
+ * Public/auth paths (e.g. `/`) fall back to the default app home.
+ * @returns {string}
+ */
+function resolveLoggedInPageKey() {
+    const routedPage = pageKeyFromPath();
+    if (routedPage && pages[routedPage]) {
+        const visibility = resolveVisibility(pages[routedPage].seo, SEO_MODE);
+        if (visibility === 'app') {
+            return routedPage;
+        }
+    }
+    return 'landingpage';
+}
+
+/**
+ * Sync the browser URL to a registered app page route.
+ * @param {string} pageKey
+ * @param {{ replace?: boolean }} [options]
+ */
+function syncUrlForPage(pageKey, { replace = false } = {}) {
+    const targetPath = PAGE_ROUTES[pageKey];
+    if (!targetPath || window.location.pathname === targetPath) {
+        return;
+    }
+    const state = { pageKey };
+    if (replace) {
+        window.history.replaceState(state, '', targetPath);
+    } else {
+        window.history.pushState(state, '', targetPath);
+    }
+}
+
+/**
+ * Run callback after Alpine applies pending DOM updates (fallback: microtask).
+ * @param {() => void} callback
+ */
+function afterAlpineUpdate(callback) {
+    if (typeof window.Alpine?.nextTick === 'function') {
+        window.Alpine.nextTick(callback);
+    } else {
+        queueMicrotask(callback);
+    }
+}
+
+/**
  * @param {object} app - Root spaApp instance.
  */
 function handleOAuthQuery(app) {
@@ -47,6 +93,7 @@ function handleOAuthQuery(app) {
 
     if (authSuccess === 'success') {
         app.isLoggedIn = true;
+        app.showLogin = false;
     } else if (authError) {
         loginController.error = app.tError(authError);
         app.showLogin = true;
@@ -62,6 +109,7 @@ export const createSpaApp = () => {
     const app = {
         isLoggedIn: false,
         showLogin: false,
+        sidebarOpen: typeof window !== 'undefined' && window.innerWidth >= 1024,
         oauthProviders: [],
         currentPage: {},
         activeViewPageKey: 'landingpage',
@@ -109,15 +157,30 @@ export const createSpaApp = () => {
             this.applyInitialSeo();
         },
 
+        /**
+         * Transition from auth UI to the authenticated app shell and route.
+         * @param {string} [pageKey='landingpage'] - App page to show after login.
+         */
+        enterAuthenticatedApp(pageKey = 'landingpage') {
+            this.isLoggedIn = true;
+            this.showLogin = false;
+            this.sidebarOpen = true;
+            this.activeViewPageKey = pages[pageKey] ? pageKey : 'landingpage';
+
+            afterAlpineUpdate(() => {
+                this.refreshMountedPages();
+                syncUrlForPage(this.activeViewPageKey, { replace: true });
+            });
+        },
+
         showLoginPage() {
             this.showLogin = true;
-            this.refreshOAuthProviders();
-            applySeo(pages.login.seo, SEO_MODE);
+            this.refreshMountedPages();
         },
 
         showWelcomePage() {
             this.showLogin = false;
-            applySeo(pages.welcome.seo, SEO_MODE);
+            this.refreshMountedPages();
         },
 
         applyInitialSeo() {
@@ -155,6 +218,10 @@ export const createSpaApp = () => {
                 return;
             }
             window.location.href = `/api/auth/${provider}/login`;
+        },
+
+        toggleSidebar() {
+            this.sidebarOpen = !this.sidebarOpen;
         },
 
         /**
@@ -200,10 +267,7 @@ export const createSpaApp = () => {
             }
 
             if (elementIdTarget === 'view-container' && PAGE_ROUTES[pageKey]) {
-                const targetPath = PAGE_ROUTES[pageKey];
-                if (window.location.pathname !== targetPath) {
-                    window.history.pushState({ pageKey }, '', targetPath);
-                }
+                syncUrlForPage(pageKey);
             }
 
             if (pageKey === 'login') {
@@ -222,22 +286,24 @@ export const createSpaApp = () => {
             this.isLoggedIn = session.authenticated === true;
             handleOAuthQuery(this);
 
-            const routedPage = pageKeyFromPath();
-            if (this.isLoggedIn && routedPage && pages[routedPage]) {
-                this.activeViewPageKey = routedPage;
+            if (this.isLoggedIn) {
+                this.sidebarOpen = true;
+                this.activeViewPageKey = resolveLoggedInPageKey();
             }
 
             window.addEventListener('popstate', () => {
-                const key = pageKeyFromPath();
-                if (this.isLoggedIn && key && pages[key]) {
-                    this.activeViewPageKey = key;
-                    this.loadPage('view-container', key);
+                if (!this.isLoggedIn) {
+                    return;
                 }
+                const key = resolveLoggedInPageKey();
+                this.activeViewPageKey = key;
+                this.loadPage('view-container', key);
             });
 
             if (this.isLoggedIn) {
                 this.loadPage('menu-container', 'menu');
                 this.loadPage('view-container', this.activeViewPageKey);
+                syncUrlForPage(this.activeViewPageKey, { replace: true });
             } else if (this.showLogin) {
                 this.loadPage('login-register-container', this.activeAuthPageKey);
             } else {
@@ -256,6 +322,9 @@ export const createSpaApp = () => {
             this.isLoggedIn = false;
             this.showLogin = false;
             await initCsrf();
+            if (window.location.pathname !== '/') {
+                window.history.replaceState(null, '', '/');
+            }
             this.refreshMountedPages();
         },
     };

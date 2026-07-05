@@ -71,9 +71,7 @@ export const loginController = {
 
             if (data.authenticated) {
                 this.isLoggedIn = true;
-                app.isLoggedIn = true;
-                app.showLogin = false;
-                app.refreshMountedPages();
+                app.enterAuthenticatedApp();
             } else {
                 this.error = app.tError(data.code || 'LOGIN_FAILED');
             }
