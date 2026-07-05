@@ -4,7 +4,7 @@ This is the app-owned source of truth for feature access. Feature code should
 call :func:`user_has_plan` or use :func:`entitlement_required`, never the
 payment provider directly.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import wraps
 from typing import List, Optional
 
@@ -39,7 +39,7 @@ def user_has_plan(user_id: int, plan_key: str) -> bool:
     rows = BillingEntitlement.query.filter_by(
         user_id=user_id, plan_key=plan_key, status=ACTIVE_STATUS
     ).all()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     for row in rows:
         if row.current_period_end is None or row.current_period_end > now:
             return True
@@ -79,7 +79,7 @@ def upsert_entitlement(
     if provider_reference_id is not None:
         entitlement.provider_reference_id = provider_reference_id
     entitlement.current_period_end = current_period_end
-    entitlement.updated_at = datetime.utcnow()
+    entitlement.updated_at = datetime.now(timezone.utc)
     return entitlement
 
 

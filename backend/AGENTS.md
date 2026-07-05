@@ -199,25 +199,20 @@ Human provider setup (dashboard, webhooks, test mode) → [docs/billing-configur
 
 Flow:
 
-1. `POST /api/register` — creates user with werkzeug password hash
-2. `POST /api/login` — returns `{ "token": "<jwt>" }` (HS256, 1h expiry)
-3. `GET /api/auth/<provider>/login` — OAuth redirect (Google, Facebook); callback issues JWT via URL fragment
-4. Protected routes use `@token_required` — reads `Authorization: Bearer <token>`
+1. `POST /api/register` — creates user, sets httpOnly session cookie
+2. `POST /api/login` — sets httpOnly `auth_token` cookie (JWT inside)
+3. `GET /api/auth/<provider>/login` — OAuth redirect; callback sets cookie
+4. `GET /api/auth/session` — SPA bootstrap (authenticated + username)
+5. `POST /api/logout` — clears cookie (CSRF-protected)
+6. Protected routes use `@token_required` — reads cookie or `Authorization: Bearer`
 
-The decorator injects `current_user` as the first argument:
+CSRF: `GET /api/csrf` then send `X-CSRF-Token` header on mutating routes.
 
-```python
-@api_bp.route('/api/data', methods=['GET'])
-@token_required
-def protected_data(current_user):
-    return jsonify({'message': 'Secure data'})
-```
-
-**Canonical reference:** `@backend/api/auth.py`
+**Canonical reference:** `@backend/api/auth.py`, `@backend/api/session_auth.py`, `@backend/api/csrf.py`
 
 ### Config note
 
-`auth.py` and `database.py` read `os.environ` directly. New code should prefer `AppConfig` / `current_app.config` to avoid config drift.
+New code should read settings from `AppConfig.get_instance()` or `current_app.config`. Call `load_env_file()` only if you must read env before Flask starts (see `database.py`).
 
 ## Database layer
 
@@ -261,13 +256,16 @@ No manual schema coordination in dev/test — use Alembic for production (see Al
 
 ## Configuration
 
-`AppConfig` singleton (`backend/config/app_config.py`):
+`AppConfig` singleton ([`backend/config/app_config.py`](backend/config/app_config.py)):
 
-- Loads `.env` via python-dotenv
-- `APP_PROFILE` drives `DEBUG`, `TESTING`, and test DB fallback
+- **`load_env_file()`** — loads `<repo>/.env` once via python-dotenv (`override=False`); skipped when `APP_PROFILE=production`
+- Optional override path: set `ENV_FILE` before starting the app
+- **`AppConfig.get_instance()`** — reads validated settings from `os.environ` after the file load
 - Required in non-testing: `FLASK_SECRET`, `JWT_SECRET`, `DATABASE_URI`
 
-`UserConfig` provides `PROJECT_FOLDER` for log file paths.
+`UserConfig` provides `PROJECT_FOLDER` for log file paths (also uses `load_env_file()`).
+
+`database.py` reads the database URI from `AppConfig`, not raw `os.environ`.
 
 Logging writes to `{PROJECT_FOLDER}/logs/app.log` via `setup_logging(app)`.
 

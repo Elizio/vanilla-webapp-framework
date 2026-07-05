@@ -9,6 +9,7 @@ from ..db_repository.database import db_session
 from ..models.user import User
 from .error_codes import PROVIDER_NOT_CONFIGURED
 from .jwt_utils import generate_token
+from .session_auth import set_auth_cookie
 
 oauth = OAuth()
 oauth_bp = Blueprint('oauth', __name__)
@@ -62,10 +63,11 @@ def _redirect_uri(provider):
     return f'{base}/api/auth/{provider}/callback'
 
 
-def _frontend_redirect(**fragment):
+def _frontend_redirect(**query):
     frontend = current_app.config.get('FRONTEND_URL', '/').rstrip('/')
-    parts = '&'.join(f'{k}={quote(str(v))}' for k, v in fragment.items())
-    return redirect(f'{frontend}/#{parts}')
+    parts = '&'.join(f'{k}={quote(str(v))}' for k, v in query.items())
+    url = f'{frontend}/?{parts}' if parts else frontend
+    return redirect(url)
 
 
 def _generate_username(email, name, provider, oauth_id):
@@ -93,6 +95,18 @@ def find_or_create_oauth_user(provider, oauth_id, email, name):
     ).first()
     if user:
         return user
+
+    if email:
+        existing = User.query.filter_by(email=email).first()
+        if existing and existing.oauth_provider is None:
+            existing.oauth_provider = provider
+            existing.oauth_id = oauth_id
+            try:
+                db_session.commit()
+            except Exception:
+                db_session.rollback()
+                raise
+            return existing
 
     user = User(
         username=_generate_username(email, name, provider, oauth_id),
@@ -206,8 +220,9 @@ def oauth_callback(provider):
             profile.get('email'),
             profile.get('name'),
         )
-        jwt_token = generate_token(user.id)
-        return _frontend_redirect(token=jwt_token)
+        response = _frontend_redirect(auth='success')
+        set_auth_cookie(response, user.id)
+        return response
     except Exception as exc:
         current_app.logger.error('OAuth callback failed for %s: %s', provider, exc)
         return _frontend_redirect(auth_error='AUTH_FAILED')

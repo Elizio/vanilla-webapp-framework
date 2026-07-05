@@ -86,5 +86,4 @@ def spend_credits(user_id: int, amount_cents: int) -> bool:
             provider_reference_id=None,
         )
     )
-    db_session.commit()
     return True

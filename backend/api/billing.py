@@ -8,12 +8,14 @@ from ..billing.entitlements import get_entitlements
 from ..billing.plans import public_plans
 from ..billing.providers.base import WebhookVerificationError
 from .auth import token_required
+from .csrf import csrf_protect
 from .error_codes import (
     BILLING_NOT_CONFIGURED,
     CHECKOUT_FAILED,
     INVALID_AMOUNT,
     INVALID_PLAN,
     WEBHOOK_INVALID,
+    INTERNAL_ERROR,
     error_response,
 )
 
@@ -74,6 +76,7 @@ def billing_status(current_user):
 
 @billing_bp.route('/api/billing/checkout', methods=['POST'])
 @token_required
+@csrf_protect
 def create_checkout(current_user):
     """
     Create a hosted checkout for a plan and return its URL.
@@ -152,6 +155,6 @@ def lemon_squeezy_webhook():
         return error_response(WEBHOOK_INVALID, 400)
     except Exception as exc:  # noqa: BLE001 - log and report failure
         current_app.logger.error('Webhook processing failed: %s', exc)
-        return error_response(WEBHOOK_INVALID, 400)
+        return error_response(INTERNAL_ERROR, 500)
 
     return jsonify({'status': 'ok'})

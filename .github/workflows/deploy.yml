@@ -1,0 +1,21 @@
+# DigitalOcean deploy stub — activate in your fork when ready.
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment
+        required: true
+        default: staging
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy placeholder
+        run: |
+          echo "Configure DigitalOcean App Platform or droplet deploy steps here."
+          echo "See README Run by environment → Deployment for guidance."

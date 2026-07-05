@@ -2,6 +2,7 @@
  * Login Controller
  * Handles user authentication and login functionality
  */
+import { apiFetch } from '../api.js';
 
 /** API module for handling login */
 export const api = {
@@ -11,9 +12,8 @@ export const api = {
      * @returns {Promise<object>}
      */
     async loginApi(username, password) {
-        const response = await fetch('/api/login', {
+        const response = await apiFetch('/api/login', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password }),
         });
 
@@ -44,11 +44,9 @@ export const loginController = {
     error: null,
     response: null,
     isLoggedIn: false,
-    token: null,
 
     init() {
-        this.isLoggedIn = !!localStorage.getItem('token');
-        this.token = localStorage.getItem('token');
+        this.isLoggedIn = false;
     },
 
     async login() {
@@ -71,11 +69,11 @@ export const loginController = {
         try {
             const data = await api.loginApi(this.username, this.password);
 
-            if (data.token) {
-                this.token = data.token;
-                localStorage.setItem('token', data.token);
+            if (data.authenticated) {
                 this.isLoggedIn = true;
-                window.location.href = '/';
+                app.isLoggedIn = true;
+                app.showLogin = false;
+                app.refreshMountedPages();
             } else {
                 this.error = app.tError(data.code || 'LOGIN_FAILED');
             }

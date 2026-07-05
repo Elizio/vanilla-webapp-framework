@@ -5,6 +5,8 @@ import { landingPageController } from './controllers/landingpage.js';
 import { testPageController } from './controllers/testpage.js';
 import { userRegistryController } from './controllers/user_registry.js';
 import { billingController } from './controllers/billing.js';
+import { settingsController } from './controllers/settings.js';
+import { profileController } from './controllers/profile.js';
 
 import menuTpl from '../templates/partials/menu.hbs?raw';
 import loginTpl from '../templates/partials/login.hbs?raw';
@@ -13,6 +15,23 @@ import welcomeTpl from '../templates/pages/welcome.hbs?raw';
 import landingTpl from '../templates/pages/landingpage.hbs?raw';
 import testTpl from '../templates/pages/testpage.hbs?raw';
 import billingTpl from '../templates/pages/billing.hbs?raw';
+import settingsTpl from '../templates/pages/settings.hbs?raw';
+import profileTpl from '../templates/pages/profile.hbs?raw';
+
+/** Map page keys to browser paths for History API routing. */
+export const PAGE_ROUTES = {
+    welcome: '/',
+    landingpage: '/app',
+    testpage: '/app/analytics',
+    billing: '/app/billing',
+    settings: '/app/settings',
+    profile: '/app/profile',
+};
+
+/** Reverse lookup: pathname → page key (longest prefix wins). */
+export const PATH_TO_PAGE = Object.fromEntries(
+    Object.entries(PAGE_ROUTES).map(([key, path]) => [path, key]),
+);
 
 export const pages = {
     menu: {
@@ -73,6 +92,22 @@ export const pages = {
         seo: {
             visibility: 'app',
             titleKey: 'seo.billing.title',
+        },
+    },
+    settings: {
+        template: settingsTpl,
+        controller: settingsController,
+        seo: {
+            visibility: 'app',
+            titleKey: 'seo.settings.title',
+        },
+    },
+    profile: {
+        template: profileTpl,
+        controller: profileController,
+        seo: {
+            visibility: 'app',
+            titleKey: 'seo.profile.title',
         },
     },
 };

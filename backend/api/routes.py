@@ -1,6 +1,9 @@
 from flask import Blueprint, jsonify
+from sqlalchemy import text
+
 from .auth import token_required
 from ..billing.entitlements import entitlement_required
+from ..db_repository.database import db_session
 
 api_bp = Blueprint('api', __name__)
 
@@ -15,13 +18,14 @@ def health():
     responses:
       200:
         description: Service is healthy
-        schema:
-          type: object
-          properties:
-            status:
-              type: string
+      503:
+        description: Database unavailable
     """
-    return jsonify({'status': 'ok'})
+    try:
+        db_session.execute(text('SELECT 1'))
+    except Exception:
+        return jsonify({'status': 'degraded', 'database': 'unavailable'}), 503
+    return jsonify({'status': 'ok', 'database': 'ok'})
 
 
 @api_bp.route('/api/public', methods=['GET'])

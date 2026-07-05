@@ -1,11 +1,11 @@
 /**
- * SPA shell: page registry router, OAuth fragment handler, Alpine root state.
+ * SPA shell: page registry router, OAuth query handler, Alpine root state.
  * @module app
  */
 import { loginController } from './controllers/login.js';
 import { menuController } from './controllers/menu.js';
 import { welcomeController } from './controllers/welcome.js';
-import { pages } from './pages.js';
+import { pages, PAGE_ROUTES, PATH_TO_PAGE } from './pages.js';
 import { applySeo, SEO_MODE } from './seo.js';
 import {
     initLocale,
@@ -14,24 +14,38 @@ import {
     t as translate,
     tError as translateError,
 } from './i18n.js';
+import { apiFetch, fetchSession, initCsrf, resetCsrf } from './api.js';
+
+/**
+ * Resolve a page key from the current pathname.
+ * @returns {string|null}
+ */
+function pageKeyFromPath() {
+    const path = window.location.pathname.replace(/\/$/, '') || '/';
+    if (PATH_TO_PAGE[path]) {
+        return PATH_TO_PAGE[path];
+    }
+    const match = Object.entries(PAGE_ROUTES)
+        .sort((a, b) => b[1].length - a[1].length)
+        .find(([, routePath]) => path.startsWith(routePath) && routePath !== '/');
+    return match ? match[0] : null;
+}
 
 /**
  * @param {object} app - Root spaApp instance.
  */
-function handleOAuthFragment(app) {
-    const hash = window.location.hash.slice(1);
-    if (!hash) {
+function handleOAuthQuery(app) {
+    const params = new URLSearchParams(window.location.search);
+    const authSuccess = params.get('auth');
+    const authError = params.get('auth_error');
+
+    if (!authSuccess && !authError) {
         return;
     }
 
-    const params = new URLSearchParams(hash);
-    const token = params.get('token');
-    const authError = params.get('auth_error');
+    window.history.replaceState(null, '', window.location.pathname);
 
-    window.history.replaceState(null, '', window.location.pathname + window.location.search);
-
-    if (token) {
-        localStorage.setItem('token', token);
+    if (authSuccess === 'success') {
         app.isLoggedIn = true;
     } else if (authError) {
         loginController.error = app.tError(authError);
@@ -46,7 +60,7 @@ function handleOAuthFragment(app) {
  */
 export const createSpaApp = () => {
     const app = {
-        isLoggedIn: !!localStorage.getItem('token'),
+        isLoggedIn: false,
         showLogin: false,
         oauthProviders: [],
         currentPage: {},
@@ -118,7 +132,7 @@ export const createSpaApp = () => {
 
         async refreshOAuthProviders() {
             try {
-                const response = await fetch('/api/auth/providers');
+                const response = await apiFetch('/api/auth/providers');
                 if (response.ok) {
                     this.oauthProviders = await response.json();
                 }
@@ -185,6 +199,13 @@ export const createSpaApp = () => {
                 applySeo(page.seo, SEO_MODE);
             }
 
+            if (elementIdTarget === 'view-container' && PAGE_ROUTES[pageKey]) {
+                const targetPath = PAGE_ROUTES[pageKey];
+                if (window.location.pathname !== targetPath) {
+                    window.history.pushState({ pageKey }, '', targetPath);
+                }
+            }
+
             if (pageKey === 'login') {
                 this.refreshOAuthProviders();
             }
@@ -195,26 +216,53 @@ export const createSpaApp = () => {
         },
 
         /** Load shell partials and initial page content after Alpine.start(). */
-        bootApp() {
-            this.loadPage('menu-container', 'menu');
-            this.loadPage('login-register-container', 'login');
-            this.loadPage('public-container', 'welcome');
-            this.loadPage('view-container', 'landingpage');
+        async bootApp() {
+            await initCsrf();
+            const session = await fetchSession();
+            this.isLoggedIn = session.authenticated === true;
+            handleOAuthQuery(this);
+
+            const routedPage = pageKeyFromPath();
+            if (this.isLoggedIn && routedPage && pages[routedPage]) {
+                this.activeViewPageKey = routedPage;
+            }
+
+            window.addEventListener('popstate', () => {
+                const key = pageKeyFromPath();
+                if (this.isLoggedIn && key && pages[key]) {
+                    this.activeViewPageKey = key;
+                    this.loadPage('view-container', key);
+                }
+            });
+
+            if (this.isLoggedIn) {
+                this.loadPage('menu-container', 'menu');
+                this.loadPage('view-container', this.activeViewPageKey);
+            } else if (this.showLogin) {
+                this.loadPage('login-register-container', this.activeAuthPageKey);
+            } else {
+                this.loadPage('public-container', 'welcome');
+            }
             this.applyInitialSeo();
         },
 
-        logout() {
-            localStorage.removeItem('token');
-            window.location.href = '/';
+        async logout() {
+            try {
+                await apiFetch('/api/logout', { method: 'POST' });
+            } catch (err) {
+                console.error('Logout failed:', err);
+            }
+            resetCsrf();
+            this.isLoggedIn = false;
+            this.showLogin = false;
+            await initCsrf();
+            this.refreshMountedPages();
         },
     };
 
     app.menuController.init();
     app.loginController.init();
     app.welcomeController.init();
-    app.refreshOAuthProviders();
-
-    handleOAuthFragment(app);
 
     window.menuController = app.menuController;
     window.loginController = app.loginController;

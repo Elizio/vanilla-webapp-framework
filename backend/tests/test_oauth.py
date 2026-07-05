@@ -3,6 +3,7 @@ import pytest
 
 from ..models.user import User
 from ..api.oauth import register_oauth_clients
+from ..api.session_auth import AUTH_COOKIE_NAME
 
 
 @pytest.fixture
@@ -16,7 +17,17 @@ def oauth_client(test_app, test_db):
     return test_app.test_client()
 
 
-def test_list_providers_empty(test_client, test_db):
+def _clear_oauth_config(app):
+    """Disable all OAuth providers for isolated tests."""
+    app.config['GOOGLE_CLIENT_ID'] = ''
+    app.config['GOOGLE_CLIENT_SECRET'] = ''
+    app.config['FACEBOOK_CLIENT_ID'] = ''
+    app.config['FACEBOOK_CLIENT_SECRET'] = ''
+    register_oauth_clients(app)
+
+
+def test_list_providers_empty(test_app, test_client, test_db):
+    _clear_oauth_config(test_app)
     response = test_client.get('/api/auth/providers')
     assert response.status_code == 200
     assert response.json == []
@@ -47,13 +58,13 @@ def test_oauth_login_redirects(oauth_client, monkeypatch):
     assert 'accounts.google.com' in response.location
 
 
-def test_oauth_login_unknown_provider(test_client, test_db):
+def test_oauth_login_unknown_provider(test_app, test_client, test_db):
+    _clear_oauth_config(test_app)
     response = test_client.get('/api/auth/google/login')
     assert response.status_code == 404
 
 
 def test_oauth_callback_creates_user(oauth_client, monkeypatch):
-    import jwt
     from backend.api import oauth as oauth_module
 
     class FakeClient:
@@ -79,19 +90,17 @@ def test_oauth_callback_creates_user(oauth_client, monkeypatch):
     second = oauth_client.get('/api/auth/google/callback?code=fake2')
     assert first.status_code == 302
     assert second.status_code == 302
-    assert '#token=' in first.location
-    assert '#token=' in second.location
+    assert 'auth=success' in first.location
+    assert AUTH_COOKIE_NAME in first.headers.getlist('Set-Cookie')[0]
 
     user = User.query.filter_by(oauth_provider='google', oauth_id='oauth-123').first()
     assert user is not None
     assert user.email == 'social@test.com'
     assert user.password_hash is None
 
-    token1 = first.location.split('#token=')[1]
-    token2 = second.location.split('#token=')[1]
-    user_id_1 = jwt.decode(token1, 'test-jwt-secret-key', algorithms=['HS256'])['user_id']
-    user_id_2 = jwt.decode(token2, 'test-jwt-secret-key', algorithms=['HS256'])['user_id']
-    assert user_id_1 == user_id_2 == user.id
+    session = oauth_client.get('/api/auth/session')
+    assert session.json['authenticated'] is True
+    assert session.json['username'] == user.username
 
 
 def test_oauth_callback_error_redirect(oauth_client, monkeypatch):
@@ -109,4 +118,4 @@ def test_oauth_callback_error_redirect(oauth_client, monkeypatch):
 
     response = oauth_client.get('/api/auth/google/callback?code=fake')
     assert response.status_code == 302
-    assert '#auth_error=' in response.location
+    assert 'auth_error=AUTH_FAILED' in response.location

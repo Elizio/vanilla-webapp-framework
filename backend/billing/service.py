@@ -8,6 +8,7 @@ import json
 from typing import Optional
 
 from flask import current_app
+from sqlalchemy.exc import IntegrityError
 
 from ..db_repository.database import db_session
 from ..models.billing_event import BillingEvent
@@ -86,15 +87,16 @@ def handle_webhook(raw_body: bytes, headers) -> None:
     provider.verify_webhook(raw_body, headers)
     result = provider.parse_webhook(raw_body, headers)
 
-    if _already_processed(provider.name, result.event_id):
+    try:
+        _record_event(provider.name, result, raw_body)
+
+        if result.handled and result.user_id is not None and result.plan_key:
+            _apply_result(provider.name, result)
+
+        _commit()
+    except IntegrityError:
+        db_session.rollback()
         return
-
-    _record_event(provider.name, result, raw_body)
-
-    if result.handled and result.user_id is not None and result.plan_key:
-        _apply_result(provider.name, result)
-
-    _commit()
 
 
 def _already_processed(provider_name: str, event_id: str) -> bool:

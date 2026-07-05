@@ -167,11 +167,11 @@ Backend-first: ship API + tests before frontend integration.
 
 | Item | Status |
 |------|--------|
-| DigitalOcean deploy automation | Not implemented (devops rule 3.4) |
-| Login/logout full-page reload | Still uses `window.location.href = '/'` |
+| DigitalOcean deploy automation | Stub workflow only — fork activates `.github/workflows/deploy.yml` |
 | Flask-SQLAlchemy migration | Deferred — stay on `db_session` singleton |
+| SSR/prerender for SEO-heavy forks | Documented recipe in [frontend/AGENTS.md](frontend/AGENTS.md) |
 
-Resolved in this foundation pass: production static pipeline, page registry, Alembic, CI, slim Docker, cursor rules alignment.
+Resolved in the tech-debt remediation pass: cookie auth + CSRF, CORS lockdown, OAuth email linking, health check, webhook reliability, History API routing, repo hygiene (`.env` path, build artifacts).
 
 ## Agent principles
 

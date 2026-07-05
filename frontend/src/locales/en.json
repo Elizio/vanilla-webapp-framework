@@ -29,6 +29,12 @@
     "noAccount": "Don't have an account? Register",
     "oauthHint": "Social login requires provider keys in .env. Restart Flask after adding them."
   },
+  "settings": {
+    "placeholder": "Settings will be available in a future release."
+  },
+  "profile": {
+    "placeholder": "Profile management will be available in a future release."
+  },
   "register": {
     "title": "Create an Account",
     "username": "Username",
@@ -127,7 +133,7 @@
   "errors": {
     "USERNAME_REQUIRED": "Username is required",
     "PASSWORD_REQUIRED": "Password is required",
-    "PASSWORD_TOO_SHORT": "Password must be at least 6 characters",
+    "PASSWORD_TOO_SHORT": "Password must be at least 8 characters",
     "PASSWORDS_DO_NOT_MATCH": "Passwords do not match",
     "LOGIN_FAILED": "Login failed. Please try again.",
     "REGISTRATION_FAILED": "Registration failed. Please try again.",
@@ -148,6 +154,7 @@
     "INTERNAL_ERROR": "Internal server error",
     "AUTH_FAILED": "Authentication failed",
     "OAUTH_NOT_CONFIGURED": "{provider} login is not configured. Add {envPrefix}_CLIENT_ID and {envPrefix}_CLIENT_SECRET to .env, then restart Flask.",
+    "CSRF_INVALID": "Invalid or missing security token. Refresh the page and try again.",
     "UNKNOWN_ERROR": "An unexpected error occurred"
   },
   "seo": {
@@ -161,6 +168,8 @@
     },
     "landing": { "title": "Vanilla WebApp Demo" },
     "testpage": { "title": "Test Page — Vanilla WebApp Demo" },
-    "billing": { "title": "Billing — Vanilla WebApp Demo" }
+    "billing": { "title": "Billing — Vanilla WebApp Demo" },
+    "settings": { "title": "Settings — Vanilla WebApp Demo" },
+    "profile": { "title": "Profile — Vanilla WebApp Demo" }
   }
 }

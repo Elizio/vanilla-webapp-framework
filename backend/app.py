@@ -1,10 +1,11 @@
 """
 Main application module — dev entrypoint.
 """
-from . import app
+from . import create_app
 from .config.app_config import app_config
 from .config.logging_config import setup_logging
 
+app = create_app()
 setup_logging(app)
 
 if __name__ == '__main__':

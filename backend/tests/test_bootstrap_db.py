@@ -20,7 +20,10 @@ def test_bootstrap_dev_database_upgrades_legacy_schema(tmp_path, monkeypatch):
     monkeypatch.setenv('DATABASE_URI', f'sqlite:///{db_path}')
     monkeypatch.setenv('APP_PROFILE', 'development')
 
+    from backend.config.app_config import reset_app_config_for_tests
     from backend.db_repository import database as db_module
+
+    reset_app_config_for_tests()
 
     db_module.Database._instance = None
     db_module.db = db_module.Database()

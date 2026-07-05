@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Column, Integer, String, UniqueConstraint
 from ..db_repository.database import db
 
 
@@ -25,12 +25,8 @@ class User(db.Base):
     email = Column(String(255), nullable=True)
     oauth_provider = Column(String(20), nullable=True)
     oauth_id = Column(String(255), nullable=True)
+    is_active = Column(Boolean, nullable=False, default=True)
 
     def __repr__(self) -> str:
         """String representation of the User model."""
         return f'<User {self.username}>'
-
-    @property
-    def is_active(self) -> bool:
-        """Check if the user account is active."""
-        return True

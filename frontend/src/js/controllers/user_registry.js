@@ -2,6 +2,7 @@
  * User Registration Controller
  * Handles new user registration functionality
  */
+import { apiFetch } from '../api.js';
 
 /** API module for handling user registration */
 export const api = {
@@ -11,9 +12,8 @@ export const api = {
      * @returns {Promise<object>}
      */
     async registerApi(username, password) {
-        const response = await fetch('/api/register', {
+        const response = await apiFetch('/api/register', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password }),
         });
 
@@ -60,7 +60,7 @@ export const userRegistryController = {
             return;
         }
 
-        if (!this.password || this.password.length < 6) {
+        if (!this.password || this.password.length < 8) {
             this.error = this.appContext.t('errors.PASSWORD_TOO_SHORT');
             this.isLoading = false;
             return;
@@ -75,16 +75,11 @@ export const userRegistryController = {
         try {
             const data = await api.registerApi(this.username, this.password);
 
-            if (data.code === 'USER_CREATED') {
+            if (data.authenticated || data.code === 'USER_CREATED') {
                 this.success = this.appContext.t('register.success');
-
-                this.username = '';
-                this.password = '';
-                this.confirmPassword = '';
-
-                setTimeout(() => {
-                    this.appContext.loadPage('login-register-container', 'login');
-                }, 2000);
+                this.appContext.isLoggedIn = true;
+                this.appContext.showLogin = false;
+                this.appContext.refreshMountedPages();
             } else {
                 this.error = this.appContext.tError(data.code || 'REGISTRATION_FAILED');
             }

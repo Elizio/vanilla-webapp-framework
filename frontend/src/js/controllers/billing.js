@@ -4,6 +4,8 @@
  * Bound in templates as ``currentPage.*`` after loadPage().
  * @module controllers/billing
  */
+import { apiFetch } from '../api.js';
+
 export const billingController = {
     appContext: null,
     isLoading: false,
@@ -78,7 +80,7 @@ export const billingController = {
     async loadPlans() {
         this.error = null;
         try {
-            const response = await fetch('/api/billing/plans');
+            const response = await apiFetch('/api/billing/plans');
             if (!response.ok) {
                 this.error = this.appContext.t('errors.HTTP_ERROR', { status: response.status });
                 return;
@@ -86,7 +88,6 @@ export const billingController = {
             this.plans = await response.json();
             this.plans.forEach((plan) => {
                 if (plan.custom_amount) {
-                    // Stored in major currency units for the input field.
                     this.amounts[plan.plan_key] = (plan.default_amount_cents ?? 0) / 100;
                 }
             });
@@ -96,14 +97,11 @@ export const billingController = {
     },
 
     async loadStatus() {
-        const token = localStorage.getItem('token');
-        if (!token) {
+        if (!this.appContext?.isLoggedIn) {
             return;
         }
         try {
-            const response = await fetch('/api/billing/status', {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            const response = await apiFetch('/api/billing/status');
             if (response.status === 401) {
                 this.appContext.logout();
                 return;
@@ -124,8 +122,7 @@ export const billingController = {
      * @param {object} plan
      */
     async checkout(plan) {
-        const token = localStorage.getItem('token');
-        if (!token) {
+        if (!this.appContext?.isLoggedIn) {
             this.appContext.logout();
             return;
         }
@@ -147,12 +144,8 @@ export const billingController = {
         this.checkoutPlanKey = plan.plan_key;
         this.error = null;
         try {
-            const response = await fetch('/api/billing/checkout', {
+            const response = await apiFetch('/api/billing/checkout', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
                 body: JSON.stringify(body),
             });
             if (!response.ok) {

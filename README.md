@@ -117,6 +117,7 @@ Copy `.env.example` to `.env` and adjust values before running.
    | `FACEBOOK_CLIENT_ID` / `FACEBOOK_CLIENT_SECRET` | Facebook OAuth (optional) |
    | `FRONTEND_URL` | SPA URL after OAuth (default `http://localhost:5173` in dev) |
    | `OAUTH_REDIRECT_BASE` | OAuth callback base URL (default `http://localhost:5173` in dev) |
+   | `CORS_ORIGINS` | Comma-separated allowed browser origins for credentialed API calls (defaults to `FRONTEND_URL`) |
    | `SEO_MODE` | `auth-first` (default, noindex app pages) or `public-first` (indexable by default); drives frontend meta tags and `/robots.txt`. The public welcome page always uses `index, follow` regardless of mode. |
    | `BILLING_PROVIDER` | Active billing adapter (default `lemon_squeezy`) |
    | `LEMON_SQUEEZY_API_KEY` | Lemon Squeezy API key (billing disabled until set) |
@@ -163,7 +164,7 @@ Open **http://localhost:5000**. Flask serves the Vite build from `backend/static
 ```bash
 docker build -t vanilla-webapp .
 docker run -p 5000:5000 \
-  -e DATABASE_URI=sqlite:////data/app.db \
+  -e DATABASE_URI=postgresql://user:pass@host/db \
   -e FLASK_SECRET=your-secret \
   -e JWT_SECRET=your-jwt-secret \
   -e PROJECT_FOLDER=/data \
@@ -183,7 +184,8 @@ cd frontend && npm run build && npm run test
 - **OAuth / social login:** optional Google and Facebook. See [docs/oauth-configuration.md](docs/oauth-configuration.md) for provider console setup, redirect URIs, and troubleshooting. Env vars remain in the table above.
 - **Billing:** optional Lemon Squeezy demo (donations, spot purchases, credit top-ups). See [docs/billing-configuration.md](docs/billing-configuration.md) for dashboard setup, webhooks, test mode, and troubleshooting. Env vars remain in the table above.
 - **Logs:** written to `{PROJECT_FOLDER}/logs/app.log`.
-- **API docs:** Swagger UI at `/docs` when Flask is running.
+- **Health check:** `GET /api/health` verifies database connectivity (returns 503 when DB is down).
+- **API docs:** Swagger UI at `/docs` in development; disabled in production unless `SWAGGER_ENABLED=true`.
 - **Migrations (production):**
 
   ```bash
@@ -218,16 +220,18 @@ cd frontend && npm run build && npm run test
 
 ## 🔒 Security
 
-- JWT authentication for protected routes
-- Secure session management
-- Input validation
-- Error handling without sensitive information exposure
+- Session auth via httpOnly `auth_token` cookie (JWT signed server-side)
+- CSRF double-submit protection on mutating API routes (`GET /api/csrf` + `X-CSRF-Token` header)
+- CORS restricted to configured origins with credentials support
+- Rate limiting on login and registration (10 requests/minute per IP)
+- Input validation and structured error codes (no raw stack traces to clients)
+- Bearer token header still supported for API clients and tests
 
 ## 📦 Deployment
 
 - Docker multi-stage build (see **Run — Docker** above)
-- GitHub Actions CI runs `pytest` and frontend build/test
-- DigitalOcean deployment automation is **not yet implemented** (see [AGENTS.md](AGENTS.md) follow-ups)
+- GitHub Actions CI runs `pytest`, `flake8`, and frontend build/test
+- DigitalOcean deploy workflow stub at `.github/workflows/deploy.yml` (fork activates)
 
 ## 📚 Documentation
 

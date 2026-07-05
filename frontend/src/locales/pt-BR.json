@@ -29,6 +29,12 @@
     "noAccount": "Não tem conta? Cadastre-se",
     "oauthHint": "Login social requer chaves de provedor no .env. Reinicie o Flask após adicioná-las."
   },
+  "settings": {
+    "placeholder": "Configurações estarão disponíveis em uma versão futura."
+  },
+  "profile": {
+    "placeholder": "Gerenciamento de perfil estará disponível em uma versão futura."
+  },
   "register": {
     "title": "Criar uma conta",
     "username": "Usuário",
@@ -127,7 +133,7 @@
   "errors": {
     "USERNAME_REQUIRED": "Usuário é obrigatório",
     "PASSWORD_REQUIRED": "Senha é obrigatória",
-    "PASSWORD_TOO_SHORT": "A senha deve ter pelo menos 6 caracteres",
+    "PASSWORD_TOO_SHORT": "A senha deve ter pelo menos 8 caracteres",
     "PASSWORDS_DO_NOT_MATCH": "As senhas não coincidem",
     "LOGIN_FAILED": "Falha no login. Tente novamente.",
     "REGISTRATION_FAILED": "Falha no cadastro. Tente novamente.",
@@ -148,6 +154,7 @@
     "INTERNAL_ERROR": "Erro interno do servidor",
     "AUTH_FAILED": "Falha na autenticação",
     "OAUTH_NOT_CONFIGURED": "Login {provider} não configurado. Adicione {envPrefix}_CLIENT_ID e {envPrefix}_CLIENT_SECRET ao .env e reinicie o Flask.",
+    "CSRF_INVALID": "Token de segurança inválido ou ausente. Atualize a página e tente novamente.",
     "UNKNOWN_ERROR": "Ocorreu um erro inesperado"
   },
   "seo": {
@@ -161,6 +168,8 @@
     },
     "landing": { "title": "Demo Vanilla WebApp" },
     "testpage": { "title": "Página de teste — Demo Vanilla WebApp" },
-    "billing": { "title": "Pagamentos — Demo Vanilla WebApp" }
+    "billing": { "title": "Pagamentos — Demo Vanilla WebApp" },
+    "settings": { "title": "Configurações — Demo Vanilla WebApp" },
+    "profile": { "title": "Perfil — Demo Vanilla WebApp" }
   }
 }

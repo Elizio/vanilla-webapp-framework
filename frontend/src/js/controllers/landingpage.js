@@ -2,12 +2,13 @@
  * Landing page: fetches public and protected API samples for demo.
  * Bound in templates as ``currentPage.*`` after loadPage().
  */
+import { apiFetch } from '../api.js';
+
 export const landingPageController = {
     appContext: null,
     isLoading: false,
     error: null,
     response: null,
-    token: null,
 
     /** @param {object} appContext - Root spaApp from createSpaApp(). */
     init(appContext) {
@@ -15,11 +16,10 @@ export const landingPageController = {
         this.isLoading = false;
         this.error = null;
         this.response = null;
-        this.token = localStorage.getItem('token');
     },
 
     async fetchProtectedData() {
-        if (!this.appContext || !this.token) {
+        if (!this.appContext?.isLoggedIn) {
             this.error = this.appContext?.t('errors.NOT_LOGGED_IN') ?? 'Not logged in';
             this.appContext?.logout();
             return;
@@ -28,9 +28,7 @@ export const landingPageController = {
         this.isLoading = true;
         this.error = null;
         try {
-            const response = await fetch('/api/data', {
-                headers: { Authorization: `Bearer ${this.token}` },
-            });
+            const response = await apiFetch('/api/data');
             if (!response.ok) {
                 if (response.status === 401) {
                     this.error = this.appContext.t('errors.UNAUTHORIZED');
@@ -54,7 +52,7 @@ export const landingPageController = {
         this.isLoading = true;
         this.error = null;
         try {
-            const response = await fetch('/api/public');
+            const response = await apiFetch('/api/public');
             if (!response.ok) {
                 this.error = this.appContext.t('errors.HTTP_ERROR', { status: response.status });
                 this.response = null;

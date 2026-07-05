@@ -52,7 +52,7 @@
         </a>
 
         <!-- Settings -->
-        <a href="#" 
+        <a href="/app/settings" @click.prevent="loadPage('view-container', 'settings');"
            @mouseenter="hoveredItem = 'settings'" @mouseleave="hoveredItem = null"
            class="flex items-center px-4 py-2 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
           <div class="w-5 h-5 flex items-center justify-center">
@@ -65,7 +65,7 @@
         </a>
 
         <!-- Profile -->
-        <a href="#" 
+        <a href="/app/profile" @click.prevent="loadPage('view-container', 'profile');"
            @mouseenter="hoveredItem = 'profile'" @mouseleave="hoveredItem = null"
            class="flex items-center px-4 py-2 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
           <div class="w-5 h-5 flex items-center justify-center">

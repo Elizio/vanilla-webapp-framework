@@ -60,7 +60,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "vanilla-webapp=backend:app",
+            "vanilla-webapp=backend.app:app",
         ],
     },
 ) 

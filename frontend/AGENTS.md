@@ -330,11 +330,10 @@ Page registry uses `titleKey` / `descriptionKey` (not literal strings). `applySe
 
 | Issue | Detail |
 |-------|--------|
-| Full page reloads | Login success and logout use `window.location.href = '/'` |
-| No `Alpine.initTree()` | Dynamic innerHTML may not reliably init nested Alpine directives |
 | Controller binding inconsistency | Partials use `loginController.*`; pages use `currentPage.*` |
-| No frontend tests | No lint/test CI for JS |
-| Dead menu links | Settings / Profile nav items have no handlers |
+| SSR/prerender | Optional fork recipe for SEO-heavy products (see SEO toolbox) |
+
+Resolved: cookie session auth via [`api.js`](src/js/api.js), Vitest coverage, `Alpine.initTree()` in `loadPage()`, History API paths, Settings/Profile placeholders.
 
 ## Code documentation
 

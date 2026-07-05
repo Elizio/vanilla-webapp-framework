@@ -47,4 +47,7 @@ dist-ssr/
 .env
 .env.local
 .env.development
-.env.production backend/static/
+.env.production
+backend/static/
+!backend/static/.gitkeep
+frontend/backend/

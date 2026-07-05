@@ -1,6 +1,7 @@
 """SPA static serving and global error handlers."""
 import os
 from flask import Response, current_app, request, send_from_directory, abort
+from werkzeug.exceptions import HTTPException
 
 from .api.error_codes import NOT_FOUND, INTERNAL_ERROR, error_response
 
@@ -34,6 +35,18 @@ def build_robots_txt(seo_mode: str) -> str:
 
 def register_web_routes(app):
     """Register SPA static serving and error handlers on the Flask app."""
+
+    @app.after_request
+    def set_security_headers(response):
+        """Apply baseline security headers to every response."""
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+        response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        if current_app.config.get('APP_PROFILE') == 'production':
+            response.headers['Strict-Transport-Security'] = (
+                'max-age=31536000; includeSubDomains'
+            )
+        return response
 
     @app.route('/robots.txt')
     def robots_txt():
@@ -69,7 +82,10 @@ def register_web_routes(app):
         app.logger.error(f'Server Error: {error}')
         return error_response(INTERNAL_ERROR, 500)
 
-    @app.errorhandler(Exception)
-    def unhandled_exception(e):
-        app.logger.error(f'Unhandled Exception: {e}')
-        return error_response(INTERNAL_ERROR, 500)
+    @app.errorhandler(HTTPException)
+    def http_exception(error):
+        if error.code == 404:
+            return error_response(NOT_FOUND, 404)
+        if error.code and error.code >= 500:
+            return error_response(INTERNAL_ERROR, error.code)
+        return error_response(NOT_FOUND, error.code or 400)

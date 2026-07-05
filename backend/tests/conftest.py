@@ -13,6 +13,31 @@ import pytest
 from .. import create_app, db
 
 
+def csrf_headers(client):
+    """Return CSRF header after priming the double-submit cookie."""
+    response = client.get('/api/csrf')
+    token = response.json['csrf_token']
+    return {'X-CSRF-Token': token}
+
+
+def register_user(client, username='testuser', password='testpass8'):
+    """Register a user with CSRF protection."""
+    return client.post(
+        '/api/register',
+        json={'username': username, 'password': password},
+        headers=csrf_headers(client),
+    )
+
+
+def login_user(client, username='testuser', password='testpass8'):
+    """Log in and return the response (session cookie stored on client)."""
+    return client.post(
+        '/api/login',
+        json={'username': username, 'password': password},
+        headers=csrf_headers(client),
+    )
+
+
 @pytest.fixture(scope="session", autouse=True)
 def set_test_env():
     """Ensure test environment variables stay set."""
