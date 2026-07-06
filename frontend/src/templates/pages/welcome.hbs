@@ -1,0 +1,435 @@
+<!-- Public welcome page — loaded into #public-container -->
+<div class="bg-gray-50 text-gray-900 antialiased dark:bg-gray-950 dark:text-gray-100 min-h-screen">
+
+    <header class="sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur border-b border-gray-200 dark:border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <div class="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-sm" aria-hidden="true">V</div>
+                <span class="font-semibold text-gray-900 dark:text-white">Vanilla WebApp</span>
+            </div>
+            <nav class="hidden sm:flex items-center gap-6 text-sm text-gray-600 dark:text-gray-300" aria-label="Welcome page sections">
+                <a href="#carousel" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition" x-text="t('welcome.navSeeItWork')"></a>
+                <a href="#features" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition" x-text="t('welcome.navFeatures')"></a>
+                <a href="#partners" class="hover:text-indigo-600 dark:hover:text-indigo-400 transition" x-text="t('welcome.navPartners')"></a>
+            </nav>
+            <div class="flex items-center gap-3">
+                <button type="button"
+                        @click="menuController.toggleDarkMode()"
+                        :aria-label="t('common.toggleDarkMode')"
+                        class="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition">
+                    <svg x-show="menuController.darkMode" x-cloak class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.36 6.36l-.71-.71M6.34 6.34l-.71-.71m12.02 0l-.71.71M6.34 17.66l-.71.71M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                    <svg x-show="!menuController.darkMode" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+                </button>
+                <div class="flex items-center gap-1 text-sm" role="group" :aria-label="t('common.language')">
+                    <button type="button" @click="setLocale('en')"
+                            :class="locale === 'en' ? 'font-semibold text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'"
+                            :aria-pressed="locale === 'en'">EN</button>
+                    <span class="text-gray-300 dark:text-gray-600" aria-hidden="true">|</span>
+                    <button type="button" @click="setLocale('pt-BR')"
+                            :class="locale === 'pt-BR' ? 'font-semibold text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'"
+                            :aria-pressed="locale === 'pt-BR'">PT</button>
+                </div>
+                <button type="button"
+                        @click="showLoginPage()"
+                        class="inline-flex items-center gap-2 bg-indigo-600 text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-indigo-700 transition">
+                    <span x-text="t('welcome.signIn')"></span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3"/></svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <section class="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-700 to-violet-800 text-white">
+        <div class="absolute inset-0 opacity-[0.07]"
+             style="background-image: radial-gradient(circle at 1px 1px, white 1px, transparent 0); background-size: 28px 28px;"></div>
+        <div class="relative max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-16 text-center">
+            <p class="inline-flex items-center gap-2 text-indigo-100 text-xs font-medium tracking-wide uppercase mb-4 bg-white/10 border border-white/15 rounded-full px-3 py-1">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400" aria-hidden="true"></span>
+                <span x-text="t('welcome.badge')"></span>
+            </p>
+            <h1 class="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight max-w-3xl mx-auto leading-tight" x-text="t('welcome.heroTitle')"></h1>
+            <p class="mt-4 text-base sm:text-lg text-indigo-100 max-w-2xl mx-auto" x-text="t('welcome.heroSubtitle')"></p>
+            <div class="mt-7 inline-flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 max-w-full px-2">
+                <code class="flex items-center text-left text-xs sm:text-sm bg-indigo-950/40 text-emerald-300 px-4 py-2.5 rounded-lg border border-white/20 font-mono overflow-x-auto">
+                    <span class="text-indigo-300/70 mr-2 select-none">$</span><span x-text="welcomeController.cloneCommand"></span>
+                </code>
+                <button type="button"
+                        @click="welcomeController.copyCloneCommand()"
+                        class="shrink-0 inline-flex items-center justify-center gap-2 bg-white text-indigo-700 font-semibold px-6 py-2.5 rounded-lg hover:bg-indigo-50 transition shadow-lg text-sm">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                    <span x-text="welcomeController.copyFeedback || t('welcome.copyCommand')"></span>
+                </button>
+            </div>
+            <div class="mt-7 flex flex-wrap justify-center gap-x-6 gap-y-1 text-xs sm:text-sm text-indigo-200">
+                <span class="inline-flex items-center gap-1.5"><svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg><span x-text="t('welcome.trustAuth')"></span></span>
+                <span class="inline-flex items-center gap-1.5"><svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg><span x-text="t('welcome.trustVite')"></span></span>
+                <span class="inline-flex items-center gap-1.5"><svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg><span x-text="t('welcome.trustAlembic')"></span></span>
+                <span class="inline-flex items-center gap-1.5"><svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg><span x-text="t('welcome.trustDocker')"></span></span>
+                <span class="inline-flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    <span x-text="t('welcome.trustBilling')"></span>
+                </span>
+                <span class="inline-flex items-center gap-1.5">
+                    <svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    <span x-text="t('welcome.trustI18n')"></span>
+                </span>
+            </div>
+        </div>
+    </section>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-12 lg:py-16">
+        <div class="lg:grid lg:grid-cols-[1fr_300px] lg:gap-10 items-start">
+
+            <main class="min-w-0 space-y-14">
+                <section id="carousel">
+                    <div class="mb-6 lg:text-left text-center">
+                        <p class="text-xs uppercase tracking-widest text-indigo-600 dark:text-indigo-400 font-semibold" x-text="t('welcome.navSeeItWork')"></p>
+                        <h2 class="mt-1 text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white" x-text="t('welcome.carouselTitle')"></h2>
+                        <p class="mt-2 text-gray-600 dark:text-gray-400" x-text="t('welcome.carouselSubtitle')"></p>
+                    </div>
+                    <div class="relative bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+                        <div class="aspect-video relative bg-slate-900">
+                            <div class="absolute inset-0 transition-opacity duration-500"
+                                 :class="[
+                                   welcomeController.carouselCurrent === 0 ? 'opacity-100' : 'opacity-0 pointer-events-none',
+                                 ]"
+                                 :aria-hidden="welcomeController.carouselCurrent !== 0">
+                                <div class="h-full flex flex-col">
+                                    <div class="flex items-center gap-1.5 px-4 py-2.5 bg-slate-800 border-b border-slate-700">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-red-400" aria-hidden="true"></span>
+                                        <span class="w-2.5 h-2.5 rounded-full bg-amber-400" aria-hidden="true"></span>
+                                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400" aria-hidden="true"></span>
+                                        <span class="ml-3 text-[11px] text-slate-400 font-mono">localhost:5173 → /api → :5000</span>
+                                    </div>
+                                    <div class="flex-1 grid grid-cols-2">
+                                        <div class="bg-slate-900 p-5 font-mono text-[11px] sm:text-xs leading-relaxed text-slate-300 overflow-hidden">
+                                            <p><span class="text-violet-400">vite</span> <span class="text-slate-500">v5</span> <span class="text-emerald-400">ready</span></p>
+                                            <p class="text-slate-500">➜ Local: http://localhost:5173</p>
+                                            <p class="text-slate-500">➜ proxy /api → :5000</p>
+                                            <p class="mt-2 text-indigo-300">GET /api/public 200</p>
+                                            <p class="text-indigo-300">GET /api/data 200</p>
+                                        </div>
+                                        <div class="bg-gradient-to-br from-indigo-600 to-violet-700 p-6 flex flex-col justify-center text-white">
+                                            <span class="text-xs uppercase tracking-widest text-indigo-200" x-text="t('welcome.slide1Tag')"></span>
+                                            <p class="mt-1 text-xl sm:text-2xl font-bold leading-snug" x-text="t('welcome.slide1Title')"></p>
+                                            <p class="mt-2 text-sm text-indigo-100" x-text="t('welcome.slide1Desc')"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="absolute inset-0 transition-opacity duration-500"
+                                 :class="[
+                                   welcomeController.carouselCurrent === 1 ? 'opacity-100' : 'opacity-0 pointer-events-none',
+                                 ]"
+                                 :aria-hidden="welcomeController.carouselCurrent !== 1">
+                                <div class="h-full flex flex-col">
+                                    <div class="flex items-center gap-1.5 px-4 py-2.5 bg-slate-800 border-b border-slate-700">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-red-400" aria-hidden="true"></span>
+                                        <span class="w-2.5 h-2.5 rounded-full bg-amber-400" aria-hidden="true"></span>
+                                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400" aria-hidden="true"></span>
+                                        <span class="ml-3 text-[11px] text-slate-400 font-mono">/api/auth/google/login</span>
+                                    </div>
+                                    <div class="flex-1 grid grid-cols-2">
+                                        <div class="bg-slate-900 flex items-center justify-center p-6">
+                                            <div class="w-full max-w-xs space-y-3">
+                                                <div class="h-9 rounded-md bg-slate-800 border border-slate-700"></div>
+                                                <div class="h-9 rounded-md bg-slate-800 border border-slate-700"></div>
+                                                <div class="h-9 rounded-md bg-indigo-600 flex items-center justify-center text-white text-xs font-semibold" x-text="t('welcome.slide2SignIn')"></div>
+                                                <div class="flex items-center gap-2 text-[10px] text-slate-500"><span class="flex-1 h-px bg-slate-700"></span><span x-text="t('welcome.slide2Or')"></span><span class="flex-1 h-px bg-slate-700"></span></div>
+                                                <div class="h-9 rounded-md bg-white flex items-center justify-center text-slate-700 text-xs font-medium gap-2"><span class="w-3.5 h-3.5 rounded-full bg-gradient-to-br from-blue-500 to-red-500" aria-hidden="true"></span><span x-text="t('welcome.slide2Google')"></span></div>
+                                                <div class="h-9 rounded-md bg-[#1877F2] flex items-center justify-center text-white text-xs font-medium" x-text="t('welcome.slide2Facebook')"></div>
+                                                <span class="inline-flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 rounded px-2 py-0.5" x-text="t('welcome.slide2CookieBadge')"></span>
+                                            </div>
+                                        </div>
+                                        <div class="bg-gradient-to-br from-indigo-600 to-violet-700 p-6 flex flex-col justify-center text-white">
+                                            <span class="text-xs uppercase tracking-widest text-indigo-200" x-text="t('welcome.slide2Tag')"></span>
+                                            <p class="mt-1 text-xl sm:text-2xl font-bold leading-snug" x-text="t('welcome.slide2Title')"></p>
+                                            <p class="mt-2 text-sm text-indigo-100" x-text="t('welcome.slide2Desc')"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="carousel-slide-billing"
+                                 class="absolute inset-0 transition-opacity duration-500"
+                                 :class="[
+                                   welcomeController.carouselCurrent === 2 ? 'opacity-100' : 'opacity-0 pointer-events-none',
+                                 ]"
+                                 :aria-hidden="welcomeController.carouselCurrent !== 2">
+                                <div class="h-full flex flex-col">
+                                    <div class="flex items-center gap-1.5 px-4 py-2.5 bg-slate-800 border-b border-slate-700">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-red-400" aria-hidden="true"></span>
+                                        <span class="w-2.5 h-2.5 rounded-full bg-amber-400" aria-hidden="true"></span>
+                                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400" aria-hidden="true"></span>
+                                        <span class="ml-3 text-[11px] text-slate-400 font-mono">localhost:5173/app/billing</span>
+                                    </div>
+                                    <div class="flex-1 grid grid-cols-2">
+                                        <div class="bg-slate-50 dark:bg-slate-900 p-5 space-y-3 overflow-hidden">
+                                            <p class="text-xs text-slate-500 dark:text-slate-400">
+                                                <span x-text="t('welcome.slide3Balance')"></span>:
+                                                <span class="font-semibold text-slate-700 dark:text-slate-200" x-text="t('welcome.slide3BalanceValue')"></span>
+                                            </p>
+                                            <div class="rounded-lg border border-slate-200 dark:border-slate-700 p-3 bg-white dark:bg-slate-800">
+                                                <p class="text-sm font-semibold text-slate-800 dark:text-white" x-text="t('welcome.slide3PlanName')"></p>
+                                                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1" x-text="t('welcome.slide3PlanDesc')"></p>
+                                                <p class="text-[10px] text-slate-400 mt-2" x-text="t('welcome.slide3AmountLabel')"></p>
+                                                <div class="mt-1 h-8 rounded border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700"></div>
+                                                <div class="mt-2 h-8 rounded-md bg-indigo-600 flex items-center justify-center text-white text-xs font-semibold"
+                                                     x-text="t('welcome.slide3Checkout')"></div>
+                                            </div>
+                                            <p class="text-[10px] text-slate-400" x-text="t('welcome.slide3Provider')"></p>
+                                        </div>
+                                        <div class="bg-gradient-to-br from-indigo-600 to-violet-700 p-6 flex flex-col justify-center text-white">
+                                            <span class="text-xs uppercase tracking-widest text-indigo-200" x-text="t('welcome.slide3Tag')"></span>
+                                            <p class="mt-1 text-xl sm:text-2xl font-bold leading-snug" x-text="t('welcome.slide3Title')"></p>
+                                            <p class="mt-2 text-sm text-indigo-100" x-text="t('welcome.slide3Desc')"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="carousel-slide-i18n"
+                                 class="absolute inset-0 transition-opacity duration-500"
+                                 :class="[
+                                   welcomeController.carouselCurrent === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none',
+                                 ]"
+                                 :aria-hidden="welcomeController.carouselCurrent !== 3">
+                                <div class="h-full flex flex-col">
+                                    <div class="flex items-center gap-1.5 px-4 py-2.5 bg-slate-800 border-b border-slate-700">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-red-400" aria-hidden="true"></span>
+                                        <span class="w-2.5 h-2.5 rounded-full bg-amber-400" aria-hidden="true"></span>
+                                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400" aria-hidden="true"></span>
+                                        <span class="ml-3 text-[11px] text-slate-400 font-mono">localhost:5173 · locale: pt-BR</span>
+                                    </div>
+                                    <div class="flex-1 grid grid-cols-2 min-h-0">
+                                        <div class="bg-slate-900 p-5 font-mono text-[11px] sm:text-xs leading-relaxed text-slate-300 overflow-hidden flex flex-col">
+                                            <p class="text-slate-500" x-text="t('welcome.slide4SampleLocaleEn')"></p>
+                                            <p><span class="text-amber-300" x-text="t('welcome.slide4SampleKey')"></span>: "<span x-text="t('welcome.slide4SampleValueEn')"></span>",</p>
+                                            <p class="text-slate-500 mt-3" x-text="t('welcome.slide4SampleLocalePt')"></p>
+                                            <p><span class="text-amber-300" x-text="t('welcome.slide4SampleKey')"></span>: "<span x-text="t('welcome.slide4SampleValuePt')"></span>",</p>
+                                            <div class="mt-auto pt-4 border-t border-slate-700">
+                                                <div class="flex gap-2 text-[10px] mb-2 not-italic font-sans">
+                                                    <span class="px-2 py-0.5 rounded bg-slate-700 text-slate-300">EN</span>
+                                                    <span class="px-2 py-0.5 rounded bg-indigo-600 text-white">PT</span>
+                                                </div>
+                                                <p class="text-sm text-indigo-300 font-sans not-italic" x-text="t('welcome.slide4SampleValuePt')"></p>
+                                            </div>
+                                        </div>
+                                        <div class="bg-gradient-to-br from-indigo-600 to-violet-700 p-6 flex flex-col justify-center text-white">
+                                            <span class="text-xs uppercase tracking-widest text-indigo-200" x-text="t('welcome.slide4Tag')"></span>
+                                            <p class="mt-1 text-xl sm:text-2xl font-bold leading-snug" x-text="t('welcome.slide4Title')"></p>
+                                            <p class="mt-2 text-sm text-indigo-100" x-text="t('welcome.slide4Desc')"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="carousel-slide-swagger"
+                                 class="absolute inset-0 transition-opacity duration-500"
+                                 :class="[
+                                   welcomeController.carouselCurrent === 4 ? 'opacity-100' : 'opacity-0 pointer-events-none',
+                                 ]"
+                                 :aria-hidden="welcomeController.carouselCurrent !== 4">
+                                <div class="h-full flex flex-col">
+                                    <div class="flex items-center gap-1.5 px-4 py-2.5 bg-slate-800 border-b border-slate-700">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-red-400" aria-hidden="true"></span>
+                                        <span class="w-2.5 h-2.5 rounded-full bg-amber-400" aria-hidden="true"></span>
+                                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400" aria-hidden="true"></span>
+                                        <span class="ml-3 text-[11px] text-slate-400 font-mono">localhost:5000/docs</span>
+                                    </div>
+                                    <div class="flex-1 grid grid-cols-2 min-h-0">
+                                        <div class="bg-slate-50 dark:bg-slate-900 p-5 space-y-2 overflow-hidden">
+                                            <div class="flex items-center gap-2"><span class="text-[10px] font-bold text-white bg-emerald-600 px-2 py-0.5 rounded">GET</span><span class="text-xs font-mono text-slate-600 dark:text-slate-300">/api/public</span></div>
+                                            <div class="flex items-center gap-2"><span class="text-[10px] font-bold text-white bg-indigo-600 px-2 py-0.5 rounded">POST</span><span class="text-xs font-mono text-slate-600 dark:text-slate-300">/api/login</span></div>
+                                            <div class="flex items-center gap-2"><span class="text-[10px] font-bold text-white bg-emerald-600 px-2 py-0.5 rounded">GET</span><span class="text-xs font-mono text-slate-600 dark:text-slate-300">/api/data 🔒</span></div>
+                                            <div class="flex items-center gap-2"><span class="text-[10px] font-bold text-white bg-indigo-600 px-2 py-0.5 rounded">POST</span><span class="text-xs font-mono text-slate-600 dark:text-slate-300">/api/register</span></div>
+                                        </div>
+                                        <div class="bg-gradient-to-br from-indigo-600 to-violet-700 p-6 flex flex-col justify-center text-white">
+                                            <span class="text-xs uppercase tracking-widest text-indigo-200" x-text="t('welcome.slide5Tag')"></span>
+                                            <p class="mt-1 text-xl sm:text-2xl font-bold leading-snug" x-text="t('welcome.slide5Title')"></p>
+                                            <p class="mt-2 text-sm text-indigo-100" x-text="t('welcome.slide5Desc')"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="carousel-slide-docker"
+                                 class="absolute inset-0 transition-opacity duration-500"
+                                 :class="[
+                                   welcomeController.carouselCurrent === 5 ? 'opacity-100' : 'opacity-0 pointer-events-none',
+                                 ]"
+                                 :aria-hidden="welcomeController.carouselCurrent !== 5">
+                                <div class="h-full flex flex-col">
+                                    <div class="flex items-center gap-1.5 px-4 py-2.5 bg-slate-800 border-b border-slate-700">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-red-400" aria-hidden="true"></span>
+                                        <span class="w-2.5 h-2.5 rounded-full bg-amber-400" aria-hidden="true"></span>
+                                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400" aria-hidden="true"></span>
+                                        <span class="ml-3 text-[11px] text-slate-400 font-mono">docker build · APP_PROFILE=production</span>
+                                    </div>
+                                    <div class="flex-1 grid grid-cols-2 min-h-0">
+                                        <div class="bg-slate-900 p-5 font-mono text-[11px] sm:text-xs leading-relaxed text-slate-300 overflow-hidden">
+                                            <p><span class="text-emerald-400">✓</span> <span x-text="t('welcome.slide6StepBuild')"></span></p>
+                                            <p><span class="text-emerald-400">✓</span> <span x-text="t('welcome.slide6StepSpa')"></span></p>
+                                            <p><span class="text-emerald-400">✓</span> <span x-text="t('welcome.slide6StepImage')"></span></p>
+                                            <p class="mt-3 text-slate-500" x-text="t('welcome.slide6StepComment')"></p>
+                                            <p class="text-indigo-300" x-text="t('welcome.slide6StepListening')"></p>
+                                        </div>
+                                        <div class="bg-gradient-to-br from-indigo-600 to-violet-700 p-6 flex flex-col justify-center text-white">
+                                            <span class="text-xs uppercase tracking-widest text-indigo-200" x-text="t('welcome.slide6Tag')"></span>
+                                            <p class="mt-1 text-xl sm:text-2xl font-bold leading-snug" x-text="t('welcome.slide6Title')"></p>
+                                            <p class="mt-2 text-sm text-indigo-100" x-text="t('welcome.slide6Desc')"></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-800">
+                            <button type="button" @click="welcomeController.prevSlide()" class="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition" :aria-label="t('welcome.carouselPrev')">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                            </button>
+                            <div class="flex gap-2">
+                                <template x-for="(slide, i) in welcomeController.slides" :key="i">
+                                    <button type="button"
+                                            @click="welcomeController.goSlide(i); welcomeController.restartCarousel()"
+                                            :class="welcomeController.carouselCurrent === i ? 'w-5 bg-indigo-600' : 'w-2 bg-gray-300 dark:bg-gray-600'"
+                                            class="h-2 rounded-full transition-all"
+                                            :aria-label="t('welcome.carouselSlideLabel', { n: i + 1 })"></button>
+                                </template>
+                            </div>
+                            <button type="button" @click="welcomeController.nextSlide()" class="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 transition" :aria-label="t('welcome.carouselNext')">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="features">
+                    <div class="mb-8 lg:text-left text-center">
+                        <p class="text-xs uppercase tracking-widest text-indigo-600 dark:text-indigo-400 font-semibold" x-text="t('welcome.featuresEyebrow')"></p>
+                        <h2 class="mt-1 text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white" x-text="t('welcome.featuresTitle')"></h2>
+                    </div>
+                    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <article id="feature-backend" class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 text-center lg:text-left hover:shadow-md hover:-translate-y-0.5 transition">
+                            <div class="w-11 h-11 rounded-xl bg-indigo-100 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4 mx-auto lg:mx-0">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2"/></svg>
+                            </div>
+                            <h3 class="font-semibold text-gray-900 dark:text-white" x-text="t('welcome.featureBackendTitle')"></h3>
+                            <p class="mt-2 text-gray-600 dark:text-gray-400 text-sm" x-text="t('welcome.featureBackendDesc')"></p>
+                        </article>
+                        <article id="feature-frontend" class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 text-center lg:text-left hover:shadow-md hover:-translate-y-0.5 transition">
+                            <div class="w-11 h-11 rounded-xl bg-indigo-100 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4 mx-auto lg:mx-0">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8l-4 4 4 4m10-8l4 4-4 4M14 4l-4 16"/></svg>
+                            </div>
+                            <h3 class="font-semibold text-gray-900 dark:text-white" x-text="t('welcome.featureFrontendTitle')"></h3>
+                            <p class="mt-2 text-gray-600 dark:text-gray-400 text-sm" x-text="t('welcome.featureFrontendDesc')"></p>
+                        </article>
+                        <article id="feature-seo" class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 text-center lg:text-left hover:shadow-md hover:-translate-y-0.5 transition">
+                            <div class="w-11 h-11 rounded-xl bg-indigo-100 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4 mx-auto lg:mx-0">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            </div>
+                            <h3 class="font-semibold text-gray-900 dark:text-white" x-text="t('welcome.featureSeoTitle')"></h3>
+                            <p class="mt-2 text-gray-600 dark:text-gray-400 text-sm" x-text="t('welcome.featureSeoDesc')"></p>
+                        </article>
+                        <article id="feature-billing" class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 text-center lg:text-left hover:shadow-md hover:-translate-y-0.5 transition">
+                            <div class="w-11 h-11 rounded-xl bg-indigo-100 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4 mx-auto lg:mx-0">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+                            </div>
+                            <h3 class="font-semibold text-gray-900 dark:text-white" x-text="t('welcome.featureBillingTitle')"></h3>
+                            <p class="mt-2 text-gray-600 dark:text-gray-400 text-sm" x-text="t('welcome.featureBillingDesc')"></p>
+                        </article>
+                        <article id="feature-i18n" class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 text-center lg:text-left hover:shadow-md hover:-translate-y-0.5 transition">
+                            <div class="w-11 h-11 rounded-xl bg-indigo-100 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4 mx-auto lg:mx-0">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            </div>
+                            <h3 class="font-semibold text-gray-900 dark:text-white" x-text="t('welcome.featureI18nTitle')"></h3>
+                            <p class="mt-2 text-gray-600 dark:text-gray-400 text-sm" x-text="t('welcome.featureI18nDesc')"></p>
+                        </article>
+                        <article id="feature-docker" class="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 text-center lg:text-left hover:shadow-md hover:-translate-y-0.5 transition">
+                            <div class="w-11 h-11 rounded-xl bg-indigo-100 dark:bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4 mx-auto lg:mx-0">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                            </div>
+                            <h3 class="font-semibold text-gray-900 dark:text-white" x-text="t('welcome.featureDockerTitle')"></h3>
+                            <p class="mt-2 text-gray-600 dark:text-gray-400 text-sm" x-text="t('welcome.featureDockerDesc')"></p>
+                        </article>
+                    </div>
+                </section>
+            </main>
+
+            <aside id="partners" class="mt-12 lg:mt-0 lg:sticky lg:top-20 space-y-5">
+                <p class="hidden lg:block text-xs uppercase tracking-widest text-gray-400 dark:text-gray-500 font-semibold mb-6" x-text="t('welcome.partnersTitle')"></p>
+
+                <div class="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+                    <div class="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+                        <h3 class="text-sm font-bold text-gray-900 dark:text-white" x-text="t('welcome.partnersRecommended')"></h3>
+                        <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5" x-text="t('welcome.partnersSubtitle')"></p>
+                    </div>
+                    <div class="divide-y divide-gray-100 dark:divide-gray-800">
+                        <a href="https://www.digitalocean.com/" target="_blank" rel="noopener noreferrer sponsored" class="block p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition group border-l-2 border-l-transparent hover:border-l-amber-400">
+                            <div class="flex gap-3">
+                                <div class="w-11 h-11 rounded-lg bg-gradient-to-br from-blue-400 to-blue-700 shrink-0 flex items-center justify-center text-white text-xs font-bold" aria-hidden="true">DO</div>
+                                <div class="min-w-0">
+                                    <p class="text-[10px] font-semibold uppercase text-amber-600 tracking-wider" x-text="t('welcome.partnerHosting')"></p>
+                                    <p class="font-semibold text-sm text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 leading-snug transition" x-text="t('welcome.partnerDoTitle')"></p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5" x-text="t('welcome.partnerDoDesc')"></p>
+                                </div>
+                            </div>
+                        </a>
+                        <a href="https://www.namecheap.com/" target="_blank" rel="noopener noreferrer sponsored" class="block p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition group border-l-2 border-l-transparent hover:border-l-amber-400">
+                            <div class="flex gap-3">
+                                <div class="w-11 h-11 rounded-lg bg-gradient-to-br from-orange-400 to-red-600 shrink-0 flex items-center justify-center text-white text-xs font-bold" aria-hidden="true">NC</div>
+                                <div class="min-w-0">
+                                    <p class="text-[10px] font-semibold uppercase text-amber-600 tracking-wider" x-text="t('welcome.partnerDomain')"></p>
+                                    <p class="font-semibold text-sm text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 leading-snug transition" x-text="t('welcome.partnerNcTitle')"></p>
+                                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5" x-text="t('welcome.partnerNcDesc')"></p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    <p class="px-4 py-2 text-[10px] text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/40 border-t border-gray-100 dark:border-gray-800" x-text="t('welcome.affiliateNotice')"></p>
+                </div>
+
+                <div class="bg-gray-50 dark:bg-gray-900/40 border border-dashed border-gray-300 dark:border-gray-700 rounded-2xl overflow-hidden" aria-label="Ad slot medium rectangle">
+                    <div class="px-3 py-2 border-b border-dashed border-gray-300 dark:border-gray-700">
+                        <span class="text-[10px] font-mono text-gray-400 uppercase tracking-wider" x-text="t('welcome.adSponsored')"></span>
+                    </div>
+                    <div class="flex flex-col items-center justify-center py-14 px-4">
+                        <span class="text-xs font-mono text-gray-400 uppercase" x-text="t('welcome.adSlot')"></span>
+                        <span class="text-sm text-gray-500 dark:text-gray-400 mt-1" x-text="t('welcome.adMediumRect')"></span>
+                        <span class="text-xs text-gray-400 mt-0.5">300 × 250</span>
+                    </div>
+                </div>
+
+                <div class="bg-gray-50 dark:bg-gray-900/40 border border-dashed border-gray-300 dark:border-gray-700 rounded-2xl overflow-hidden" aria-label="Ad slot display banner">
+                    <div class="flex flex-col items-center justify-center py-8 px-4">
+                        <span class="text-xs font-mono text-gray-400 uppercase" x-text="t('welcome.adSlot')"></span>
+                        <span class="text-sm text-gray-500 dark:text-gray-400 mt-1" x-text="t('welcome.adDisplayBanner')"></span>
+                        <span class="text-xs text-gray-400 mt-0.5">300 × 100</span>
+                    </div>
+                </div>
+            </aside>
+        </div>
+    </div>
+
+    <footer class="bg-gray-900 dark:bg-black text-gray-300 border-t border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-12">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-6">
+                <div class="text-center sm:text-left">
+                    <div class="flex items-center gap-2 justify-center sm:justify-start">
+                        <div class="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-xs" aria-hidden="true">V</div>
+                        <span class="font-semibold text-white">Vanilla WebApp Framework</span>
+                    </div>
+                    <p class="mt-2 text-sm text-gray-400" x-text="t('welcome.footerTagline')"></p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <a href="https://github.com/" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-sm text-gray-300 hover:text-white transition">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.3 3.438 9.8 8.205 11.385.6.113.82-.26.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61-.546-1.387-1.333-1.756-1.333-1.756-1.09-.745.083-.73.083-.73 1.205.085 1.84 1.237 1.84 1.237 1.07 1.835 2.807 1.305 3.492.998.108-.776.42-1.305.762-1.605-2.665-.303-5.467-1.332-5.467-5.93 0-1.31.467-2.38 1.235-3.22-.124-.303-.535-1.523.117-3.176 0 0 1.008-.322 3.3 1.23a11.5 11.5 0 016.003 0c2.29-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.873.118 3.176.77.84 1.233 1.91 1.233 3.22 0 4.61-2.806 5.624-5.479 5.92.43.372.823 1.102.823 2.222 0 1.605-.015 2.9-.015 3.295 0 .32.216.694.825.576C20.565 21.795 24 17.297 24 12c0-6.63-5.37-12-12-12z"/></svg>
+                        <span x-text="t('welcome.footerGithub')"></span>
+                    </a>
+                    <button type="button"
+                            @click="welcomeController.copyCloneCommand()"
+                            class="inline-flex items-center gap-2 bg-indigo-500 hover:bg-indigo-400 text-white font-medium px-5 py-2.5 rounded-lg transition text-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                        <span x-text="welcomeController.copyFeedback || t('welcome.copyCloneCommand')"></span>
+                    </button>
+                </div>
+            </div>
+            <div class="mt-8 pt-6 border-t border-gray-800 text-center text-xs text-gray-500" x-text="t('welcome.footerCopyright')"></div>
+        </div>
+    </footer>
+</div>

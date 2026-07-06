@@ -2,53 +2,75 @@
 Backend package for the Vanilla WebApp Framework.
 """
 
-from flask import Flask, jsonify, request
+from flask import Flask
 from flask_cors import CORS
 from flasgger import Swagger
-from .db_repository.database import db, db_session, init_db
+
 from .config import AppConfig, UserConfig, setup_logging
+from .db_repository.database import (
+    bootstrap_dev_database,
+    db,
+    db_session,
+    init_db,
+    run_migrations,
+)
+
 
 def create_app():
     """Create and configure the Flask application."""
-    app = Flask(__name__, 
-                static_folder='../frontend/public',
-                template_folder='../frontend/src/templates')
-    
-    # Enable CORS
-    CORS(app)
-    
-    # Load configurations
-    app.config.from_object(AppConfig.get_instance())
-    
-    # Get user configuration singleton instance
+    app_config = AppConfig.get_instance()
+    static_dir = (
+        'static' if app_config.APP_PROFILE == 'production' else '../frontend/src'
+    )
+
+    app = Flask(__name__, static_folder=static_dir)
+    app.config.from_object(app_config)
+
+    cors_origins = app.config.get('CORS_ORIGINS') or [app.config.get('FRONTEND_URL')]
+    CORS(app, origins=cors_origins, supports_credentials=True)
+
     user_config = UserConfig.get_instance()
-    
-    # Update app config with user config values
     app.config.update(user_config.to_dict())
-    
-    # Configure logging
+
     setup_logging(app)
 
-    # Swagger configuration
-    swagger = Swagger(app, config=app.config['SWAGGER_CONFIG'])
+    if app_config.SWAGGER_ENABLED:
+        Swagger(app, config=app.config['SWAGGER_CONFIG'])
 
-    # Register blueprints
     from .api.auth import auth_bp
     from .api.routes import api_bp
+    from .api.oauth import oauth_bp, register_oauth_clients
+    from .api.billing import billing_bp
+    from .api.csrf import csrf_bp
+
+    register_oauth_clients(app)
     app.register_blueprint(auth_bp)
     app.register_blueprint(api_bp)
+    app.register_blueprint(oauth_bp)
+    app.register_blueprint(billing_bp)
+    app.register_blueprint(csrf_bp)
 
-    # Initialize database
-    init_db()
+    @app.teardown_appcontext
+    def shutdown_session(exception=None):
+        db._Session.remove()
+
+    from .web_routes import register_web_routes
+
+    register_web_routes(app)
+
+    if app_config.APP_PROFILE == 'production':
+        run_migrations()
+    elif app_config.APP_PROFILE == 'development':
+        bootstrap_dev_database()
+    else:
+        init_db()
 
     return app
 
-# Create the application instance
-app = create_app()
 
 __all__ = [
-    'app',
     'db',
     'db_session',
-    'init_db'
-] 
+    'init_db',
+    'create_app',
+]

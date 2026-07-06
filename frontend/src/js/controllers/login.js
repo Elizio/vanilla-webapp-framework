@@ -2,83 +2,84 @@
  * Login Controller
  * Handles user authentication and login functionality
  */
+import { apiFetch } from '../api.js';
 
-// API module for handling login
+/** API module for handling login */
 export const api = {
+    /**
+     * @param {string} username
+     * @param {string} password
+     * @returns {Promise<object>}
+     */
     async loginApi(username, password) {
-        try {
-            const response = await fetch('/api/login', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, password })
-            });
+        const response = await apiFetch('/api/login', {
+            method: 'POST',
+            body: JSON.stringify({ username, password }),
+        });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            return await response.json();
-        } catch (err) {
-            console.error('Login failed:', err);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+            const err = new Error(data.code || 'LOGIN_FAILED');
+            err.code = data.code;
             throw err;
         }
-    }
+
+        return data;
+    },
 };
 
-// View Controller for login functionality
+/**
+ * View Controller for login functionality.
+ *
+ * NOTE: this controller must NOT store a reference to the spaApp object as a
+ * property. loginController lives directly on the Alpine root scope; storing
+ * app as a property creates a circular reference (app → loginController →
+ * appContext → app) that causes Alpine's initInterceptors to blow the stack.
+ * Access the app via ``window.spaApp`` inside methods instead.
+ */
 export const loginController = {
-    // Add properties that match the template bindings
     username: '',
     password: '',
     isLoading: false,
     error: null,
     response: null,
     isLoggedIn: false,
-    token: null,
-    
+
     init() {
-        this.isLoggedIn = !!localStorage.getItem('token');
-        this.token = localStorage.getItem('token');
         this.isLoggedIn = false;
     },
 
     async login() {
+        const app = window.spaApp;
         this.isLoading = true;
         this.error = null;
-        
-        // Validation
+
         if (!this.username || !this.username.trim()) {
-            this.error = 'Username is required';
+            this.error = app.t('errors.USERNAME_REQUIRED');
             this.isLoading = false;
             return;
         }
-        
+
         if (!this.password || !this.password.trim()) {
-            this.error = 'Password is required';
+            this.error = app.t('errors.PASSWORD_REQUIRED');
             this.isLoading = false;
             return;
         }
-        
+
         try {
-            // Use the api object directly
             const data = await api.loginApi(this.username, this.password);
-            
-            if (data.token) {
-                // Store the token
-                this.token = data.token;
-                localStorage.setItem('token', data.token);
+
+            if (data.authenticated) {
                 this.isLoggedIn = true;
-                
-                // Redirect to home page
-                window.location.href = '/';
+                app.enterAuthenticatedApp();
             } else {
-                this.error = data.message || 'Login failed. Please try again.';
+                this.error = app.tError(data.code || 'LOGIN_FAILED');
             }
         } catch (err) {
             console.error('Login error:', err);
-            this.error = 'Login failed. Please try again.';
+            this.error = app.tError(err.code || 'LOGIN_FAILED');
         } finally {
             this.isLoading = false;
         }
     },
-}; 
+};

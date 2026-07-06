@@ -1,3 +1,4 @@
+/** Menu sidebar controller: dark mode and theme persistence. */
 // Apply dark mode before Alpine initializes to prevent flicker
 const isDarkMode = localStorage.getItem('darkMode') === 'true';
 if (isDarkMode) {
@@ -7,17 +8,9 @@ if (isDarkMode) {
 }
 
 export const menuController = {
-    // Initialize with default values
-    sidebarOpen: false,
     darkMode: false,
 
-    init() { // Remove appContext parameter to avoid recursion
-        // Check if this is desktop size and keep sidebar open
-        if (typeof window !== 'undefined' && window.innerWidth >= 1024) {
-            this.sidebarOpen = true;
-        }
-        
-        // Apply theme on initialization
+    init() {
         this.darkMode = localStorage.getItem('darkMode') === 'true';
         this.applyTheme();
         

@@ -2,7 +2,7 @@
 <div x-data="{ hoveredItem: null }">
   <aside 
     class="fixed inset-y-0 left-0 z-10 w-16 hover:w-64 transform transition-all duration-300 ease-in-out bg-white dark:bg-gray-800 shadow-lg overflow-hidden group"
-    :class="{ '-translate-x-full': !menuController.sidebarOpen, 'translate-x-0': menuController.sidebarOpen }">
+    :class="{ '-translate-x-full lg:translate-x-0': !sidebarOpen, 'translate-x-0': sidebarOpen }">
     
     <div class="flex flex-col h-full">
       <!-- Logo -->
@@ -10,13 +10,13 @@
         <svg class="h-8 w-8 text-indigo-600 dark:text-indigo-400 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
-        <span class="text-xl font-bold text-gray-800 dark:text-white ml-2 hidden group-hover:inline-block whitespace-nowrap">Vanilla App</span>
+        <span class="text-xl font-bold text-gray-800 dark:text-white ml-2 hidden group-hover:inline-block whitespace-nowrap" x-text="t('menu.appName')"></span>
       </div>
 
       <!-- Nav Links -->
       <nav class="flex-1 px-2 py-4 space-y-1 overflow-y-auto">
         <!-- Dashboard -->
-        <a href="#" @click.prevent="loadPage('view-container', '/templates/pages/landingpage.hbs', '/js/controllers/landingpage.js', 'landingPageController');"
+        <a href="#" @click.prevent="loadPage('view-container', 'landingpage');"
            @mouseenter="hoveredItem = 'dashboard'" @mouseleave="hoveredItem = null"
            class="flex items-center px-4 py-2 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
           <div class="w-5 h-5 flex items-center justify-center">
@@ -24,11 +24,11 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
             </svg>
           </div>
-          <span class="ml-3 hidden group-hover:inline-block whitespace-nowrap">Dashboard</span>
+          <span class="ml-3 hidden group-hover:inline-block whitespace-nowrap" x-text="t('menu.dashboard')"></span>
         </a>
 
         <!-- Analytics -->
-        <a href="#" @click.prevent="loadPage('view-container', '/templates/pages/testpage.hbs', '/js/controllers/testpage.js', 'testPageController');"
+        <a href="#" @click.prevent="loadPage('view-container', 'testpage');"
            @mouseenter="hoveredItem = 'analytics'" @mouseleave="hoveredItem = null"
            class="flex items-center px-4 py-2 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
           <div class="w-5 h-5 flex items-center justify-center">
@@ -36,11 +36,23 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
             </svg>
           </div>
-          <span class="ml-3 hidden group-hover:inline-block whitespace-nowrap">Analytics</span>
+          <span class="ml-3 hidden group-hover:inline-block whitespace-nowrap" x-text="t('menu.analytics')"></span>
+        </a>
+
+        <!-- Billing -->
+        <a href="#" @click.prevent="loadPage('view-container', 'billing');"
+           @mouseenter="hoveredItem = 'billing'" @mouseleave="hoveredItem = null"
+           class="flex items-center px-4 py-2 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+          <div class="w-5 h-5 flex items-center justify-center">
+            <svg class="w-5 h-5 text-gray-500 dark:text-gray-400 hover:text-indigo-500 dark:hover:text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+          </div>
+          <span class="ml-3 hidden group-hover:inline-block whitespace-nowrap" x-text="t('menu.billing')"></span>
         </a>
 
         <!-- Settings -->
-        <a href="#" 
+        <a href="/app/settings" @click.prevent="loadPage('view-container', 'settings');"
            @mouseenter="hoveredItem = 'settings'" @mouseleave="hoveredItem = null"
            class="flex items-center px-4 py-2 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
           <div class="w-5 h-5 flex items-center justify-center">
@@ -49,11 +61,11 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </div>
-          <span class="ml-3 hidden group-hover:inline-block whitespace-nowrap">Settings</span>
+          <span class="ml-3 hidden group-hover:inline-block whitespace-nowrap" x-text="t('menu.settings')"></span>
         </a>
 
         <!-- Profile -->
-        <a href="#" 
+        <a href="/app/profile" @click.prevent="loadPage('view-container', 'profile');"
            @mouseenter="hoveredItem = 'profile'" @mouseleave="hoveredItem = null"
            class="flex items-center px-4 py-2 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
           <div class="w-5 h-5 flex items-center justify-center">
@@ -61,7 +73,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
           </div>
-          <span class="ml-3 hidden group-hover:inline-block whitespace-nowrap">Profile</span>
+          <span class="ml-3 hidden group-hover:inline-block whitespace-nowrap" x-text="t('menu.profile')"></span>
         </a>
 
         <!-- Logout Button -->
@@ -73,12 +85,23 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
           </div>
-          <span class="ml-3 hidden group-hover:inline-block whitespace-nowrap">Logout</span>
+          <span class="ml-3 hidden group-hover:inline-block whitespace-nowrap" x-text="t('menu.logout')"></span>
         </button>
       </nav>
 
-      <!-- Dark Mode Toggle -->
-      <div class="p-2 border-t border-gray-200 dark:border-gray-700">
+      <!-- Language + Dark Mode -->
+      <div class="p-2 border-t border-gray-200 dark:border-gray-700 space-y-1">
+        <div class="px-4 py-2 flex items-center justify-center group-hover:justify-start">
+          <div class="flex items-center gap-1 text-sm" role="group" :aria-label="t('common.language')">
+            <button type="button" @click="setLocale('en')"
+                    :class="locale === 'en' ? 'font-semibold text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'"
+                    :aria-pressed="locale === 'en'">EN</button>
+            <span class="text-gray-300 dark:text-gray-600" aria-hidden="true">|</span>
+            <button type="button" @click="setLocale('pt-BR')"
+                    :class="locale === 'pt-BR' ? 'font-semibold text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'"
+                    :aria-pressed="locale === 'pt-BR'">PT</button>
+          </div>
+        </div>
         <button @click="menuController.toggleDarkMode()"
                @mouseenter="hoveredItem = 'darkmode'" @mouseleave="hoveredItem = null"
                class="w-full flex items-center px-4 py-2 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
@@ -92,7 +115,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
             </svg>
           </div>
-          <span class="ml-3 hidden group-hover:inline-block whitespace-nowrap" x-text="menuController.darkMode ? 'Light Mode' : 'Dark Mode'"></span>
+          <span class="ml-3 hidden group-hover:inline-block whitespace-nowrap" x-text="menuController.darkMode ? t('common.lightMode') : t('common.darkMode')"></span>
         </button>
       </div>
     </div>
@@ -100,11 +123,11 @@
 
   <!-- Mobile menuController Toggle -->
   <div class="fixed top-0 left-0 z-20 m-4 lg:hidden">
-    <button @click="menuController.sidebarOpen = !menuController.sidebarOpen" class="p-2 bg-white dark:bg-gray-800 rounded-md shadow-md text-gray-800 dark:text-white focus:outline-none">
-      <svg x-show="!menuController.sidebarOpen" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <button @click="toggleSidebar()" class="p-2 bg-white dark:bg-gray-800 rounded-md shadow-md text-gray-800 dark:text-white focus:outline-none">
+      <svg x-show="!sidebarOpen" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
       </svg>
-      <svg x-show="menuController.sidebarOpen" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg x-show="sidebarOpen" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
       </svg>
     </button>
@@ -112,8 +135,8 @@
 
   <!-- Page Content Overlay when sidebar is open on mobile -->
   <div 
-    x-show="menuController.sidebarOpen" 
-    @click="menuController.sidebarOpen = false" 
+    x-show="sidebarOpen" 
+    @click="sidebarOpen = false" 
     class="fixed inset-0 z-5 bg-black opacity-50 lg:hidden"
     x-cloak>
   </div>

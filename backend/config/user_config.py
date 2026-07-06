@@ -4,8 +4,12 @@ User-specific configuration settings.
 import os
 from pathlib import Path
 
+from .app_config import load_env_file
+
+
 class UserConfig:
     """Base user configuration singleton."""
+
     _instance = None
     _initialized = False
 
@@ -15,15 +19,17 @@ class UserConfig:
         return cls._instance
 
     def __init__(self):
-        if not self._initialized:
-            # Project folder structure
-            self.project_folder = os.getenv(
-                'PROJECT_FOLDER', 
-                str(Path.home() / 'project_folder')
-            )
-            self.log_folder = str(Path(self.project_folder) / 'logs')
-            
-            self._initialized = True
+        if self._initialized:
+            return
+
+        load_env_file()
+
+        self.project_folder = os.getenv(
+            'PROJECT_FOLDER',
+            str(Path.home() / 'project_folder'),
+        )
+        self.log_folder = str(Path(self.project_folder) / 'logs')
+        self._initialized = True
 
     @classmethod
     def get_instance(cls):
@@ -34,8 +40,8 @@ class UserConfig:
         """Convert configuration to dictionary."""
         return {
             'project_folder': self.project_folder,
-            'log_folder': self.log_folder
+            'log_folder': self.log_folder,
         }
 
-# Create a global configuration instance
-user_config = UserConfig.get_instance() 
+
+user_config = UserConfig.get_instance()

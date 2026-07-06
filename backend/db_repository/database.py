@@ -1,13 +1,20 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, scoped_session, declarative_base
+"""Database engine, session factory, and migration helpers."""
 import os
 
+from sqlalchemy import create_engine, inspect
+from sqlalchemy.orm import declarative_base, scoped_session, sessionmaker
+
+from ..config.app_config import AppConfig, load_env_file
+
+
 class Database:
+    """SQLAlchemy engine and scoped session singleton."""
+
     _instance = None
     _engine = None
     _session_factory = None
     _Session = None
-    Base = None  # Make Base class-level
+    Base = None
 
     def __new__(cls):
         if cls._instance is None:
@@ -15,33 +22,26 @@ class Database:
         return cls._instance
 
     def __init__(self):
-        if self._engine is None:
-            # Get database URL from environment or use SQLite
-            database_url = os.environ.get('DATABASE_URI', 'sqlite:///app.db')
-            
-            # Force SQLite for testing
-            if os.environ.get('APP_PROFILE') == 'testing':
-                database_url = 'sqlite:///:memory:'
-                print("Using in-memory SQLite database for testing (from database.py)")
-            
-            # Create engine with appropriate configuration
-            self._engine = create_engine(
-                database_url,
-                echo=os.environ.get('APP_PROFILE') == 'development',
-                connect_args={'check_same_thread': False} if database_url.startswith('sqlite') else {}
-            )
-            
-            # Create session factory
-            self._session_factory = sessionmaker(bind=self._engine)
-            
-            # Create thread-safe session
-            self._Session = scoped_session(self._session_factory)
-            
-            # Create declarative base
-            self.Base = declarative_base()
-            
-            # Add query property to all models
-            self.Base.query = self._Session.query_property()
+        if self._engine is not None:
+            return
+
+        load_env_file()
+        cfg = AppConfig.get_instance()
+        database_url = cfg.SQLALCHEMY_DATABASE_URI
+
+        self._engine = create_engine(
+            database_url,
+            echo=cfg.APP_PROFILE == 'development',
+            connect_args=(
+                {'check_same_thread': False}
+                if database_url.startswith('sqlite')
+                else {}
+            ),
+        )
+        self._session_factory = sessionmaker(bind=self._engine)
+        self._Session = scoped_session(self._session_factory)
+        self.Base = declarative_base()
+        self.Base.query = self._Session.query_property()
 
     @property
     def engine(self):
@@ -62,12 +62,51 @@ class Database:
         if self._engine:
             self._engine.dispose()
 
-# Create global database instance
-db = Database()
 
-# Create global session
+db = Database()
 db_session = db.session
+
 
 def init_db():
     """Initialize the database."""
-    db.init_db() 
+    db.init_db()
+
+
+def _alembic_config():
+    from alembic.config import Config
+
+    backend_dir = os.path.dirname(os.path.dirname(__file__))
+    return Config(os.path.join(backend_dir, 'alembic.ini'))
+
+
+def run_migrations():
+    """Run Alembic migrations to head."""
+    from alembic import command
+
+    command.upgrade(_alembic_config(), 'head')
+
+
+def bootstrap_dev_database():
+    """Create or upgrade a development database, including legacy schemas."""
+    from alembic import command
+
+    alembic_cfg = _alembic_config()
+    inspector = inspect(db.engine)
+    tables = inspector.get_table_names()
+
+    if 'alembic_version' in tables:
+        command.upgrade(alembic_cfg, 'head')
+        return
+
+    if 'users' not in tables:
+        db.init_db()
+        command.stamp(alembic_cfg, 'head')
+        return
+
+    user_columns = {column['name'] for column in inspector.get_columns('users')}
+    if 'oauth_provider' not in user_columns:
+        command.stamp(alembic_cfg, '001')
+        command.upgrade(alembic_cfg, 'head')
+        return
+
+    command.stamp(alembic_cfg, 'head')

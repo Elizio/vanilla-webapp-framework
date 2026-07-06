@@ -1,0 +1,76 @@
+<div class="max-w-3xl mx-auto space-y-6">
+
+    <div class="text-center">
+        <h1 class="text-2xl font-bold text-gray-800 dark:text-white" x-text="t('billing.title')"></h1>
+        <p class="mt-1 text-gray-500 dark:text-gray-400" x-text="t('billing.subtitle')"></p>
+    </div>
+
+    <div x-show="currentPage.showSuccess"
+         class="p-4 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-md text-center"
+         x-text="t('billing.successMessage')">
+    </div>
+
+    <div x-show="currentPage.error"
+         class="p-4 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-md"
+         x-text="currentPage.error">
+    </div>
+
+    <!-- Status panel -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <h2 class="text-lg font-semibold text-gray-800 dark:text-white mb-3" x-text="t('billing.yourStatus')"></h2>
+        <p class="text-gray-700 dark:text-gray-300">
+            <span x-text="t('billing.creditBalance')"></span>:
+            <span class="font-semibold" x-text="currentPage.formatCents(currentPage.creditBalanceCents)"></span>
+        </p>
+        <div class="mt-3">
+            <p x-show="currentPage.entitlements.length === 0" class="text-gray-500 dark:text-gray-400"
+               x-text="t('billing.noEntitlements')"></p>
+            <ul x-show="currentPage.entitlements.length > 0" class="space-y-1">
+                <template x-for="ent in currentPage.entitlements" :key="ent.plan_key + ent.provider">
+                    <li class="flex items-center justify-between text-sm text-gray-700 dark:text-gray-300">
+                        <span x-text="ent.plan_key"></span>
+                        <span class="px-2 py-0.5 rounded-full text-xs"
+                              :class="ent.status === 'active' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'"
+                              x-text="ent.status"></span>
+                    </li>
+                </template>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Plans -->
+    <div class="grid gap-4 sm:grid-cols-2">
+        <template x-for="plan in currentPage.plans" :key="plan.plan_key">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 flex flex-col">
+                <h3 class="text-lg font-semibold text-gray-800 dark:text-white" x-text="currentPage.planName(plan)"></h3>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400 flex-1" x-text="currentPage.planDescription(plan)"></p>
+
+                <!-- Custom amount (donation) -->
+                <div x-show="plan.custom_amount" class="mt-4">
+                    <label class="block text-sm text-gray-600 dark:text-gray-300 mb-1" x-text="t('billing.amountLabel')"></label>
+                    <div class="flex items-center gap-2">
+                        <span class="text-gray-500 dark:text-gray-400" x-text="plan.currency"></span>
+                        <input type="number" min="0" step="0.01"
+                               x-model.number="currentPage.amounts[plan.plan_key]"
+                               class="w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <!-- Fixed price -->
+                <p x-show="!plan.custom_amount" class="mt-4 text-xl font-bold text-gray-800 dark:text-white"
+                   x-text="currentPage.formatCents(plan.amount_cents, plan.currency)"></p>
+
+                <button @click="currentPage.checkout(plan)"
+                        :disabled="currentPage.isLoading"
+                        class="mt-4 w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors duration-200 disabled:opacity-50">
+                    <span x-show="!(currentPage.isLoading && currentPage.checkoutPlanKey === plan.plan_key)" x-text="t('billing.checkout')"></span>
+                    <span x-show="currentPage.isLoading && currentPage.checkoutPlanKey === plan.plan_key" x-text="t('common.processing')"></span>
+                </button>
+            </div>
+        </template>
+    </div>
+
+    <p x-show="currentPage.plans.length === 0" class="text-center text-gray-500 dark:text-gray-400"
+       x-text="t('billing.noPlans')"></p>
+
+</div>

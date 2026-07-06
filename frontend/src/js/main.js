@@ -1,14 +1,11 @@
 import Alpine from 'alpinejs';
-import Handlebars from 'handlebars';
 import '../styles/main.css';
 import { createSpaApp } from './app.js';
 
-// Register Handlebars helpers
-Handlebars.registerHelper('json', function(context) {
-    return JSON.stringify(context, null, 2);
+window.Alpine = Alpine;
+
+document.addEventListener('alpine:init', () => {
+    Alpine.data('spaApp', () => createSpaApp());
 });
 
-// Initialize Alpine.js
-window.Alpine = Alpine;
-window.spaApp = createSpaApp();
 Alpine.start();
