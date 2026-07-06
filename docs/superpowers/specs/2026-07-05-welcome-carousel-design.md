@@ -40,7 +40,7 @@ The hero trust badges and features grid (3 cards) also lag behind what the frame
 | New slides | **Billing** + **i18n** |
 | Scope | **C** — Full welcome sync (carousel + hero + features grid + slide polish) |
 | Implementation approach | **Data-driven carousel** (Approach 2) — `slides[]` in controller; static mockup HTML per slide in template |
-| Slide order | 1 Dev workflow · 2 Auth/OAuth (refresh) · 3 Swagger · 4 Docker · 5 Billing · 6 i18n |
+| Slide order | 1 Dev workflow · 2 Auth/OAuth (refresh) · 3 Billing · 4 i18n · 5 Swagger · 6 Docker production |
 | Hero auth wording | **A** — “Cookie auth + OAuth” (marketing); JWT remains the signed token inside the HttpOnly cookie — not localStorage/Bearer in the SPA |
 
 ## Auth wording note
@@ -69,10 +69,10 @@ Inactive slides get `opacity-0 pointer-events-none aria-hidden="true"` so they a
 |---|--------|--------|-------------------|--------------|
 | 1 | Dev workflow | Keep | `localhost:5173 → /api → :5000` | Dual-server, one origin — Vite proxies /api to Flask |
 | 2 | Auth & OAuth | **Refresh** | `/api/auth/google/login` | Cookie sessions + OAuth — secure by default (HttpOnly cookie, CSRF; Google + Facebook) |
-| 3 | Swagger | **Polish** | `localhost:5000/docs` | Interactive Swagger UI — every route documented |
-| 4 | Docker production | **Polish** | `docker build · APP_PROFILE=production` | Single Docker image — Flask serves SPA + /api from :5000 |
-| 5 | Billing | **New** | `localhost:5173/app/billing` | Payments included — Lemon Squeezy adapter, checkout, webhooks, entitlements |
-| 6 | i18n | **New** | `localhost:5173 · locale: pt-BR` | i18n built-in — locale JSON files, `t()` everywhere, EN \| PT switcher |
+| 3 | Billing | **New** | `localhost:5173/app/billing` | Payments included — Lemon Squeezy adapter, checkout, webhooks, entitlements |
+| 4 | i18n | **New** | `localhost:5173 · locale: pt-BR` | i18n built-in — locale JSON files, `t()` everywhere, EN \| PT switcher |
+| 5 | Swagger | **Polish** | `localhost:5000/docs` | Interactive Swagger UI — every route documented |
+| 6 | Docker production | **Polish** | `docker build · APP_PROFILE=production` | Single Docker image — Flask serves SPA + /api from :5000 |
 
 ### Slide 2 refresh detail
 
@@ -82,7 +82,7 @@ Replace JWT/localStorage implication with:
 - Brief CSRF mention in caption (`slide2Desc`).
 - Keep Google + Facebook social buttons (still accurate).
 
-### Slide 5 mockup (billing)
+### Slide 3 mockup (billing)
 
 Mirror real `billing.hbs` at a simplified scale:
 
@@ -91,11 +91,15 @@ Mirror real `billing.hbs` at a simplified scale:
 - “Continue to checkout” CTA button.
 - Optional small “Lemon Squeezy” provider label in chrome or caption.
 
-### Slide 6 mockup (i18n)
+### Slide 4 mockup (i18n)
 
 - Left pane: monospace JSON snippet from `en.json` / `pt-BR.json` (e.g. `"billing.title"`, `"menu.billing"`).
 - Right pane: UI fragment showing EN \| PT toggle and sample translated strings.
 - Caption emphasizes: add a locale file, wire `t()`, done.
+
+### Slides 5–6 polish (Swagger, Docker)
+
+Add split caption panels (`slide5Tag/Title/Desc`, `slide6Tag/Title/Desc`) to match the unified layout used on slides 1–4.
 
 ## Controller refactor
 
@@ -103,12 +107,12 @@ Mirror real `billing.hbs` at a simplified scale:
 
 ```javascript
 slides: [
-  { tagKey: 'welcome.slide1Tag', titleKey: 'welcome.slide1Title', descKey: 'welcome.slide1Desc' },
-  { tagKey: 'welcome.slide2Tag', titleKey: 'welcome.slide2Title', descKey: 'welcome.slide2Desc' },
-  { tagKey: 'welcome.slide3Tag', titleKey: 'welcome.slide3Title', descKey: 'welcome.slide3Desc' },
-  { tagKey: 'welcome.slide4Tag', titleKey: 'welcome.slide4Title', descKey: 'welcome.slide4Desc' },
-  { tagKey: 'welcome.slide5Tag', titleKey: 'welcome.slide5Title', descKey: 'welcome.slide5Desc' },
-  { tagKey: 'welcome.slide6Tag', titleKey: 'welcome.slide6Title', descKey: 'welcome.slide6Desc' },
+  { tagKey: 'welcome.slide1Tag', titleKey: 'welcome.slide1Title', descKey: 'welcome.slide1Desc' }, // Dev workflow
+  { tagKey: 'welcome.slide2Tag', titleKey: 'welcome.slide2Title', descKey: 'welcome.slide2Desc' }, // Auth & OAuth
+  { tagKey: 'welcome.slide3Tag', titleKey: 'welcome.slide3Title', descKey: 'welcome.slide3Desc' }, // Billing
+  { tagKey: 'welcome.slide4Tag', titleKey: 'welcome.slide4Title', descKey: 'welcome.slide4Desc' }, // i18n
+  { tagKey: 'welcome.slide5Tag', titleKey: 'welcome.slide5Title', descKey: 'welcome.slide5Desc' }, // Swagger
+  { tagKey: 'welcome.slide6Tag', titleKey: 'welcome.slide6Title', descKey: 'welcome.slide6Desc' }, // Docker
 ],
 ```
 
@@ -163,13 +167,13 @@ Add or update in **both** `frontend/src/locales/en.json` and `pt-BR.json`:
 
 ### Carousel
 
-- `slide2Tag`, `slide2Title`, `slide2Desc` — cookie auth refresh
-- `slide3Tag`, `slide3Title`, `slide3Desc` — Swagger caption panel
-- `slide4Tag`, `slide4Title`, `slide4Desc` — Docker caption panel
-- `slide5Tag`, `slide5Title`, `slide5Desc` — billing caption
-- `slide5*` UI strings — billing mockup labels (plan name, checkout CTA, balance label as needed)
-- `slide6Tag`, `slide6Title`, `slide6Desc` — i18n caption
-- `slide6*` UI strings — i18n mockup sample strings
+Locale keys are numbered by **slide position** (slide3 = billing, slide4 = i18n, slide5 = Swagger, slide6 = Docker):
+
+- `slide2Tag`, `slide2Title`, `slide2Desc`, `slide2CookieBadge` — cookie auth refresh
+- `slide3Tag`, `slide3Title`, `slide3Desc`, `slide3*` UI strings — billing mockup
+- `slide4Tag`, `slide4Title`, `slide4Desc`, `slide4*` UI strings — i18n mockup
+- `slide5Tag`, `slide5Title`, `slide5Desc` — Swagger caption panel
+- `slide6Tag`, `slide6Title`, `slide6Desc` — Docker caption panel
 - Replace per-slide dot labels with one parameterized key: `carouselSlideLabel` accepting `{ n }` (removes `carouselSlide1Label` … `carouselSlide4Label` in favor of a single key used in the dot `x-for` loop)
 
 ### Hero + features
@@ -201,8 +205,8 @@ Existing tests preserved:
 New assertions:
 
 - `welcomeController.slides.length === 6`
-- Template references billing slide (e.g. `carouselCurrent === 4` or stable `id="carousel-slide-billing"`)
-- Template references i18n slide (e.g. `carouselCurrent === 5` or `id="carousel-slide-i18n"`)
+- Template references billing slide (`id="carousel-slide-billing"`, index 2)
+- Template references i18n slide (`id="carousel-slide-i18n"`, index 3)
 
 Run as part of verification: `cd frontend && npm run test`.
 

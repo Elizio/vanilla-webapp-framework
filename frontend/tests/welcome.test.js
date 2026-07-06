@@ -25,10 +25,17 @@ describe('welcome page', () => {
     it('template includes billing and i18n carousel slides', () => {
         expect(welcomeTpl).toContain('id="carousel-slide-billing"');
         expect(welcomeTpl).toContain('id="carousel-slide-i18n"');
+        expect(welcomeTpl).toContain('id="carousel-slide-docker"');
     });
 
     it('uses dynamic carousel dot loop', () => {
         expect(welcomeTpl).toContain('welcomeController.slides');
         expect(welcomeTpl).toContain('carouselSlideLabel');
+    });
+
+    it('features grid includes billing, i18n, and docker cards', () => {
+        expect(welcomeTpl).toContain('id="feature-billing"');
+        expect(welcomeTpl).toContain('id="feature-i18n"');
+        expect(welcomeTpl).toContain('id="feature-docker"');
     });
 });

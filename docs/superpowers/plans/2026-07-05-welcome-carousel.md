@@ -4,7 +4,7 @@
 
 **Goal:** Expand the public welcome page carousel to six slides (billing + i18n), unify slide layouts, sync hero/features copy, and refactor carousel navigation to a data-driven pattern.
 
-**Architecture:** Static mockup HTML remains in `welcome.hbs` (one block per slide). `welcomeController.slides[]` drives dot count and `goSlide()` bounds. All user-facing strings live in `en.json` / `pt-BR.json`. Auth marketing copy uses “Cookie auth + OAuth” (JWT stays inside the HttpOnly cookie — not SPA localStorage).
+**Architecture:** Static mockup HTML remains in `welcome.hbs` (one block per slide, **DOM order matches carousel indices**). Slide order: 1 Dev workflow · 2 Auth/OAuth · 3 Billing · 4 i18n · 5 Swagger · 6 Docker. `welcomeController.slides[]` uses the same order; locale keys are numbered by slide position (`slide3*` = billing, etc.).
 
 **Tech Stack:** Alpine.js, Handlebars template (static HTML), Tailwind CSS, Vitest. No new dependencies.
 
@@ -116,6 +116,7 @@ export const welcomeController = {
         { tagKey: 'welcome.slide5Tag', titleKey: 'welcome.slide5Title', descKey: 'welcome.slide5Desc' },
         { tagKey: 'welcome.slide6Tag', titleKey: 'welcome.slide6Title', descKey: 'welcome.slide6Desc' },
     ],
+    // Index map: 0 Dev · 1 Auth · 2 Billing · 3 i18n · 4 Swagger · 5 Docker
 
     /** Reset transient state. */
     init() {
@@ -241,35 +242,36 @@ Apply these changes inside `"welcome": { ... }`:
 "carouselSlideLabel": "Go to slide {n}",
 ```
 
-**Add** slide caption keys (after existing `slide1Desc` / slide UI keys):
+**Add** slide caption keys — numbered by **slide position** (remove legacy `slide3Swagger` if present):
+
 ```json
 "slide2Tag": "Authentication",
 "slide2Title": "Cookie sessions + OAuth",
 "slide2Desc": "HttpOnly session cookie and CSRF on mutating requests — Google and Facebook OAuth included.",
 "slide2CookieBadge": "HttpOnly cookie",
-"slide3Tag": "API docs",
-"slide3Title": "Swagger out of the box",
-"slide3Desc": "Interactive Swagger UI — every route documented.",
-"slide4Tag": "Production",
-"slide4Title": "Single-server deploy",
-"slide4Desc": "Vite build lands in backend/static/ — Flask serves /api and the SPA from one Docker image.",
-"slide5Tag": "Billing",
-"slide5Title": "Payments included",
-"slide5Desc": "Lemon Squeezy adapter with checkout, webhooks, and entitlements — swap providers via BILLING_PROVIDER.",
-"slide5Balance": "Credit balance",
-"slide5BalanceValue": "$0.00",
-"slide5PlanName": "Supporter",
-"slide5PlanDesc": "One-time donation — choose any amount.",
-"slide5AmountLabel": "Amount",
-"slide5Checkout": "Continue to checkout",
-"slide5Provider": "Lemon Squeezy",
-"slide6Tag": "Internationalization",
-"slide6Title": "i18n built-in",
-"slide6Desc": "Add a locale JSON file, wire t() in templates and controllers — EN | PT switcher on day one.",
-"slide6SampleKey1": "\"billing.title\"",
-"slide6SampleKey2": "\"menu.billing\"",
-"slide6SampleUiTitle": "Billing",
-"slide6SampleUiSubtitle": "Manage plans and checkout",
+"slide3Tag": "Billing",
+"slide3Title": "Payments included",
+"slide3Desc": "Lemon Squeezy adapter with checkout, webhooks, and entitlements — swap providers via BILLING_PROVIDER.",
+"slide3Balance": "Credit balance",
+"slide3BalanceValue": "$0.00",
+"slide3PlanName": "Supporter",
+"slide3PlanDesc": "One-time donation — choose any amount.",
+"slide3AmountLabel": "Amount",
+"slide3Checkout": "Continue to checkout",
+"slide3Provider": "Lemon Squeezy",
+"slide4Tag": "Internationalization",
+"slide4Title": "i18n built-in",
+"slide4Desc": "Add a locale JSON file, wire t() in templates and controllers — EN | PT switcher on day one.",
+"slide4SampleKey1": "\"billing.title\"",
+"slide4SampleKey2": "\"menu.billing\"",
+"slide4SampleUiTitle": "Billing",
+"slide4SampleUiSubtitle": "Manage plans and checkout",
+"slide5Tag": "API docs",
+"slide5Title": "Swagger out of the box",
+"slide5Desc": "Interactive Swagger UI — every route documented.",
+"slide6Tag": "Production",
+"slide6Title": "Single-server deploy",
+"slide6Desc": "Vite build lands in backend/static/ — Flask serves /api and the SPA from one Docker image.",
 ```
 
 **Add** feature cards after `featureSeoDesc`:
@@ -289,7 +291,7 @@ git commit -m "feat: add welcome carousel and hero locale strings (en)"
 
 ---
 
-### Task 4: Carousel template — dots, accessibility, slides 2–4 polish
+### Task 4: Carousel template — dots, accessibility, slide 2 polish
 
 **Files:**
 - Modify: `frontend/src/templates/pages/welcome.hbs`
@@ -305,7 +307,7 @@ On **each** of the six slide wrapper divs (`absolute inset-0 transition-opacity 
 :aria-hidden="welcomeController.carouselCurrent !== N"
 ```
 
-Replace `N` with 0–5 per slide.
+Replace `N` with 0–5 per slide (0 Dev · 1 Auth · 2 Billing · 3 i18n · 4 Swagger · 5 Docker).
 
 - [ ] **Step 2: Replace hardcoded dot buttons with x-for loop**
 
@@ -321,37 +323,35 @@ Replace the four static dot `<button>` elements with:
 </template>
 ```
 
-- [ ] **Step 3: Polish slide 2 — split layout + cookie badge**
+- [ ] **Step 3: Polish slide 2 (Auth) — split layout + cookie badge**
 
 Restructure slide 2 (`carouselCurrent === 1`) to match slide 1's `grid grid-cols-2` pattern:
 - Left: login mockup (existing form UI) + small badge using `t('welcome.slide2CookieBadge')`
 - Right: caption panel with `slide2Tag`, `slide2Title`, `slide2Desc`
 
-- [ ] **Step 4: Polish slides 3 and 4 — add caption panels**
-
-For Swagger (index 2) and Docker (index 3), add right-side caption panels using `slide3Tag/Title/Desc` and `slide4Tag/Title/Desc`. Keep existing left mockup content.
-
-- [ ] **Step 5: Run tests (partial pass expected)**
+- [ ] **Step 4: Run tests (partial pass expected)**
 
 Run: `cd frontend && npm run test -- welcome.test.js`  
 Expected: dot loop test may PASS; billing/i18n slide id tests still FAIL.
 
 ---
 
-### Task 5: New carousel slides — billing and i18n
+### Task 5: Carousel slides 3–6 — billing, i18n, Swagger, Docker
 
 **Files:**
 - Modify: `frontend/src/templates/pages/welcome.hbs`
 
-- [ ] **Step 1: Add slide 5 (billing) after slide 4**
+**DOM order after this task:** slide blocks in template must appear in carousel index order (0→5). Insert new slides 3–4 after Auth; move existing Swagger/Docker blocks to indices 4–5 and add caption panels.
+
+- [ ] **Step 1: Add slide 3 (billing, index 2) after Auth slide**
 
 ```html
 <div id="carousel-slide-billing"
      class="absolute inset-0 transition-opacity duration-500"
      :class="[
-       welcomeController.carouselCurrent === 4 ? 'opacity-100' : 'opacity-0 pointer-events-none',
+       welcomeController.carouselCurrent === 2 ? 'opacity-100' : 'opacity-0 pointer-events-none',
      ]"
-     :aria-hidden="welcomeController.carouselCurrent !== 4">
+     :aria-hidden="welcomeController.carouselCurrent !== 2">
     <div class="h-full flex flex-col">
         <div class="flex items-center gap-1.5 px-4 py-2.5 bg-slate-800 border-b border-slate-700">
             <span class="w-2.5 h-2.5 rounded-full bg-red-400" aria-hidden="true"></span>
@@ -362,38 +362,38 @@ Expected: dot loop test may PASS; billing/i18n slide id tests still FAIL.
         <div class="flex-1 grid grid-cols-2">
             <div class="bg-slate-50 dark:bg-slate-900 p-5 space-y-3 overflow-hidden">
                 <p class="text-xs text-slate-500 dark:text-slate-400">
-                    <span x-text="t('welcome.slide5Balance')"></span>:
-                    <span class="font-semibold text-slate-700 dark:text-slate-200" x-text="t('welcome.slide5BalanceValue')"></span>
+                    <span x-text="t('welcome.slide3Balance')"></span>:
+                    <span class="font-semibold text-slate-700 dark:text-slate-200" x-text="t('welcome.slide3BalanceValue')"></span>
                 </p>
                 <div class="rounded-lg border border-slate-200 dark:border-slate-700 p-3 bg-white dark:bg-slate-800">
-                    <p class="text-sm font-semibold text-slate-800 dark:text-white" x-text="t('welcome.slide5PlanName')"></p>
-                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1" x-text="t('welcome.slide5PlanDesc')"></p>
-                    <p class="text-[10px] text-slate-400 mt-2" x-text="t('welcome.slide5AmountLabel')"></p>
+                    <p class="text-sm font-semibold text-slate-800 dark:text-white" x-text="t('welcome.slide3PlanName')"></p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mt-1" x-text="t('welcome.slide3PlanDesc')"></p>
+                    <p class="text-[10px] text-slate-400 mt-2" x-text="t('welcome.slide3AmountLabel')"></p>
                     <div class="mt-1 h-8 rounded border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-700"></div>
                     <div class="mt-2 h-8 rounded-md bg-indigo-600 flex items-center justify-center text-white text-xs font-semibold"
-                         x-text="t('welcome.slide5Checkout')"></div>
+                         x-text="t('welcome.slide3Checkout')"></div>
                 </div>
-                <p class="text-[10px] text-slate-400" x-text="t('welcome.slide5Provider')"></p>
+                <p class="text-[10px] text-slate-400" x-text="t('welcome.slide3Provider')"></p>
             </div>
             <div class="bg-gradient-to-br from-indigo-600 to-violet-700 p-6 flex flex-col justify-center text-white">
-                <span class="text-xs uppercase tracking-widest text-indigo-200" x-text="t('welcome.slide5Tag')"></span>
-                <p class="mt-1 text-xl sm:text-2xl font-bold leading-snug" x-text="t('welcome.slide5Title')"></p>
-                <p class="mt-2 text-sm text-indigo-100" x-text="t('welcome.slide5Desc')"></p>
+                <span class="text-xs uppercase tracking-widest text-indigo-200" x-text="t('welcome.slide3Tag')"></span>
+                <p class="mt-1 text-xl sm:text-2xl font-bold leading-snug" x-text="t('welcome.slide3Title')"></p>
+                <p class="mt-2 text-sm text-indigo-100" x-text="t('welcome.slide3Desc')"></p>
             </div>
         </div>
     </div>
 </div>
 ```
 
-- [ ] **Step 2: Add slide 6 (i18n)**
+- [ ] **Step 2: Add slide 4 (i18n, index 3)**
 
 ```html
 <div id="carousel-slide-i18n"
      class="absolute inset-0 transition-opacity duration-500"
      :class="[
-       welcomeController.carouselCurrent === 5 ? 'opacity-100' : 'opacity-0 pointer-events-none',
+       welcomeController.carouselCurrent === 3 ? 'opacity-100' : 'opacity-0 pointer-events-none',
      ]"
-     :aria-hidden="welcomeController.carouselCurrent !== 5">
+     :aria-hidden="welcomeController.carouselCurrent !== 3">
     <div class="h-full flex flex-col">
         <div class="flex items-center gap-1.5 px-4 py-2.5 bg-slate-800 border-b border-slate-700">
             <span class="w-2.5 h-2.5 rounded-full bg-red-400" aria-hidden="true"></span>
@@ -403,33 +403,41 @@ Expected: dot loop test may PASS; billing/i18n slide id tests still FAIL.
         </div>
         <div class="flex-1 grid grid-cols-2">
             <div class="bg-slate-900 p-5 font-mono text-[11px] sm:text-xs leading-relaxed text-slate-300 overflow-hidden">
-                <p><span class="text-amber-300" x-text="t('welcome.slide6SampleKey1')"></span>: "Billing",</p>
-                <p><span class="text-amber-300" x-text="t('welcome.slide6SampleKey2')"></span>: "Billing",</p>
+                <p><span class="text-amber-300" x-text="t('welcome.slide4SampleKey1')"></span>: "Billing",</p>
+                <p><span class="text-amber-300" x-text="t('welcome.slide4SampleKey2')"></span>: "Billing",</p>
                 <p class="text-slate-500 mt-2">// pt-BR.json</p>
-                <p><span class="text-amber-300" x-text="t('welcome.slide6SampleKey1')"></span>: "Cobrança",</p>
+                <p><span class="text-amber-300" x-text="t('welcome.slide4SampleKey1')"></span>: "Cobrança",</p>
             </div>
             <div class="bg-gradient-to-br from-indigo-600 to-violet-700 p-6 flex flex-col justify-center text-white">
                 <div class="flex gap-2 text-xs mb-4">
                     <span class="px-2 py-0.5 rounded bg-white/20">EN</span>
                     <span class="px-2 py-0.5 rounded bg-white/10 text-indigo-200">PT</span>
                 </div>
-                <p class="text-lg font-bold" x-text="t('welcome.slide6SampleUiTitle')"></p>
-                <p class="text-sm text-indigo-100" x-text="t('welcome.slide6SampleUiSubtitle')"></p>
-                <span class="mt-4 text-xs uppercase tracking-widest text-indigo-200" x-text="t('welcome.slide6Tag')"></span>
-                <p class="mt-1 text-xl sm:text-2xl font-bold leading-snug" x-text="t('welcome.slide6Title')"></p>
-                <p class="mt-2 text-sm text-indigo-100" x-text="t('welcome.slide6Desc')"></p>
+                <p class="text-lg font-bold" x-text="t('welcome.slide4SampleUiTitle')"></p>
+                <p class="text-sm text-indigo-100" x-text="t('welcome.slide4SampleUiSubtitle')"></p>
+                <span class="mt-4 text-xs uppercase tracking-widest text-indigo-200" x-text="t('welcome.slide4Tag')"></span>
+                <p class="mt-1 text-xl sm:text-2xl font-bold leading-snug" x-text="t('welcome.slide4Title')"></p>
+                <p class="mt-2 text-sm text-indigo-100" x-text="t('welcome.slide4Desc')"></p>
             </div>
         </div>
     </div>
 </div>
 ```
 
-- [ ] **Step 3: Run tests**
+- [ ] **Step 3: Move Swagger to index 4 — add split caption panel**
+
+Update the existing Swagger block to `carouselCurrent === 4`. Convert to `grid grid-cols-2`: keep route list on the left; add right caption panel with `slide5Tag`, `slide5Title`, `slide5Desc`. Remove the old bottom-only `slide3Swagger` text if present.
+
+- [ ] **Step 4: Move Docker to index 5 — add split caption panel**
+
+Update the existing Docker block to `carouselCurrent === 5`. Convert to `grid grid-cols-2`: keep terminal output on the left; add right caption panel with `slide6Tag`, `slide6Title`, `slide6Desc`.
+
+- [ ] **Step 5: Run tests**
 
 Run: `cd frontend && npm run test -- welcome.test.js`  
 Expected: all welcome tests PASS.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
 git add frontend/src/templates/pages/welcome.hbs
@@ -537,7 +545,7 @@ Run dev servers and open `http://localhost:5173`:
 
 | Spec requirement | Task |
 |------------------|------|
-| 6 slides (billing + i18n) | Tasks 2, 5 |
+| 6 slides in order: Dev · Auth · Billing · i18n · Swagger · Docker | Tasks 2, 5 |
 | Unified split layout | Tasks 4, 5 |
 | Slide 2 cookie auth refresh | Task 4 |
 | Data-driven dots | Tasks 2, 4 |
