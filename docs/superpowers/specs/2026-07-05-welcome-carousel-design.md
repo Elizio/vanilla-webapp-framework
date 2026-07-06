@@ -41,6 +41,11 @@ The hero trust badges and features grid (3 cards) also lag behind what the frame
 | Scope | **C** — Full welcome sync (carousel + hero + features grid + slide polish) |
 | Implementation approach | **Data-driven carousel** (Approach 2) — `slides[]` in controller; static mockup HTML per slide in template |
 | Slide order | 1 Dev workflow · 2 Auth/OAuth (refresh) · 3 Swagger · 4 Docker · 5 Billing · 6 i18n |
+| Hero auth wording | **A** — “Cookie auth + OAuth” (marketing); JWT remains the signed token inside the HttpOnly cookie — not localStorage/Bearer in the SPA |
+
+## Auth wording note
+
+The framework **still uses JWT** as the token format (`generate_token` → HttpOnly `auth_token` cookie). The welcome page should **not** say “JWT + OAuth” because that implies manual `localStorage` / `Authorization: Bearer` handling, which the SPA no longer does. Approved copy: **“Cookie auth + OAuth”** in hero subtitle and `trustAuth`. Slide 2 caption may mention HttpOnly cookie + CSRF explicitly.
 
 ## Carousel structure
 
