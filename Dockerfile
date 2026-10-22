@@ -1,6 +1,9 @@
 # Stage 1: Build frontend assets
 FROM node:20-alpine AS frontend-builder
 
+ARG VITE_BASE_PATH=/
+ENV VITE_BASE_PATH=${VITE_BASE_PATH}
+
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci

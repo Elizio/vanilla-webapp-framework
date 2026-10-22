@@ -2,6 +2,7 @@
  * Central fetch wrapper: credentials, CSRF double-submit, JSON helpers.
  * @module api
  */
+import { withBase } from './basepath.js';
 
 let csrfToken = null;
 
@@ -10,7 +11,7 @@ let csrfToken = null;
  * @returns {Promise<void>}
  */
 export async function initCsrf() {
-    const response = await fetch('/api/csrf', { credentials: 'include' });
+    const response = await fetch(withBase('/api/csrf'), { credentials: 'include' });
     if (response.ok) {
         const data = await response.json();
         csrfToken = data.csrf_token;
@@ -47,7 +48,8 @@ export async function apiFetch(url, options = {}) {
         headers['Content-Type'] = 'application/json';
     }
 
-    return fetch(url, {
+    const fullUrl = url.startsWith('/') ? withBase(url) : url;
+    return fetch(fullUrl, {
         ...options,
         headers,
         credentials: 'include',

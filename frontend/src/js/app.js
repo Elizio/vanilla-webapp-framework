@@ -2,6 +2,7 @@
  * SPA shell: page registry router, OAuth query handler, Alpine root state.
  * @module app
  */
+import { withBase, stripBase } from './basepath.js';
 import { loginController } from './controllers/login.js';
 import { menuController } from './controllers/menu.js';
 import { welcomeController } from './controllers/welcome.js';
@@ -21,7 +22,7 @@ import { apiFetch, fetchSession, initCsrf, resetCsrf } from './api.js';
  * @returns {string|null}
  */
 function pageKeyFromPath() {
-    const path = window.location.pathname.replace(/\/$/, '') || '/';
+    const path = stripBase(window.location.pathname).replace(/\/$/, '') || '/';
     if (PATH_TO_PAGE[path]) {
         return PATH_TO_PAGE[path];
     }
@@ -54,14 +55,15 @@ function resolveLoggedInPageKey() {
  */
 function syncUrlForPage(pageKey, { replace = false } = {}) {
     const targetPath = PAGE_ROUTES[pageKey];
-    if (!targetPath || window.location.pathname === targetPath) {
+    if (!targetPath || stripBase(window.location.pathname) === targetPath) {
         return;
     }
     const state = { pageKey };
+    const fullPath = withBase(targetPath);
     if (replace) {
-        window.history.replaceState(state, '', targetPath);
+        window.history.replaceState(state, '', fullPath);
     } else {
-        window.history.pushState(state, '', targetPath);
+        window.history.pushState(state, '', fullPath);
     }
 }
 
@@ -217,7 +219,7 @@ export const createSpaApp = () => {
                 });
                 return;
             }
-            window.location.href = `/api/auth/${provider}/login`;
+            window.location.href = withBase(`/api/auth/${provider}/login`);
         },
 
         toggleSidebar() {
@@ -322,8 +324,9 @@ export const createSpaApp = () => {
             this.isLoggedIn = false;
             this.showLogin = false;
             await initCsrf();
-            if (window.location.pathname !== '/') {
-                window.history.replaceState(null, '', '/');
+            const strippedPath = stripBase(window.location.pathname);
+            if (strippedPath !== '/') {
+                window.history.replaceState(null, '', withBase('/'));
             }
             this.refreshMountedPages();
         },
