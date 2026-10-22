@@ -5,6 +5,7 @@ Backend package for the Vanilla WebApp Framework.
 from flask import Flask
 from flask_cors import CORS
 from flasgger import Swagger
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from .config import AppConfig, UserConfig, setup_logging
 from .db_repository.database import (
@@ -25,6 +26,15 @@ def create_app():
 
     app = Flask(__name__, static_folder=static_dir)
     app.config.from_object(app_config)
+
+    if app_config.TRUST_PROXY:
+        app.wsgi_app = ProxyFix(
+            app.wsgi_app,
+            x_for=1,
+            x_proto=1,
+            x_host=1,
+            x_prefix=1
+        )
 
     cors_origins = app.config.get('CORS_ORIGINS') or [app.config.get('FRONTEND_URL')]
     CORS(app, origins=cors_origins, supports_credentials=True)

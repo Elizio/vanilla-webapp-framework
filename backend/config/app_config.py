@@ -129,6 +129,9 @@ class AppConfig:
             'LEMON_SQUEEZY_VARIANT_ID_SUPPORTER'
         )
 
+        trust_proxy = os.getenv('TRUST_PROXY', '').strip().lower()
+        self.TRUST_PROXY = trust_proxy in ('1', 'true', 'yes')
+
         self.SWAGGER_CONFIG = {
             'headers': [],
             'specs': [{
