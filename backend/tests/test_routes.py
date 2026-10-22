@@ -1,7 +1,6 @@
 """
 Tests for public routes.
 """
-import pytest
 
 def test_public_data(test_client):
     """Test public data endpoint."""

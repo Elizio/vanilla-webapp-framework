@@ -3,7 +3,6 @@ Logging configuration for the application.
 """
 import logging
 from logging.handlers import RotatingFileHandler
-import os
 from pathlib import Path
 from .user_config import user_config
 

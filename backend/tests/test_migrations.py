@@ -1,6 +1,5 @@
 """Alembic migration smoke test."""
 import os
-import pytest
 from sqlalchemy import create_engine, inspect
 from alembic import command
 from alembic.config import Config

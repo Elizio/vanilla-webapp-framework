@@ -1,7 +1,6 @@
 """
 Tests for authentication endpoints.
 """
-import pytest
 from datetime import datetime, timedelta
 import jwt
 
