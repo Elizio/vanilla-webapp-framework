@@ -8,7 +8,8 @@ JWT_EXPIRATION = 3600
 
 
 def _jwt_secret():
-    return current_app.config.get('JWT_SECRET_KEY') or current_app.config.get('JWT_SECRET')
+    key = current_app.config.get('JWT_SECRET_KEY')
+    return key or current_app.config.get('JWT_SECRET')
 
 
 def generate_token(user_id):

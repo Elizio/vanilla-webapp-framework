@@ -51,7 +51,10 @@ def register_web_routes(app):
     @app.route('/robots.txt')
     def robots_txt():
         """Serve crawl directives driven by SEO_MODE."""
-        seo_mode = current_app.config.get('SEO_MODE', os.getenv('SEO_MODE', 'auth-first'))
+        seo_mode = current_app.config.get(
+            'SEO_MODE',
+            os.getenv('SEO_MODE', 'auth-first')
+        )
         body = build_robots_txt(seo_mode)
         return Response(body, mimetype='text/plain')
 

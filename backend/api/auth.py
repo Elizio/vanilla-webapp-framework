@@ -192,6 +192,10 @@ def register():
         current_app.logger.error('Registration failed: %s', exc)
         return error_response(REGISTRATION_FAILED, 500)
 
-    response = jsonify({'code': USER_CREATED, 'authenticated': True, 'username': username})
+    response = jsonify({
+        'code': USER_CREATED,
+        'authenticated': True,
+        'username': username
+    })
     response.status_code = 201
     return set_auth_cookie(response, user.id)

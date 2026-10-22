@@ -5,7 +5,9 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+project_root = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), '..', '..', '..')
+)
 sys.path.insert(0, project_root)
 
 from backend.db_repository.database import db  # noqa: E402
