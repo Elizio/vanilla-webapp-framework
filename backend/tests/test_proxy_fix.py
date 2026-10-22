@@ -6,6 +6,9 @@ def test_proxy_headers_when_trust_proxy_enabled(monkeypatch):
     monkeypatch.setenv('TRUST_PROXY', '1')
     monkeypatch.setenv('APP_PROFILE', 'testing')
 
+    from ..config.app_config import reset_app_config_for_tests
+    reset_app_config_for_tests()
+
     from .. import create_app
 
     app = create_app()
@@ -39,6 +42,9 @@ def test_proxy_headers_ignored_when_trust_proxy_disabled(monkeypatch):
     """ProxyFix is not applied when TRUST_PROXY is unset or 0."""
     monkeypatch.setenv('TRUST_PROXY', '0')
     monkeypatch.setenv('APP_PROFILE', 'testing')
+
+    from ..config.app_config import reset_app_config_for_tests
+    reset_app_config_for_tests()
 
     from .. import create_app
 
