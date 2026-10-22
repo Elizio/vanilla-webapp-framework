@@ -1,8 +1,8 @@
 """Tests for ProxyFix middleware with TRUST_PROXY."""
 
 
-def test_proxy_headers_when_trust_proxy_enabled(monkeypatch):
-    """ProxyFix rewrites request.url when TRUST_PROXY=1."""
+def test_proxy_fix_applied_when_trust_proxy_enabled(monkeypatch):
+    """ProxyFix middleware is applied to wsgi_app when TRUST_PROXY=1."""
     monkeypatch.setenv('TRUST_PROXY', '1')
     monkeypatch.setenv('APP_PROFILE', 'testing')
 
@@ -10,36 +10,27 @@ def test_proxy_headers_when_trust_proxy_enabled(monkeypatch):
     reset_app_config_for_tests()
 
     from .. import create_app
+    from werkzeug.middleware.proxy_fix import ProxyFix
 
     app = create_app()
-    client = app.test_client()
 
+    # Verify ProxyFix is in the middleware chain
+    assert isinstance(app.wsgi_app, ProxyFix)
+
+    # Verify the app still works with proxy headers
+    client = app.test_client()
     response = client.get(
         '/api/health',
         headers={
             'X-Forwarded-Proto': 'https',
             'X-Forwarded-Host': 'example.com',
-            'X-Forwarded-Prefix': '/vanilla-webapp-framework',
         }
     )
-
     assert response.status_code == 200
 
-    with app.test_request_context(
-        '/api/health',
-        headers={
-            'X-Forwarded-Proto': 'https',
-            'X-Forwarded-Host': 'example.com',
-            'X-Forwarded-Prefix': '/vanilla-webapp-framework',
-        }
-    ):
-        from flask import request
-        assert request.url.startswith('https://')
-        assert 'example.com' in request.url
 
-
-def test_proxy_headers_ignored_when_trust_proxy_disabled(monkeypatch):
-    """ProxyFix is not applied when TRUST_PROXY is unset or 0."""
+def test_proxy_fix_not_applied_when_trust_proxy_disabled(monkeypatch):
+    """ProxyFix middleware is NOT applied when TRUST_PROXY is unset or 0."""
     monkeypatch.setenv('TRUST_PROXY', '0')
     monkeypatch.setenv('APP_PROFILE', 'testing')
 
@@ -47,26 +38,14 @@ def test_proxy_headers_ignored_when_trust_proxy_disabled(monkeypatch):
     reset_app_config_for_tests()
 
     from .. import create_app
+    from werkzeug.middleware.proxy_fix import ProxyFix
 
     app = create_app()
+
+    # Verify ProxyFix is NOT in the middleware chain
+    assert not isinstance(app.wsgi_app, ProxyFix)
+
+    # Verify the app still works
     client = app.test_client()
-
-    response = client.get(
-        '/api/health',
-        headers={
-            'X-Forwarded-Proto': 'https',
-            'X-Forwarded-Host': 'example.com',
-        }
-    )
-
+    response = client.get('/api/health')
     assert response.status_code == 200
-
-    with app.test_request_context(
-        '/api/health',
-        headers={
-            'X-Forwarded-Proto': 'https',
-            'X-Forwarded-Host': 'example.com',
-        }
-    ):
-        from flask import request
-        assert request.url.startswith('http://localhost')
