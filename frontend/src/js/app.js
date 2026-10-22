@@ -227,6 +227,16 @@ export const createSpaApp = () => {
         },
 
         /**
+         * Get the full URL for a page key (including base path).
+         * @param {string} pageKey - Key in pages.js registry.
+         * @returns {string} Full URL path with base.
+         */
+        getPageUrl(pageKey) {
+            const route = PAGE_ROUTES[pageKey];
+            return route ? withBase(route) : '#';
+        },
+
+        /**
          * Load a registered page into a DOM target and init Alpine on it.
          * @param {string} elementIdTarget - DOM id of the mount point.
          * @param {string} pageKey - Key in pages.js registry.
