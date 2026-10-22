@@ -1,7 +1,6 @@
 """
 Tests for authentication endpoints.
 """
-import pytest
 from datetime import datetime, timedelta
 import jwt
 
@@ -51,12 +50,18 @@ def test_protected_route_bearer_fallback(test_client, test_db, test_app):
 
 
 def test_invalid_token_format(test_client, test_db):
-    response = test_client.get('/api/data', headers={'Authorization': 'NotBearer token'})
+    response = test_client.get(
+        '/api/data',
+        headers={'Authorization': 'NotBearer token'}
+    )
     assert response.status_code == 401
 
 
 def test_invalid_token(test_client, test_db):
-    response = test_client.get('/api/data', headers={'Authorization': 'Bearer invalid-token'})
+    response = test_client.get(
+        '/api/data',
+        headers={'Authorization': 'Bearer invalid-token'}
+    )
     assert response.status_code == 401
 
 
@@ -78,9 +83,17 @@ def test_expired_token(test_client, test_db):
 
 def test_duplicate_registration(test_client, test_db):
     payload = {'username': 'dupuser', 'password': 'testpass8'}
-    first = test_client.post('/api/register', json=payload, headers=csrf_headers(test_client))
+    first = test_client.post(
+        '/api/register',
+        json=payload,
+        headers=csrf_headers(test_client)
+    )
     assert first.status_code == 201
-    second = test_client.post('/api/register', json=payload, headers=csrf_headers(test_client))
+    second = test_client.post(
+        '/api/register',
+        json=payload,
+        headers=csrf_headers(test_client)
+    )
     assert second.status_code == 400
     assert second.json['code'] == 'USERNAME_EXISTS'
 

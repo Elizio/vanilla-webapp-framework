@@ -13,14 +13,14 @@ jobs:
       APP_PROFILE: testing
       FLASK_SECRET: test-flask-secret-key
       JWT_SECRET: test-jwt-secret-key
-      DATABASE_URI: sqlite:///:memory:
+      DATABASE_URI: "sqlite:///:memory:"
       PROJECT_FOLDER: /tmp/vanilla-webapp
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-      - run: pip install -e .
+      - run: pip install -e .[dev]
       - run: flake8 backend
       - run: pytest
 

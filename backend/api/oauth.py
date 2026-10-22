@@ -8,7 +8,6 @@ from flask import Blueprint, current_app, jsonify, redirect
 from ..db_repository.database import db_session
 from ..models.user import User
 from .error_codes import PROVIDER_NOT_CONFIGURED
-from .jwt_utils import generate_token
 from .session_auth import set_auth_cookie
 
 oauth = OAuth()

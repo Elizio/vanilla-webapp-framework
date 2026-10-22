@@ -29,8 +29,9 @@ export const billingController = {
         this.checkoutPlanKey = null;
         this.showSuccess = new URLSearchParams(window.location.search).get('billing') === 'success';
         if (this.showSuccess) {
-            const url = window.location.pathname;
-            window.history.replaceState(null, '', url);
+            const url = new URL(window.location.href);
+            url.searchParams.delete('billing');
+            window.history.replaceState(null, '', url.pathname + url.search + url.hash);
         }
         this.loadPlans();
         this.loadStatus();

@@ -9,8 +9,8 @@ os.environ["JWT_SECRET"] = "test-jwt-secret-key"
 os.environ["DATABASE_URI"] = "sqlite:///:memory:"
 os.environ["PROJECT_FOLDER"] = "/tmp/vanilla-webapp"
 
-import pytest
-from .. import create_app, db
+import pytest  # noqa: E402
+from .. import create_app, db  # noqa: E402
 
 
 def csrf_headers(client):

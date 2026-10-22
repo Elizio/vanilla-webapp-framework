@@ -31,7 +31,10 @@ def test_bootstrap_dev_database_upgrades_legacy_schema(tmp_path, monkeypatch):
 
     db_module.bootstrap_dev_database()
 
-    columns = {column['name'] for column in inspect(db_module.db.engine).get_columns('users')}
+    columns = {
+        column['name']
+        for column in inspect(db_module.db.engine).get_columns('users')
+    }
     assert {'email', 'oauth_provider', 'oauth_id'}.issubset(columns)
 
     backend_dir = os.path.join(os.path.dirname(__file__), '..')
