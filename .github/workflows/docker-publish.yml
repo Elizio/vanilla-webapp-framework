@@ -83,7 +83,7 @@ jobs:
             exit 1
           fi
 
-          API_BASE="https://api.hostinger.com/api/vps/v1"
+          API_BASE="https://developers.hostinger.com/api/vps/v1"
           PROJECT_FILE="$RUNNER_TEMP/project.json"
           OLD_ENV_FILE="$RUNNER_TEMP/old_env.txt"
           NEW_ENV_FILE="$RUNNER_TEMP/new_env.txt"
