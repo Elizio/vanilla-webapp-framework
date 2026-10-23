@@ -87,27 +87,71 @@ jobs:
           PROJECT_FILE="$RUNNER_TEMP/project.json"
           OLD_ENV_FILE="$RUNNER_TEMP/old_env.txt"
           NEW_ENV_FILE="$RUNNER_TEMP/new_env.txt"
+          DEPLOY_FAILED=0
+
+          # Function to poll action status
+          poll_action() {
+            local action_id=$1
+            local description=$2
+            local max_attempts=60
+            local attempt=0
+            
+            echo "Polling $description (action $action_id)..."
+            while [ $attempt -lt $max_attempts ]; do
+              local response_file
+              response_file=$(mktemp)
+              local poll_http_code
+              poll_http_code=$(curl -w "%{http_code}" -o "$response_file" -s \
+                -H "Authorization: Bearer $HOSTINGER_API_TOKEN" \
+                "$API_BASE/virtual-machines/$VM_ID/actions/$action_id")
+              
+              if [ "$poll_http_code" = "200" ]; then
+                local state
+                state=$(jq -r '.state // empty' "$response_file")
+                rm -f "$response_file"
+                
+                if [ "$state" = "success" ]; then
+                  echo "$description completed successfully"
+                  return 0
+                elif [ "$state" = "error" ]; then
+                  echo "::error::$description failed (state: error)"
+                  return 1
+                fi
+              else
+                rm -f "$response_file"
+              fi
+              
+              attempt=$((attempt + 1))
+              sleep 5
+            done
+            
+            echo "::error::$description polling timed out"
+            return 1
+          }
 
           echo "Fetching current project configuration..."
-          http_code=$(curl -w "%{http_code}" -o "$PROJECT_FILE" --fail-with-body -s \
+          get_response=$(mktemp)
+          get_http_code=$(curl -w "%{http_code}" -o "$get_response" -s \
             -H "Authorization: Bearer $HOSTINGER_API_TOKEN" \
-            "$API_BASE/virtual-machines/$VM_ID/docker/$PROJECT_NAME" || echo "000")
+            "$API_BASE/virtual-machines/$VM_ID/docker/$PROJECT_NAME")
 
-          if [ "$http_code" != "200" ]; then
-            echo "::error::Failed to fetch project (HTTP $http_code)"
+          if [ "$get_http_code" != "200" ]; then
+            echo "::error::Failed to fetch project (HTTP $get_http_code)"
+            rm -f "$get_response"
             exit 1
           fi
 
-          content=$(jq -r '.content' "$PROJECT_FILE")
-          environment=$(jq -r '.environment // ""' "$PROJECT_FILE")
+          content=$(jq -r '.content' "$get_response")
+          environment=$(jq -r '.environment // ""' "$get_response")
+          rm -f "$get_response"
 
-          # Mask all environment variable values
+          # Mask environment variable values (skip short values under 4 chars)
           if [ -n "$environment" ]; then
-            echo "$environment" | while IFS='=' read -r key value; do
-              if [ -n "$value" ]; then
+            while IFS='=' read -r key value; do
+              if [ -n "$value" ] && [ ${#value} -ge 4 ]; then
                 echo "::add-mask::$value"
               fi
-            done
+            done <<< "$environment"
           fi
 
           echo "$environment" > "$OLD_ENV_FILE"
@@ -128,58 +172,32 @@ jobs:
           # Deploy the updated project
           echo "Deploying updated project..."
           deploy_response=$(mktemp)
-          http_code=$(curl -w "%{http_code}" -o "$deploy_response" --fail-with-body -s \
+          deploy_http_code=$(curl -w "%{http_code}" -o "$deploy_response" -s \
             -X POST \
             -H "Authorization: Bearer $HOSTINGER_API_TOKEN" \
             -H "Content-Type: application/json" \
             -d "$(jq -n --arg name "$PROJECT_NAME" --arg content "$content" --arg env "$new_environment" \
               '{project_name: $name, content: $content, environment: $env}')" \
-            "$API_BASE/virtual-machines/$VM_ID/docker" || echo "000")
+            "$API_BASE/virtual-machines/$VM_ID/docker")
 
-          if [ "$http_code" != "200" ] && [ "$http_code" != "201" ]; then
-            echo "::error::Failed to deploy project (HTTP $http_code)"
+          if [ "$deploy_http_code" != "200" ] && [ "$deploy_http_code" != "201" ]; then
+            echo "::error::Failed to deploy project (HTTP $deploy_http_code)"
             rm -f "$deploy_response"
             exit 1
           fi
 
-          action_id=$(jq -r '.action_id // .actionId // empty' "$deploy_response")
+          action_id=$(jq -r '.id // empty' "$deploy_response")
           rm -f "$deploy_response"
 
           if [ -z "$action_id" ]; then
-            echo "::warning::No action ID returned, skipping action poll"
-          else
-            echo "Polling action $action_id..."
-            max_attempts=60
-            attempt=0
-            while [ $attempt -lt $max_attempts ]; do
-              action_response=$(mktemp)
-              curl -s -H "Authorization: Bearer $HOSTINGER_API_TOKEN" \
-                "$API_BASE/virtual-machines/$VM_ID/actions/$action_id" > "$action_response"
-
-              status=$(jq -r '.status // empty' "$action_response")
-              rm -f "$action_response"
-
-              if [ "$status" = "completed" ] || [ "$status" = "success" ]; then
-                echo "Action completed successfully"
-                break
-              elif [ "$status" = "failed" ] || [ "$status" = "error" ]; then
-                echo "::error::Action failed"
-                echo "DEPLOY_FAILED=1" >> $GITHUB_ENV
-                break
-              fi
-
-              attempt=$((attempt + 1))
-              sleep 5
-            done
-
-            if [ $attempt -ge $max_attempts ]; then
-              echo "::error::Action polling timed out"
-              echo "DEPLOY_FAILED=1" >> $GITHUB_ENV
-            fi
+            echo "::error::No action ID returned from deploy API"
+            DEPLOY_FAILED=1
+          elif ! poll_action "$action_id" "Deploy"; then
+            DEPLOY_FAILED=1
           fi
 
           # Health check
-          if [ "${DEPLOY_FAILED:-0}" = "0" ]; then
+          if [ $DEPLOY_FAILED -eq 0 ]; then
             echo "Waiting for application to be ready..."
             health_attempts=36
             health_attempt=0
@@ -197,65 +215,66 @@ jobs:
 
             if [ $health_ok -eq 0 ]; then
               echo "::error::Health check failed"
-              echo "DEPLOY_FAILED=1" >> $GITHUB_ENV
-            else
-              # Check main page
+              DEPLOY_FAILED=1
+            fi
+          fi
+
+          # Home page check (hard failure)
+          if [ $DEPLOY_FAILED -eq 0 ]; then
+            echo "Checking main page..."
+            page_attempts=3
+            page_attempt=0
+            page_ok=0
+
+            while [ $page_attempt -lt $page_attempts ]; do
               if curl -sf -o /dev/null "$APP_URL/"; then
                 echo "Main page check passed"
-              else
-                echo "::warning::Main page check failed but health OK"
+                page_ok=1
+                break
               fi
+              page_attempt=$((page_attempt + 1))
+              sleep 2
+            done
+
+            if [ $page_ok -eq 0 ]; then
+              echo "::error::Main page check failed"
+              DEPLOY_FAILED=1
             fi
           fi
 
           # Rollback if deployment failed
-          if [ "${DEPLOY_FAILED:-0}" = "1" ]; then
+          if [ $DEPLOY_FAILED -eq 1 ]; then
             echo "Rolling back to previous image..."
             old_environment=$(cat "$OLD_ENV_FILE")
 
             rollback_response=$(mktemp)
-            curl -s -X POST \
+            rollback_http_code=$(curl -w "%{http_code}" -o "$rollback_response" -s \
+              -X POST \
               -H "Authorization: Bearer $HOSTINGER_API_TOKEN" \
               -H "Content-Type: application/json" \
               -d "$(jq -n --arg name "$PROJECT_NAME" --arg content "$content" --arg env "$old_environment" \
                 '{project_name: $name, content: $content, environment: $env}')" \
-              "$API_BASE/virtual-machines/$VM_ID/docker" > "$rollback_response"
+              "$API_BASE/virtual-machines/$VM_ID/docker")
 
-            rollback_action_id=$(jq -r '.action_id // .actionId // empty' "$rollback_response")
-            rm -f "$rollback_response"
-
-            if [ -n "$rollback_action_id" ]; then
-              echo "Polling rollback action $rollback_action_id..."
-              max_attempts=60
-              attempt=0
-              while [ $attempt -lt $max_attempts ]; do
-                action_response=$(mktemp)
-                curl -s -H "Authorization: Bearer $HOSTINGER_API_TOKEN" \
-                  "$API_BASE/virtual-machines/$VM_ID/actions/$rollback_action_id" > "$action_response"
-
-                status=$(jq -r '.status // empty' "$action_response")
-                rm -f "$action_response"
-
-                if [ "$status" = "completed" ] || [ "$status" = "success" ]; then
-                  echo "Rollback completed"
-                  break
-                elif [ "$status" = "failed" ] || [ "$status" = "error" ]; then
-                  echo "::error::Rollback action failed"
-                  break
-                fi
-
-                attempt=$((attempt + 1))
-                sleep 5
-              done
-            fi
-
-            # Re-check health after rollback
-            echo "Checking health after rollback..."
-            sleep 10
-            if curl -sf "$APP_URL/api/health" | jq -e '.status == "ok"' > /dev/null 2>&1; then
-              echo "Health check passed after rollback"
+            if [ "$rollback_http_code" != "200" ] && [ "$rollback_http_code" != "201" ]; then
+              echo "::error::Rollback POST failed (HTTP $rollback_http_code)"
+              rm -f "$rollback_response"
             else
-              echo "::error::Health check failed even after rollback"
+              rollback_action_id=$(jq -r '.id // empty' "$rollback_response")
+              rm -f "$rollback_response"
+
+              if [ -n "$rollback_action_id" ]; then
+                poll_action "$rollback_action_id" "Rollback" || true
+              fi
+
+              # Re-check health after rollback
+              echo "Checking health after rollback..."
+              sleep 10
+              if curl -sf "$APP_URL/api/health" | jq -e '.status == "ok"' > /dev/null 2>&1; then
+                echo "Health check passed after rollback"
+              else
+                echo "::error::Health check failed even after rollback"
+              fi
             fi
 
             exit 1
