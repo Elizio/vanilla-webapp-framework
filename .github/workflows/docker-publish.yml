@@ -46,6 +46,7 @@ jobs:
             org.opencontainers.image.source=${{ github.event.repository.html_url }}
 
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -56,3 +57,208 @@ jobs:
             VITE_BASE_PATH=/vanilla-webapp-framework/
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    concurrency:
+      group: deploy-dsfor
+      cancel-in-progress: false
+
+    steps:
+      - name: Deploy to Hostinger VPS
+        env:
+          HOSTINGER_API_TOKEN: ${{ secrets.HOSTINGER_API_TOKEN }}
+          VM_ID: 1136636
+          PROJECT_NAME: dsfor
+          NEW_IMAGE: ghcr.io/elizio/vanilla-webapp-framework:sha-${{ github.sha }}
+          APP_URL: https://dsfor.fun/vanilla-webapp-framework
+        run: |
+          set -e
+          set -o pipefail
+
+          if [ -z "$HOSTINGER_API_TOKEN" ]; then
+            echo "::error::HOSTINGER_API_TOKEN secret is not set"
+            exit 1
+          fi
+
+          API_BASE="https://api.hostinger.com/api/vps/v1"
+          PROJECT_FILE="$RUNNER_TEMP/project.json"
+          OLD_ENV_FILE="$RUNNER_TEMP/old_env.txt"
+          NEW_ENV_FILE="$RUNNER_TEMP/new_env.txt"
+
+          echo "Fetching current project configuration..."
+          http_code=$(curl -w "%{http_code}" -o "$PROJECT_FILE" --fail-with-body -s \
+            -H "Authorization: Bearer $HOSTINGER_API_TOKEN" \
+            "$API_BASE/virtual-machines/$VM_ID/docker/$PROJECT_NAME" || echo "000")
+
+          if [ "$http_code" != "200" ]; then
+            echo "::error::Failed to fetch project (HTTP $http_code)"
+            exit 1
+          fi
+
+          content=$(jq -r '.content' "$PROJECT_FILE")
+          environment=$(jq -r '.environment // ""' "$PROJECT_FILE")
+
+          # Mask all environment variable values
+          if [ -n "$environment" ]; then
+            echo "$environment" | while IFS='=' read -r key value; do
+              if [ -n "$value" ]; then
+                echo "::add-mask::$value"
+              fi
+            done
+          fi
+
+          echo "$environment" > "$OLD_ENV_FILE"
+
+          # Find and replace VWF_IMAGE line
+          if ! grep -q "^VWF_IMAGE=" "$OLD_ENV_FILE"; then
+            echo "::error::VWF_IMAGE not found in project environment"
+            exit 1
+          fi
+
+          old_image=$(grep "^VWF_IMAGE=" "$OLD_ENV_FILE" | cut -d= -f2-)
+          echo "Old image: VWF_IMAGE=$old_image"
+          echo "New image: VWF_IMAGE=$NEW_IMAGE"
+
+          sed "s|^VWF_IMAGE=.*|VWF_IMAGE=$NEW_IMAGE|" "$OLD_ENV_FILE" > "$NEW_ENV_FILE"
+          new_environment=$(cat "$NEW_ENV_FILE")
+
+          # Deploy the updated project
+          echo "Deploying updated project..."
+          deploy_response=$(mktemp)
+          http_code=$(curl -w "%{http_code}" -o "$deploy_response" --fail-with-body -s \
+            -X POST \
+            -H "Authorization: Bearer $HOSTINGER_API_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n --arg name "$PROJECT_NAME" --arg content "$content" --arg env "$new_environment" \
+              '{project_name: $name, content: $content, environment: $env}')" \
+            "$API_BASE/virtual-machines/$VM_ID/docker" || echo "000")
+
+          if [ "$http_code" != "200" ] && [ "$http_code" != "201" ]; then
+            echo "::error::Failed to deploy project (HTTP $http_code)"
+            rm -f "$deploy_response"
+            exit 1
+          fi
+
+          action_id=$(jq -r '.action_id // .actionId // empty' "$deploy_response")
+          rm -f "$deploy_response"
+
+          if [ -z "$action_id" ]; then
+            echo "::warning::No action ID returned, skipping action poll"
+          else
+            echo "Polling action $action_id..."
+            max_attempts=60
+            attempt=0
+            while [ $attempt -lt $max_attempts ]; do
+              action_response=$(mktemp)
+              curl -s -H "Authorization: Bearer $HOSTINGER_API_TOKEN" \
+                "$API_BASE/virtual-machines/$VM_ID/actions/$action_id" > "$action_response"
+
+              status=$(jq -r '.status // empty' "$action_response")
+              rm -f "$action_response"
+
+              if [ "$status" = "completed" ] || [ "$status" = "success" ]; then
+                echo "Action completed successfully"
+                break
+              elif [ "$status" = "failed" ] || [ "$status" = "error" ]; then
+                echo "::error::Action failed"
+                echo "DEPLOY_FAILED=1" >> $GITHUB_ENV
+                break
+              fi
+
+              attempt=$((attempt + 1))
+              sleep 5
+            done
+
+            if [ $attempt -ge $max_attempts ]; then
+              echo "::error::Action polling timed out"
+              echo "DEPLOY_FAILED=1" >> $GITHUB_ENV
+            fi
+          fi
+
+          # Health check
+          if [ "${DEPLOY_FAILED:-0}" = "0" ]; then
+            echo "Waiting for application to be ready..."
+            health_attempts=36
+            health_attempt=0
+            health_ok=0
+
+            while [ $health_attempt -lt $health_attempts ]; do
+              if curl -sf "$APP_URL/api/health" | jq -e '.status == "ok"' > /dev/null 2>&1; then
+                echo "Health check passed"
+                health_ok=1
+                break
+              fi
+              health_attempt=$((health_attempt + 1))
+              sleep 5
+            done
+
+            if [ $health_ok -eq 0 ]; then
+              echo "::error::Health check failed"
+              echo "DEPLOY_FAILED=1" >> $GITHUB_ENV
+            else
+              # Check main page
+              if curl -sf -o /dev/null "$APP_URL/"; then
+                echo "Main page check passed"
+              else
+                echo "::warning::Main page check failed but health OK"
+              fi
+            fi
+          fi
+
+          # Rollback if deployment failed
+          if [ "${DEPLOY_FAILED:-0}" = "1" ]; then
+            echo "Rolling back to previous image..."
+            old_environment=$(cat "$OLD_ENV_FILE")
+
+            rollback_response=$(mktemp)
+            curl -s -X POST \
+              -H "Authorization: Bearer $HOSTINGER_API_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$(jq -n --arg name "$PROJECT_NAME" --arg content "$content" --arg env "$old_environment" \
+                '{project_name: $name, content: $content, environment: $env}')" \
+              "$API_BASE/virtual-machines/$VM_ID/docker" > "$rollback_response"
+
+            rollback_action_id=$(jq -r '.action_id // .actionId // empty' "$rollback_response")
+            rm -f "$rollback_response"
+
+            if [ -n "$rollback_action_id" ]; then
+              echo "Polling rollback action $rollback_action_id..."
+              max_attempts=60
+              attempt=0
+              while [ $attempt -lt $max_attempts ]; do
+                action_response=$(mktemp)
+                curl -s -H "Authorization: Bearer $HOSTINGER_API_TOKEN" \
+                  "$API_BASE/virtual-machines/$VM_ID/actions/$rollback_action_id" > "$action_response"
+
+                status=$(jq -r '.status // empty' "$action_response")
+                rm -f "$action_response"
+
+                if [ "$status" = "completed" ] || [ "$status" = "success" ]; then
+                  echo "Rollback completed"
+                  break
+                elif [ "$status" = "failed" ] || [ "$status" = "error" ]; then
+                  echo "::error::Rollback action failed"
+                  break
+                fi
+
+                attempt=$((attempt + 1))
+                sleep 5
+              done
+            fi
+
+            # Re-check health after rollback
+            echo "Checking health after rollback..."
+            sleep 10
+            if curl -sf "$APP_URL/api/health" | jq -e '.status == "ok"' > /dev/null 2>&1; then
+              echo "Health check passed after rollback"
+            else
+              echo "::error::Health check failed even after rollback"
+            fi
+
+            exit 1
+          fi
+
+          echo "Deployment completed successfully"
