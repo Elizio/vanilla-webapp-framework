@@ -147,7 +147,12 @@ jobs:
 
           # Mask sensitive environment variable values
           # Only mask values where key name contains: SECRET, TOKEN, KEY, PASSWORD, or URI (case-insensitive)
-          if [ -n "$environment" ]; then
+          
+          # Function to emit mask lines for environment variables
+          emit_masks() {
+            local env_text="$1"
+            local quoted_re='^["'\'\''](.*)["'\'\'']$'
+            
             while IFS= read -r line; do
               # Strip CR (handle CRLF)
               line="${line%$'\r'}"
@@ -169,13 +174,35 @@ jobs:
                   echo "::add-mask::$value"
                   
                   # If quoted, also mask the unquoted value
-                  if [[ "$value" =~ ^[\"\'](.*)[\"\']\$ ]]; then
+                  if [[ $value =~ $quoted_re ]]; then
                     unquoted="${BASH_REMATCH[1]}"
                     [ -n "$unquoted" ] && echo "::add-mask::$unquoted"
                   fi
                 fi
               fi
-            done <<< "$environment"
+            done <<< "$env_text"
+          }
+          
+          if [ -n "$environment" ]; then
+            # Self-check: verify masking logic with test data
+            test_env='TEST_SECRET="quoted_secret"
+            TEST_TOKEN=unquoted_token
+            TEST_API_KEY='\''single_quoted'\''
+            NORMAL_VAR=normal_value'
+            echo "Running masking self-check..."
+            
+            # Capture mask output to count lines without emitting real masks
+            test_output=$(emit_masks "$test_env")
+            masked_count=$(echo "$test_output" | grep -c '::add-mask::')
+            
+            echo "Self-check: $masked_count mask operations (expected: 5)"
+            if [ "$masked_count" -ne 5 ]; then
+              echo "::error::Masking self-check failed: expected 5, got $masked_count"
+              exit 1
+            fi
+            
+            # Apply actual masking to real environment
+            emit_masks "$environment"
           fi
 
           echo "$environment" > "$OLD_ENV_FILE"
