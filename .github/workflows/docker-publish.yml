@@ -145,11 +145,35 @@ jobs:
           environment=$(jq -r '.environment // ""' "$get_response")
           rm -f "$get_response"
 
-          # Mask environment variable values (skip short values under 4 chars)
+          # Mask sensitive environment variable values
+          # Only mask values where key name contains: SECRET, TOKEN, KEY, PASSWORD, or URI (case-insensitive)
           if [ -n "$environment" ]; then
-            while IFS='=' read -r key value; do
-              if [ -n "$value" ] && [ ${#value} -ge 4 ]; then
-                echo "::add-mask::$value"
+            while IFS= read -r line; do
+              # Strip CR (handle CRLF)
+              line="${line%$'\r'}"
+              
+              # Skip blank lines and comments
+              [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+              
+              # Split on first '='
+              if [[ "$line" =~ ^([^=]+)=(.*)$ ]]; then
+                key="${BASH_REMATCH[1]}"
+                value="${BASH_REMATCH[2]}"
+                
+                # Skip empty values
+                [ -z "$value" ] && continue
+                
+                # Check if key contains sensitive patterns (case-insensitive)
+                if [[ "${key^^}" =~ (SECRET|TOKEN|KEY|PASSWORD|URI) ]]; then
+                  # Mask the raw value
+                  echo "::add-mask::$value"
+                  
+                  # If quoted, also mask the unquoted value
+                  if [[ "$value" =~ ^[\"\'](.*)[\"\']\$ ]]; then
+                    unquoted="${BASH_REMATCH[1]}"
+                    [ -n "$unquoted" ] && echo "::add-mask::$unquoted"
+                  fi
+                fi
               fi
             done <<< "$environment"
           fi
