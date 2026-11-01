@@ -7,7 +7,7 @@ A modern frontend for the Vanilla WebApp Framework using Vite, Alpine.js, and Ta
 - **Vite.js**: Fast development server and optimized production builds
 - **Alpine.js**: Lightweight JavaScript framework for interactivity
 - **Tailwind CSS**: Utility-first CSS framework
-- **Handlebars.js**: Templating engine for dynamic content
+- **Alpine HTML fragments**: `.hbs` files are static HTML + Alpine, imported with Vite `?raw`
 
 ## Getting Started
 

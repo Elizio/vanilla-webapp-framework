@@ -45,18 +45,20 @@ Create `.env` in the project root:
 | `FLASK_SECRET` | Flask sessions / CSRF |
 | `JWT_SECRET` | JWT signing |
 | `DATABASE_URI` | DB connection string |
-| `PROJECT_FOLDER` | Optional file-log directory (stdout/stderr by default) |
 | `APP_PROFILE` | `development`, `testing`, or `production` |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth (optional) |
-| `FACEBOOK_CLIENT_ID` / `FACEBOOK_CLIENT_SECRET` | Facebook OAuth (optional) |
-| `FRONTEND_URL` | Full SPA URL after OAuth/billing (keep any subpath; default `http://localhost:5173` in dev) |
-| `OAUTH_REDIRECT_BASE` | OAuth callback base URL (default `http://localhost:5173` in dev) |
-| `CORS_ORIGINS` | Comma-separated browser origins only (`scheme://host[:port]`, no paths). Defaults to the origin of `FRONTEND_URL`. |
-| `APP_BASE_PATH` | Cookie `Path` for `auth_token`, `csrf_token`, and the Flask session (default `/`) |
+| `FLASK_APP` | Flask CLI target (`backend.app`) so `flask run` works from the repo root |
+| `PROJECT_FOLDER` | Only used when `LOG_TO_FILE=1` and `LOG_FILE` is unset (stdout/stderr by default) |
+| `FRONTEND_URL` | Full public app URL (keep any subpath; default `http://localhost:5173` in dev) |
+| `CORS_ORIGINS` | Origin-only (`scheme://host[:port]`). Paths are stripped with a warning; a malformed entry stops startup |
+| `APP_BASE_PATH` | Public subpath used as cookie `Path` (default `/`) |
+| `VITE_BASE_PATH` | Vite `base` at image build time (not a runtime compose key) |
+| `TRUST_PROXY` | `1` behind Caddy/nginx so Flask honors `X-Forwarded-*` |
 | `HSTS_ENABLED` | Production HSTS on/off (default on; plain `max-age`, no `includeSubDomains`) |
 | `SEO_MODE` | `auth-first` (default) or `public-first`; frontend meta defaults + `/robots.txt` |
 | `BILLING_PROVIDER` | Active billing adapter (default `lemon_squeezy`; optional) |
 | `LEMON_SQUEEZY_*` | Lemon Squeezy API key, store id, webhook secret, variant ids (optional) |
+
+Full operator table: [README.md](README.md) → Environment variables. Do not invent keys that are not in `.env.example`.
 
 Register each provider's redirect URI as `{OAUTH_REDIRECT_BASE}/api/auth/{provider}/callback` (e.g. `http://localhost:5173/api/auth/google/callback` in dev so the Vite proxy keeps the session cookie on one origin).
 
@@ -153,6 +155,17 @@ Flask uses a custom SQLAlchemy singleton (`db_session`), not Flask-SQLAlchemy.
 
 Canonical entry points: `backend/__init__.py` (`create_app`), `frontend/src/js/app.js` (`createSpaApp`).
 
+## Git and deploy
+
+- **Never push to `master`** (or any default branch). Never merge unless the user explicitly asks.
+- **One PR per change**, targeting `master`.
+- Branch protection requires the branch to be **up to date** with `master` and these checks green: `backend`, `frontend`, `build-and-push`, plus `lint` (shellcheck / actionlint).
+- Every merge to `master` **auto-deploys**: CI → private GHCR image `ghcr.io/elizio/vanilla-webapp-framework:sha-<full>` → `scripts/deploy-hostinger.sh` (Hostinger VM `1136636` / Docker project `dsfor`).
+- The deploy asserts `GET /api/health` returns 200 with `status == "ok"` and `version ==` the merge SHA, then checks the home page. On failure it POSTs the previous environment (`VWF_IMAGE`) and re-checks health.
+- Say in the PR whether runtime behavior changes. Docs-only and test-only PRs still rebuild and deploy; they should be a no-op for the running app.
+- Production config lives on the VPS. Do not commit secrets or paste real env values. The only deploy secret in GitHub is `HOSTINGER_API_TOKEN`.
+- Actions are SHA-pinned. Dependabot updates `pip`, `npm` (`/frontend`), `github-actions`, and `docker` weekly.
+
 ## Full-stack feature checklist
 
 When adding a feature that spans backend and frontend:
@@ -174,11 +187,11 @@ Backend-first: ship API + tests before frontend integration.
 
 | Item | Status |
 |------|--------|
-| DigitalOcean deploy automation | Stub workflow only — fork activates `.github/workflows/deploy.yml` |
 | Flask-SQLAlchemy migration | Deferred — stay on `db_session` singleton |
 | SSR/prerender for SEO-heavy forks | Documented recipe in [frontend/AGENTS.md](frontend/AGENTS.md) |
+| Unused `workflow_dispatch` stub | `.github/workflows/deploy.yml` is not the production deploy path |
 
-Resolved in the tech-debt remediation pass: cookie auth + CSRF, CORS lockdown, OAuth email linking, health check, webhook reliability, History API routing, repo hygiene (`.env` path, build artifacts).
+Shipped and verified against the code: cookie auth + CSRF, CORS origin lockdown (`APP_BASE_PATH` cookie Path, HSTS without `includeSubDomains`), OAuth linking (Google only when `email_verified`; Facebook never links by email), `/api/health` `{status, db, version}` with SHA assertion + rollback, webhook reliability, History API routing, repo hygiene, container hardening (UID 10001, migrate-once entrypoint, stdout logs, image `HEALTHCHECK`), deploy script + SHA-pinned actions + `lint`.
 
 ## Agent principles
 

@@ -6,7 +6,7 @@ Flask REST API with JWT auth, custom SQLAlchemy layer, and Flasgger Swagger. Glo
 
 ```
 backend/
-├── __init__.py          # create_app() factory, blueprint registration, init_db()
+├── __init__.py          # create_app() factory, blueprint registration
 ├── app.py               # Dev entrypoint
 ├── web_routes.py        # SPA fallback + error handlers
 ├── alembic.ini          # Alembic config
@@ -40,7 +40,7 @@ backend/
 3. Merges `UserConfig` values
 4. Calls `setup_logging(app)`
 5. Initializes Flasgger Swagger (`/docs`)
-6. Registers `auth_bp`, `api_bp`, `oauth_bp`, and `billing_bp`
+6. Registers `auth_bp`, `api_bp`, `oauth_bp`, `billing_bp`, and `csrf_bp`
 7. Registers web routes via `register_web_routes(app)`
 8. Runs `init_db()` (test) or `bootstrap_dev_database()` (development). Production migrations run once in `docker-entrypoint.sh`, not in `create_app()`.
 
@@ -66,7 +66,7 @@ from .api.myfeature import myfeature_bp
 app.register_blueprint(myfeature_bp)
 ```
 
-Keep route handlers in blueprints — not in `app.py` (except `/` and error handlers).
+Keep route handlers in blueprints. SPA fallback (`/`) and `@app.errorhandler` live in `web_routes.py`, not `app.py`.
 
 ## Recipe: add an API endpoint
 
@@ -208,7 +208,11 @@ Flow:
 
 CSRF: `GET /api/csrf` then send `X-CSRF-Token` header on mutating routes.
 
-**Canonical reference:** `@backend/api/auth.py`, `@backend/api/session_auth.py`, `@backend/api/csrf.py`
+Inactive users (`is_active=False`) receive **403** `ACCOUNT_INACTIVE` on password login, `/api/auth/session`, and the OAuth callback — not a 200 with a session.
+
+OAuth linking: Google attaches the provider identity to an existing password account with the same email only when userinfo `email_verified` is true. Facebook Graph `me` has no verified flag, so Facebook **never** links by email; it creates or reuses its own provider account. `users.email` is not unique. `users.password_hash` is `String(255)`.
+
+**Canonical reference:** `@backend/api/auth.py`, `@backend/api/oauth.py`, `@backend/api/session_auth.py`, `@backend/api/csrf.py`
 
 ### Config note
 
@@ -263,16 +267,16 @@ No manual schema coordination in dev/test — use Alembic for production (see Al
 - **`AppConfig.get_instance()`** — reads validated settings from `os.environ` after the file load
 - Required in non-testing: `FLASK_SECRET`, `JWT_SECRET`, `DATABASE_URI`
 
-`UserConfig` provides `PROJECT_FOLDER` for log file paths (also uses `load_env_file()`).
+`UserConfig` still reads `PROJECT_FOLDER` (default `~/project_folder`). That value is used only when file logging is opted in via `LOG_TO_FILE` and `LOG_FILE` is unset. Default logging is stdout/stderr.
 
 `database.py` reads the database URI from `AppConfig`, not raw `os.environ`.
 
-`setup_logging(app)` is called once from the app factory (not again in `app.py`). It logs to stdout/stderr by default. File logging is opt-in (`LOG_TO_FILE` / `LOG_FILE`); `PROJECT_FOLDER=/data/logs` writes `app.log` in that folder (no doubled `/logs/logs` path).
+`setup_logging(app)` is called once from the app factory (not again in `app.py`). It logs to stdout/stderr by default. File logging is opt-in (`LOG_TO_FILE` / `LOG_FILE`). If `PROJECT_FOLDER` already ends with a `logs` segment, `app.log` is written in that folder (no doubled `logs/logs` path).
 
 ## Error handling
 
 - **Blueprint handlers** — return `jsonify({...}), status_code` directly
-- **Global handlers** — `@app.errorhandler` in `app.py` returns JSON for 404/500
+- **Global handlers** — `@app.errorhandler` in `web_routes.py` returns JSON for 404/405/500
 - **Logging** — use `app.logger.error(...)` in handlers
 
 ## Testing

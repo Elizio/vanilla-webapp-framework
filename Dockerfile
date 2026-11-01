@@ -39,8 +39,8 @@ ENV HEALTHCHECK_PATH=/api/health
 
 EXPOSE 5000
 
-# /app stays root-owned and read-only for UID 10001 (DB and logs live under /data).
-# The named volume at /data is owned on the VPS (10001:10001). Do not chown it here.
+# /app stays root-owned and read-only for UID 10001. Logs go to stdout.
+# Any named data volume is owned on the VPS (10001:10001). Do not chown it here.
 USER 10001:10001
 
 ENTRYPOINT ["/docker-entrypoint.sh"]

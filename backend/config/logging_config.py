@@ -14,12 +14,12 @@ from .user_config import UserConfig
 def resolve_log_file_path(project_folder: str) -> Path:
     """Return the app.log path without doubling a trailing ``logs`` segment.
 
-    ``PROJECT_FOLDER=/data/logs`` writes ``/data/logs/app.log``, not
-    ``/data/logs/logs/app.log``.
+    A ``PROJECT_FOLDER`` whose last segment is already ``logs`` writes
+    ``app.log`` in that folder, not a nested ``logs/logs`` path.
 
     Args:
-        project_folder: ``PROJECT_FOLDER`` value (for example ``/data`` or
-            ``/data/logs``).
+        project_folder: ``PROJECT_FOLDER`` value (for example a project
+            root, or a directory already named ``logs``).
 
     Returns:
         Path to ``app.log`` under the resolved log directory.
