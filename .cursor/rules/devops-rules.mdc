@@ -13,6 +13,6 @@ alwaysApply: false
 - **Rule 3.4**: Auto-deploy to **DigitalOcean** on `main` branch merges.
 
 ### **Environment Management**
-- **Rule 3.5**: Use `.venv` for Python dependencies (`pip install -e .`).
+- **Rule 3.5**: Use `.venv` for Python dependencies (`pip install -r requirements-dev.txt` then `pip install -e . --no-deps`).
 - **Rule 3.6**: Freeze dependencies with `pip freeze > requirements.txt`.
 - **Rule 3.7**: Include `setup.cfg` and `setup.py` for dependency management and project configuration.
