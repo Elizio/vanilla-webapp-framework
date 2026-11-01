@@ -27,6 +27,7 @@ from .session_auth import (
 )
 from .csrf import csrf_protect
 from .rate_limit import (
+    issue_device_cookie,
     rate_limit_auth,
     reset_failed_logins,
     username_login_blocked,
@@ -190,7 +191,8 @@ def login():
             return error_response(ACCOUNT_INACTIVE, 403)
         reset_failed_logins(username)
         response = jsonify({'authenticated': True, 'username': user.username})
-        return set_auth_cookie(response, user.id)
+        set_auth_cookie(response, user.id)
+        return issue_device_cookie(response, username)
 
     return error_response(INVALID_CREDENTIALS, 401)
 
@@ -273,4 +275,5 @@ def register():
         {'code': USER_CREATED, 'authenticated': True, 'username': username}
     )
     response.status_code = 201
-    return set_auth_cookie(response, user.id)
+    set_auth_cookie(response, user.id)
+    return issue_device_cookie(response, username)

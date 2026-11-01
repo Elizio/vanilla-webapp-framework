@@ -53,6 +53,27 @@ def test_proxy_fix_not_applied_when_trust_proxy_disabled(monkeypatch):
     assert response.status_code == 200
 
 
+def test_trust_proxy_hops_defaults_to_one(monkeypatch):
+    """TRUST_PROXY_HOPS defaults to 1 (prod: TRUST_PROXY=1, Caddy, x_for=1)."""
+    monkeypatch.setenv('TRUST_PROXY', '1')
+    monkeypatch.delenv('TRUST_PROXY_HOPS', raising=False)
+    monkeypatch.setenv('APP_PROFILE', 'testing')
+
+    from ..config.app_config import reset_app_config_for_tests
+
+    reset_app_config_for_tests()
+
+    from .. import create_app
+    from werkzeug.middleware.proxy_fix import ProxyFix
+
+    app = create_app()
+    assert isinstance(app.wsgi_app, ProxyFix)
+    assert app.wsgi_app.x_for == 1
+
+    monkeypatch.setenv('TRUST_PROXY', '0')
+    reset_app_config_for_tests()
+
+
 def test_proxy_fix_honors_trust_proxy_hops(monkeypatch):
     """TRUST_PROXY_HOPS sets ProxyFix x_for (default remains 1)."""
     monkeypatch.setenv('TRUST_PROXY', '1')

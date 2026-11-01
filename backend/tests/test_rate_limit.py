@@ -299,7 +299,8 @@ def test_counters_store_hashed_keys_not_raw_usernames(test_app, test_db, test_cl
 
     _enable_rate_limit(test_app)
     register_user(test_client, username='hashuser', password='testpass8')
-    response = _login(test_client, 'hashuser', 'wrong-password')
+    stranger = test_app.test_client()
+    response = _login(stranger, 'hashuser', 'wrong-password')
     assert response.status_code == 401
 
     with rate_limit_mod.db.engine.connect() as conn:
@@ -746,3 +747,182 @@ def test_username_key_is_exact_stripped_value():
     assert username_key('  Victim  ') == 'Victim'
     assert username_key('victim') == 'victim'
     assert username_key('Victim') != username_key('victim')
+
+
+def test_client_subnet_key_groups_ipv4_slash_24():
+    """Untrusted pair keys group IPv4 by /24 and IPv6 by /64."""
+    from backend.api.rate_limit import client_subnet_key
+
+    assert client_subnet_key('203.0.113.10') == client_subnet_key('203.0.113.99')
+    assert client_subnet_key('203.0.113.10') != client_subnet_key('203.0.114.10')
+    first = client_subnet_key('2001:db8:1:2::1')
+    second = client_subnet_key('2001:db8:1:2::ffff')
+    other = client_subnet_key('2001:db8:1:3::1')
+    assert first == second
+    assert first != other
+    assert client_subnet_key(None) == 'unknown'
+
+
+def _device_cookie_value(client) -> str:
+    """Return the ``auth_device`` cookie value from a test client jar."""
+    from backend.api.rate_limit import DEVICE_COOKIE_NAME
+
+    cookie = client.get_cookie(DEVICE_COOKIE_NAME)
+    assert cookie is not None
+    return cookie.value
+
+
+def test_device_cookie_allows_login_after_rotating_ip_attack(
+    test_app, test_db, test_client
+):
+    """Alice with her device cookie logs in after untrusted IPs exhaust limits."""
+    from backend.api.rate_limit import DEVICE_COOKIE_NAME
+
+    _enable_rate_limit(test_app)
+    test_app.config['RATELIMIT_AUTH_IP_MAX'] = 100
+    register_user(test_client, username='alice', password='testpass8')
+    device_value = _device_cookie_value(test_client)
+
+    for index in range(20):
+        attacker = test_app.test_client()
+        response = _login(
+            attacker,
+            'alice',
+            'wrong-password',
+            remote_addr=f'203.0.{index}.10',
+        )
+        assert response.status_code in (401, 429), index
+
+    alice = test_app.test_client()
+    alice.set_cookie(DEVICE_COOKIE_NAME, device_value)
+    success = _login(alice, 'alice', 'testpass8', remote_addr='198.51.100.8')
+    assert success.status_code == 200
+
+
+def test_untrusted_clean_ip_is_delayed_not_permanently_blocked(
+    test_app, test_db, test_client, monkeypatch
+):
+    """An untrusted new subnet is delayed up to the cap, never locked out."""
+    from backend.api import rate_limit as rate_limit_mod
+    from backend.api.rate_limit import LOGIN_BACKOFF_CAP_SECONDS
+
+    _enable_rate_limit(test_app)
+    test_app.config['RATELIMIT_AUTH_IP_MAX'] = 100
+    clock = {'now': 1_699_999_200.0}
+
+    def _clock() -> float:
+        return clock['now']
+
+    monkeypatch.setattr(rate_limit_mod, '_now', _clock)
+    register_user(test_client, username='alice', password='testpass8')
+
+    saw_backoff = False
+    for index in range(20):
+        attacker = test_app.test_client()
+        response = _login(
+            attacker,
+            'alice',
+            'wrong-password',
+            remote_addr=f'198.51.{index}.10',
+        )
+        if response.status_code == 429:
+            retry = int(response.headers['Retry-After'])
+            assert 1 <= retry <= LOGIN_BACKOFF_CAP_SECONDS
+            saw_backoff = True
+        else:
+            assert response.status_code == 401, index
+    assert saw_backoff
+
+    clean = test_app.test_client()
+    blocked = _login(clean, 'alice', 'wrong-password', remote_addr='192.0.2.50')
+    _assert_rate_limited(blocked)
+    retry = int(blocked.headers['Retry-After'])
+    assert retry <= LOGIN_BACKOFF_CAP_SECONDS
+    clock['now'] += retry
+    allowed = _login(clean, 'alice', 'wrong-password', remote_addr='192.0.2.50')
+    assert allowed.status_code == 401
+    assert allowed.json['code'] == 'INVALID_CREDENTIALS'
+
+
+def test_rotating_ip_brute_force_password_checks_stay_bounded(
+    test_app, test_db, test_client, monkeypatch
+):
+    """Untrusted rotating-IP guesses stay at the documented per-window bound."""
+    from backend.api import rate_limit as rate_limit_mod
+    from backend.api.rate_limit import UNTRUSTED_PASSWORD_CHECKS_PER_WINDOW
+
+    _enable_rate_limit(test_app)
+    test_app.config['RATELIMIT_AUTH_IP_MAX'] = 200
+    clock = {'now': 1_699_999_200.0}
+
+    def _clock() -> float:
+        return clock['now']
+
+    monkeypatch.setattr(rate_limit_mod, '_now', _clock)
+    register_user(test_client, username='target', password='testpass8')
+
+    calls: list[str] = []
+
+    def _capture(stored, provided):
+        calls.append(provided)
+        return False
+
+    monkeypatch.setattr('backend.api.auth.check_password_hash', _capture)
+
+    deadline = clock['now'] + 900
+    index = 0
+    while clock['now'] < deadline and index < 40:
+        attacker = test_app.test_client()
+        response = _login(
+            attacker,
+            'target',
+            'wrong-password',
+            remote_addr=f'10.{index}.0.1',
+        )
+        index += 1
+        if response.status_code == 429:
+            clock['now'] += int(response.headers['Retry-After'])
+            continue
+        assert response.status_code == 401, response.status_code
+
+    assert len(calls) <= UNTRUSTED_PASSWORD_CHECKS_PER_WINDOW
+    assert len(calls) >= 5
+
+
+def test_forged_and_foreign_device_cookies_are_untrusted(
+    test_app, test_db, test_client, monkeypatch
+):
+    """Tampered or other-user device cookies do not bypass global backoff."""
+    from backend.api.rate_limit import DEVICE_COOKIE_NAME
+
+    _enable_rate_limit(test_app)
+    test_app.config['RATELIMIT_AUTH_IP_MAX'] = 100
+    _freeze_now(monkeypatch, 1_699_999_200.0)
+    register_user(test_client, username='alice', password='testpass8')
+    real_device = _device_cookie_value(test_client)
+    forged = real_device[:-1] + ('A' if real_device[-1] != 'A' else 'B')
+
+    bob = test_app.test_client()
+    register_user(bob, username='bob', password='testpass8')
+    bob_device = _device_cookie_value(bob)
+
+    for index in range(20):
+        attacker = test_app.test_client()
+        response = _login(
+            attacker,
+            'alice',
+            'wrong-password',
+            remote_addr=f'203.0.{index}.20',
+        )
+        assert response.status_code in (401, 429), index
+
+    for bad_value in (forged, bob_device):
+        impostor = test_app.test_client()
+        impostor.set_cookie(DEVICE_COOKIE_NAME, bad_value)
+        blocked = _login(impostor, 'alice', 'testpass8', remote_addr='198.51.100.40')
+        _assert_rate_limited(blocked)
+
+    alice = test_app.test_client()
+    alice.set_cookie(DEVICE_COOKIE_NAME, real_device)
+    success = _login(alice, 'alice', 'testpass8', remote_addr='192.0.2.9')
+    assert success.status_code == 200

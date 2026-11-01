@@ -152,6 +152,15 @@ def test_default_set_cookie_attrs_match_today(default_client):
     assert _stable_cookie_attrs(auth_headers[0]) == (
         'Max-Age=3600; HttpOnly; Path=/; SameSite=Lax'
     )
+    device_headers = [
+        header
+        for header in login.headers.getlist('Set-Cookie')
+        if header.startswith('auth_device=')
+    ]
+    assert len(device_headers) == 1
+    assert _stable_cookie_attrs(device_headers[0]) == (
+        'Max-Age=2592000; HttpOnly; Path=/; SameSite=Lax'
+    )
 
     logout = default_client.post(
         '/api/logout',
@@ -197,6 +206,14 @@ def test_scoped_cookies_use_app_base_path(scoped_app, scoped_client):
     assert len(scoped_auth) == 1
     assert scoped_auth[0]['httponly'] is True
     assert scoped_auth[0]['samesite'] == 'Lax'
+    scoped_device = [
+        morsel
+        for morsel in _cookies_named(login.headers.getlist('Set-Cookie'), 'auth_device')
+        if morsel['path'] == '/vanilla-webapp-framework' and morsel.value
+    ]
+    assert len(scoped_device) == 1
+    assert scoped_device[0]['httponly'] is True
+    assert scoped_device[0]['samesite'] == 'Lax'
 
     assert scoped_app.config['SESSION_COOKIE_PATH'] == ('/vanilla-webapp-framework')
     session_client = scoped_app.test_client()
