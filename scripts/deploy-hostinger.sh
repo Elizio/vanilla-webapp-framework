@@ -3,6 +3,19 @@
 # Do not enable xtrace: it would print secret environment values.
 set -euo pipefail
 
+# Default curl timeouts applied by curl_timed so no invocation can omit them.
+CURL_CONNECT_TIMEOUT=10
+CURL_MAX_TIME=30
+# Hostinger docker project-update POSTs can pull the new GHCR image before
+# returning an action id; 180s is intentional (the default 30s is too short).
+CURL_PROJECT_UPDATE_MAX_TIME=180
+
+# Run curl with required timeouts. A later --max-time on the command line
+# overrides the default (curl uses the last occurrence).
+curl_timed() {
+  curl --connect-timeout "${CURL_CONNECT_TIMEOUT}" --max-time "${CURL_MAX_TIME}" "$@"
+}
+
 # Poll a Hostinger VPS action until it succeeds, errors, or times out.
 poll_action() {
   local action_id="$1"
@@ -15,9 +28,10 @@ poll_action() {
     local response_file
     response_file=$(mktemp)
     local poll_http_code
-    poll_http_code=$(curl -w "%{http_code}" -o "$response_file" -s \
+    # Timeout/transport errors must retry, not abort the script under set -e.
+    poll_http_code=$(curl_timed -w "%{http_code}" -o "$response_file" -s \
       -H "Authorization: Bearer $HOSTINGER_API_TOKEN" \
-      "$API_BASE/virtual-machines/$VM_ID/actions/$action_id")
+      "$API_BASE/virtual-machines/$VM_ID/actions/$action_id" || true)
 
     if [ "$poll_http_code" = "200" ]; then
       local state
@@ -94,7 +108,7 @@ main() {
 
   echo "Fetching current project configuration..."
   get_response=$(mktemp)
-  get_http_code=$(curl -w "%{http_code}" -o "$get_response" -s \
+  get_http_code=$(curl_timed -w "%{http_code}" -o "$get_response" -s \
     -H "Authorization: Bearer $HOSTINGER_API_TOKEN" \
     "$API_BASE/virtual-machines/$VM_ID/docker/$PROJECT_NAME")
 
@@ -153,7 +167,8 @@ NORMAL_VAR=normal_value'
   # Deploy the updated project
   echo "Deploying updated project..."
   deploy_response=$(mktemp)
-  deploy_http_code=$(curl -w "%{http_code}" -o "$deploy_response" -s \
+  deploy_http_code=$(curl_timed --max-time "${CURL_PROJECT_UPDATE_MAX_TIME}" \
+    -w "%{http_code}" -o "$deploy_response" -s \
     -X POST \
     -H "Authorization: Bearer $HOSTINGER_API_TOKEN" \
     -H "Content-Type: application/json" \
@@ -186,7 +201,10 @@ NORMAL_VAR=normal_value'
 
     while [ "$health_attempt" -lt "$health_attempts" ]; do
       health_file=$(mktemp)
-      health_http=$(curl -sS -o "$health_file" -w "%{http_code}" "$APP_URL/api/health" || true)
+      # Timed-out curl exits 28; under set -e that must not abort the loop or
+      # rollback never runs. Treat any curl failure as not healthy yet.
+      health_http=$(curl_timed -sS -o "$health_file" -w "%{http_code}" \
+        "$APP_URL/api/health" || true)
       observed=$(jq -r '.version // empty' "$health_file" 2>/dev/null || true)
       echo "Health check HTTP ${health_http:-000} expected version=$GITHUB_SHA observed version=${observed:-<none>}"
       if [ "$health_http" = "200" ] && jq -e --arg sha "$GITHUB_SHA" '.status == "ok" and .version == $sha' "$health_file" > /dev/null 2>&1; then
@@ -214,7 +232,7 @@ NORMAL_VAR=normal_value'
     page_ok=0
 
     while [ "$page_attempt" -lt "$page_attempts" ]; do
-      if curl -sf -o /dev/null "$APP_URL/"; then
+      if curl_timed -sf -o /dev/null "$APP_URL/"; then
         echo "Main page check passed"
         page_ok=1
         break
@@ -235,7 +253,8 @@ NORMAL_VAR=normal_value'
     old_environment=$(cat "$OLD_ENV_FILE")
 
     rollback_response=$(mktemp)
-    rollback_http_code=$(curl -w "%{http_code}" -o "$rollback_response" -s \
+    rollback_http_code=$(curl_timed --max-time "${CURL_PROJECT_UPDATE_MAX_TIME}" \
+      -w "%{http_code}" -o "$rollback_response" -s \
       -X POST \
       -H "Authorization: Bearer $HOSTINGER_API_TOKEN" \
       -H "Content-Type: application/json" \
@@ -257,7 +276,7 @@ NORMAL_VAR=normal_value'
       # Re-check health after rollback
       echo "Checking health after rollback..."
       sleep 10
-      if curl -sf "$APP_URL/api/health" | jq -e '.status == "ok"' > /dev/null 2>&1; then
+      if curl_timed -sf "$APP_URL/api/health" | jq -e '.status == "ok"' > /dev/null 2>&1; then
         echo "Health check passed after rollback"
       else
         echo "::error::Health check failed even after rollback"
