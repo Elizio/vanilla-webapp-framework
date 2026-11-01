@@ -1,3 +1,4 @@
+"""Alembic environment: run revisions against DATABASE_URI."""
 import os
 import sys
 from logging.config import fileConfig
@@ -10,8 +11,7 @@ project_root = os.path.abspath(
 )
 sys.path.insert(0, project_root)
 
-from backend.db_repository.database import db  # noqa: E402
-from backend.models.user import User  # noqa: E402, F401
+from backend.models.user import User  # noqa: E402
 from backend.models.billing_entitlement import BillingEntitlement  # noqa: E402, F401
 from backend.models.billing_event import BillingEvent  # noqa: E402, F401
 from backend.models.billing_credit_ledger import (  # noqa: E402, F401
@@ -23,7 +23,9 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = db.Base.metadata
+# Models register on the Base they were imported with. Use that metadata,
+# not the Database singleton — tests may replace ``db`` with a new instance.
+target_metadata = User.metadata
 
 
 def get_url():
