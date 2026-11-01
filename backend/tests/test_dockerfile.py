@@ -11,6 +11,8 @@ def test_dockerfile_runs_as_uid_10001():
     assert 'useradd' in text and '10001' in text
     assert 'gosu' not in text
     assert 'USER root' not in text
+    assert 'chown -R app:app /app' not in text
+    assert 'chown -R app:app /app/backend/static' not in text
 
 
 def test_dockerfile_healthcheck_uses_urllib_not_curl():

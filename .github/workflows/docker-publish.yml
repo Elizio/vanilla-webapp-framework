@@ -93,7 +93,11 @@ jobs:
             echo "::error::Expected container UID 10001, got $uid"
             exit 1
           fi
-          echo "Container runs as UID 10001"
+          if ! docker run --rm "$IMAGE" sh -c 'test ! -w /app/backend'; then
+            echo "::error::/app/backend must not be writable by the runtime user"
+            exit 1
+          fi
+          echo "Container runs as UID 10001 with read-only /app/backend"
 
   deploy:
     runs-on: ubuntu-latest

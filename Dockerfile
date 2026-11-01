@@ -26,11 +26,9 @@ COPY backend/ ./backend/
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 
 RUN pip install --no-cache-dir -r requirements.txt \
-    && chmod 755 /docker-entrypoint.sh \
-    && chown -R app:app /app
+    && chmod 755 /docker-entrypoint.sh
 
 COPY --from=frontend-builder /app/backend/static ./backend/static/
-RUN chown -R app:app /app/backend/static
 
 ENV FLASK_APP=backend.app
 ENV APP_PROFILE=production
@@ -41,11 +39,13 @@ ENV HEALTHCHECK_PATH=/api/health
 
 EXPOSE 5000
 
+# /app stays root-owned and read-only for UID 10001 (DB and logs live under /data).
 # The named volume at /data is owned on the VPS (10001:10001). Do not chown it here.
 USER 10001:10001
 
 ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--access-logfile", "-", "--error-logfile", "-", "backend.app:app"]
+# Entrypoint builds the full gunicorn command from PORT (no access log).
+CMD ["gunicorn"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD ["python", "/app/backend/container_healthcheck.py"]

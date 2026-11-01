@@ -128,6 +128,26 @@ def test_entrypoint_fails_fast_when_migration_fails(tmp_path):
     assert 'Running migrations' in result.stdout
 
 
+def test_entrypoint_gunicorn_has_no_access_logfile(tmp_path):
+    """Access logs would record OAuth ?code= and token query strings in docker logs."""
+    trace = tmp_path / 'gunicorn.args'
+    gunicorn = (
+        '#!/bin/sh\n'
+        f'printf "%s\\n" "$*" > "{trace}"\n'
+    )
+    result = _run(
+        tmp_path,
+        _required_env(),
+        args=['gunicorn'],
+        gunicorn=gunicorn,
+    )
+    assert result.returncode == 0
+    args = trace.read_text()
+    assert '--access-logfile' not in args
+    assert '--error-logfile' in args
+    assert '--access-logfile' not in ENTRYPOINT.read_text()
+
+
 def test_entrypoint_skips_migrate_for_non_server_commands(tmp_path):
     """Diagnostic commands (id, true) must not require secrets or run alembic."""
     trace = tmp_path / 'alembic.ran'

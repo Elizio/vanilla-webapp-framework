@@ -1,6 +1,10 @@
 #!/bin/sh
 # Migrate once when launching the app, then exec gunicorn (or the given command).
 # Do not enable xtrace: it would print secret environment values.
+#
+# Default CMD is ["gunicorn"]. This script builds the full command from PORT:
+#   gunicorn --bind 0.0.0.0:${PORT:-5000} --workers 2 --error-logfile - backend.app:app
+# Access logs are omitted so OAuth ?code= / token query strings never hit docker logs.
 set -eu
 
 is_app_server=0
@@ -32,7 +36,6 @@ if [ "$is_app_server" -eq 1 ]; then
   exec gunicorn \
     --bind "0.0.0.0:${port}" \
     --workers 2 \
-    --access-logfile - \
     --error-logfile - \
     backend.app:app
 fi
