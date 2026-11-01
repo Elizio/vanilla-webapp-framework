@@ -247,6 +247,11 @@ def main(argv: list[str] | None = None) -> int:
     print(f"rewrote {changed} files for NAME={args.name}")
     if args.skip_check:
         return 0
+    # Rewrites can shorten quoted strings (for example PUBLIC_HOST → example.test).
+    # Reformat so ``ruff format --check`` inside ``make check`` still passes.
+    formatted = subprocess.run(["make", "format"], cwd=str(root), check=False)
+    if formatted.returncode != 0:
+        return formatted.returncode
     result = subprocess.run(["make", "check"], cwd=str(root), check=False)
     return result.returncode
 

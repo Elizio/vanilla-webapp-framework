@@ -28,6 +28,7 @@ REQUIRED_KEYS = (
     "SETUP_URL",
 )
 
+
 def _run_init(root: Path, name: str, *extra: str) -> subprocess.CompletedProcess[str]:
     """Run init-project against ``root``."""
     return subprocess.run(
@@ -54,6 +55,16 @@ def test_makefile_has_init_target() -> None:
     text = MAKEFILE.read_text(encoding="utf-8")
     assert "init:" in text
     assert "scripts/init-project" in text
+
+
+def test_init_formats_rewritten_files_before_check() -> None:
+    """Init reformats after rewrite so shortened lines still pass Ruff."""
+    text = SCRIPT.read_text(encoding="utf-8")
+    format_at = text.find('["make", "format"]')
+    check_at = text.find('["make", "check"]')
+    assert format_at != -1
+    assert check_at != -1
+    assert format_at < check_at
 
 
 def test_template_init_workflow_is_non_required() -> None:
