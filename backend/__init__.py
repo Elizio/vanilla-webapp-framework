@@ -27,7 +27,10 @@ def create_app() -> Flask:
     app.config.from_object(app_config)
 
     if app_config.TRUST_PROXY:
-        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+        hops = int(app_config.TRUST_PROXY_HOPS)
+        app.wsgi_app = ProxyFix(
+            app.wsgi_app, x_for=hops, x_proto=1, x_host=1, x_prefix=1
+        )
 
     CORS(
         app,
