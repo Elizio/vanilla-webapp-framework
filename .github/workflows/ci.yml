@@ -56,7 +56,7 @@ jobs:
         run: make lint-frontend
       - run: cd frontend && npm run build
       - run: test -f backend/static/index.html
-      - run: cd frontend && npm run test
+      - run: cd frontend && npm run test:coverage
 
   lint:
     runs-on: ubuntu-latest

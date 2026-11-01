@@ -24,7 +24,7 @@ vanilla-webapp-framework/
 ├── .env               # Required secrets (not committed)
 ├── requirements.txt   # Python runtime pins
 ├── requirements-dev.txt # runtime + ruff, mypy, pytest, pre-commit
-├── pyproject.toml     # Ruff + mypy
+├── pyproject.toml     # Ruff, mypy, coverage floor
 ├── Makefile           # setup, lint, format, test, check, migrate
 ├── .pre-commit-config.yaml
 ├── setup.py           # pip install -e .
@@ -92,7 +92,7 @@ Canonical local loop (same tools CI runs, split across the `backend`, `frontend`
 | `make setup` | `requirements-dev.txt` + `pip install -e . --no-deps` + `frontend` `npm ci` + pinned lint binaries |
 | `make lint` | Ruff, mypy, Biome, shellcheck, actionlint, gitleaks |
 | `make format` | Ruff + Biome autofixes |
-| `make test` | `pytest` + Vitest |
+| `make test` | `pytest` (backend `fail_under`) + `npm run test:coverage` |
 | `make check` | `lint` + `test` |
 | `make migrate` | `alembic -c backend/alembic.ini upgrade head` |
 | `make typecheck` | `mypy backend` |
@@ -101,6 +101,20 @@ Canonical local loop (same tools CI runs, split across the `backend`, `frontend`
 Biome lints frontend JS and JSON only. It does **not** lint `.hbs` templates (Alpine HTML fragments). `frontend/src/styles/main.css` is excluded: Biome 2.6 ignores that file even with `css.parser.tailwindDirectives`, so Tailwind stays on Vite/PostCSS.
 
 New Python modules are type-checked under the strict mypy config in `pyproject.toml`. Existing modules that already fail are baselined with per-module `ignore_errors` (TODO to type them later).
+
+## Coverage ratchet
+
+Floors live in one place each and are enforced by the existing CI jobs (`backend` / `frontend`) and by `make test` / `make check`. Do not add a new required check name.
+
+| Surface | Config | What it measures |
+|---------|--------|------------------|
+| Backend | `[tool.coverage.report] fail_under` in `pyproject.toml` | Statements in `backend/`, omitting `backend/tests/*` |
+| Frontend | `test.coverage.thresholds` in `frontend/vitest.config.js` | lines / statements / functions / branches over `src/js` |
+
+- **Raise** a floor when a PR increases that metric by at least 1 point.
+- **Never lower** a floor without stating why in the PR.
+- `pytest` already runs coverage via `setup.cfg` `[tool:pytest]` `addopts`. The floor is `fail_under` in `pyproject.toml` only — do not duplicate it in `ci.yml`, the `Makefile`, or `setup.cfg`.
+- Frontend CI and `make test` run `npm run test:coverage` (not plain `npm run test`) so Vitest applies the thresholds.
 
 ## Verification checklist
 

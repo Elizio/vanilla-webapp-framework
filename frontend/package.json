@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run --pool=threads --poolOptions.threads.singleThread=true",
+    "test:coverage": "vitest run --pool=threads --poolOptions.threads.singleThread=true --coverage",
     "lint": "cd .. && npx --prefix frontend biome check --config-path=biome.json",
     "format": "cd .. && npx --prefix frontend biome check --write --config-path=biome.json",
     "format:check": "cd .. && npx --prefix frontend biome format --check --config-path=biome.json"
@@ -18,11 +19,12 @@
   "devDependencies": {
     "@biomejs/biome": "2.6.4",
     "@tailwindcss/forms": "^0.5.7",
+    "@vitest/coverage-v8": "2.1.9",
     "autoprefixer": "^10.4.17",
+    "jsdom": "^25.0.0",
     "postcss": "^8.4.35",
     "tailwindcss": "^3.4.1",
     "vite": "^5.1.4",
-    "vitest": "^2.1.0",
-    "jsdom": "^25.0.0"
+    "vitest": "^2.1.0"
   }
 }

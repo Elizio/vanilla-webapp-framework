@@ -12,6 +12,7 @@ __pycache__/
 .coverage
 .coverage.*
 htmlcov/
+frontend/coverage/
 
 # Distribution / packaging
 dist/

@@ -308,7 +308,7 @@ def test_my_endpoint(test_client, test_db):
 
 For auth tests, register a user first, login for token, then call protected routes with `Authorization: Bearer <token>` header. See `@backend/tests/test_auth.py`.
 
-Coverage is configured in `setup.cfg` (`--cov=backend`).
+Coverage is configured in `pyproject.toml` (`[tool.coverage.run]` omits `backend/tests/*`; `[tool.coverage.report] fail_under` is the ratchet). `setup.cfg` `[tool:pytest]` only supplies `--cov=backend --cov-report=term-missing`. Raise `fail_under` when coverage goes up by at least 1 point; do not lower it without a PR justification. See [../AGENTS.md](../AGENTS.md) → Coverage ratchet.
 
 ## Swagger
 

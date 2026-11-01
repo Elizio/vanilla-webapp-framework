@@ -298,8 +298,11 @@ Flask must be running on `:5000` for API calls during dev.
 ## Testing
 
 ```bash
-cd frontend && npm run test   # Vitest + jsdom
+cd frontend && npm run test            # Vitest + jsdom
+cd frontend && npm run test:coverage   # same + src/js thresholds (CI / make test)
 ```
+
+Coverage thresholds live in `vitest.config.js` (`test.coverage.thresholds`, include `src/js`). Raise them when a PR adds at least 1 point; do not lower them without a PR justification. See [../AGENTS.md](../AGENTS.md) → Coverage ratchet.
 
 ## i18n (internationalization)
 
