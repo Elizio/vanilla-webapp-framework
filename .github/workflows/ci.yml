@@ -20,7 +20,26 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
-      - run: pip install -e .[dev]
+      - name: Install dependencies
+        run: |
+          pip install -r requirements-dev.txt
+          pip install -e . --no-deps
+      - name: Verify pinned versions match requirements.txt
+        run: |
+          echo "Checking that CI uses the same versions as production..."
+          pip freeze > /tmp/ci-freeze.txt
+          # Extract runtime packages from requirements.txt (excluding comments and empty lines)
+          grep -v '^#' requirements.txt | grep -v '^-r' | grep -v '^$' | sort > /tmp/requirements-sorted.txt
+          # Extract matching packages from pip freeze
+          while IFS='==' read -r pkg version; do
+            if [ -n "$pkg" ]; then
+              grep "^${pkg}==" /tmp/ci-freeze.txt || echo "Missing: $pkg"
+            fi
+          done < /tmp/requirements-sorted.txt > /tmp/ci-versions.txt
+          echo "Runtime package versions in CI:"
+          cat /tmp/ci-versions.txt
+      - name: Run pip-audit on runtime dependencies
+        run: pip-audit -r requirements.txt
       - run: flake8 backend
       - run: pytest
 
@@ -34,6 +53,8 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: cd frontend && npm ci
+      - name: Run npm audit on production dependencies
+        run: cd frontend && npm audit --omit=dev --audit-level=high
       - run: cd frontend && npm run build
       - run: test -f backend/static/index.html
       - run: cd frontend && npm run test

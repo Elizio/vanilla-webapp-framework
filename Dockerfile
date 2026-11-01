@@ -22,7 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt setup.py setup.cfg README.md ./
 COPY backend/ ./backend/
 
-RUN pip install --no-cache-dir -r requirements.txt && pip install --no-cache-dir alembic gunicorn
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY --from=frontend-builder /app/backend/static ./backend/static/
 
