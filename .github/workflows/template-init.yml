@@ -1,0 +1,64 @@
+# Non-required. Do not add this check name to branch protection.
+# Required checks stay: backend, frontend, build-and-push (plus lint).
+name: Template init
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  template-init:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      APP_PROFILE: testing
+      FLASK_SECRET: test-flask-secret-key
+      JWT_SECRET: test-jwt-secret-key
+      DATABASE_URI: "sqlite:///:memory:"
+      PROJECT_FOLDER: /tmp/template-init-project
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.10'
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Copy repo and initialize a throwaway project
+        run: |
+          set -euo pipefail
+          dest=/tmp/vwf-init
+          rm -rf "$dest"
+          cp -a "$GITHUB_WORKSPACE" "$dest"
+          cd "$dest"
+          pip install -r requirements-dev.txt
+          pip install -e . --no-deps
+          cd frontend && npm ci && cd ..
+          ./scripts/install-lint-tools.sh
+          make init NAME=demo-init-ci
+      - name: Assert the copy has no leftover template names
+        run: |
+          set -euo pipefail
+          if grep -RInE \
+            --exclude-dir=.git \
+            --exclude-dir=.venv \
+            --exclude-dir=node_modules \
+            --exclude-dir=.tools \
+            --exclude-dir=__pycache__ \
+            --exclude-dir=.pytest_cache \
+            --exclude-dir=.ruff_cache \
+            --exclude-dir=.mypy_cache \
+            'vanilla-webapp-framework|Vanilla WebApp Framework|dsfor\.fun|1136636' \
+            /tmp/vwf-init; then
+            echo "::error::leftover template names after make init"
+            exit 1
+          fi
+          echo "no leftover template names in /tmp/vwf-init"

@@ -1,56 +1,12 @@
-# Vanilla WebApp Frontend
+# Frontend
 
-A modern frontend for the Vanilla WebApp Framework using Vite, Alpine.js, and Tailwind CSS.
+Vite + Alpine.js + Tailwind SPA. **Do not add a second `package.json` at the repo root** — Tailwind and Vite live here (this package uses Tailwind 3).
 
-## Features
+| Task | Where |
+|------|--------|
+| Commands | `npm run dev` / `build` / `test` / `lint` — or `make` from the repo root |
+| Agent map | [AGENTS.md](AGENTS.md) |
+| Recipes (add a page, SEO, i18n) | [../ARCHITECTURE.md](../ARCHITECTURE.md) |
+| Human how-to | [../README.md](../README.md) |
 
-- **Vite.js**: Fast development server and optimized production builds
-- **Alpine.js**: Lightweight JavaScript framework for interactivity
-- **Tailwind CSS**: Utility-first CSS framework
-- **Alpine HTML fragments**: `.hbs` files are static HTML + Alpine, imported with Vite `?raw`
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js (v14 or higher)
-- npm or yarn
-
-### Installation
-
-1. Install dependencies:
-
-```bash
-npm install
-# or
-yarn
-```
-
-2. Start the development server:
-
-```bash
-npm run dev
-# or
-yarn dev
-```
-
-3. Build for production:
-
-```bash
-npm run build
-# or
-yarn build
-```
-
-## Project Structure
-
-- `src/`: Source files
-  - `js/`: JavaScript modules
-  - `styles/`: CSS files
-  - `templates/`: HTML templates
-- `dist/`: Production build output
-- `public/`: Static assets
-
-## Development
-
-The development server runs on `http://localhost:5173` by default and proxies API requests to the backend server. 
+Dev server: `http://localhost:5173` (proxies `/api` to Flask `:5000`). Production build writes `backend/static/`.

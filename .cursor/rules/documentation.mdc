@@ -5,11 +5,11 @@ alwaysApply: true
 ---
 ## **5. Documentation Rules**
 
-See [AGENTS.md](../AGENTS.md) for narrative policy. These rules are enforceable minimums.
+See [AGENTS.md](../AGENTS.md) and [ARCHITECTURE.md](../ARCHITECTURE.md) for narrative policy. These rules are enforceable minimums. Do not claim a deploy target that is not wired (the production path is Hostinger via `docker-publish.yml`).
 
 ### **README how-to maintenance (Rule 5.1)**
 - **Rule 5.1a**: `README.md` is the canonical human how-to. Keep these categories accurate and runnable:
-  1. **Project setup** — install, `.env` / `.env.example`, database init (`init_db` vs Alembic).
+  1. **Project setup** — install, `.env` / `.env.example`, database init (`make migrate` / Alembic).
   2. **Run by environment** — development (dual server), production, Docker, testing.
   3. **Configure & operate** — OAuth redirects, **billing provider dashboards/webhooks** (see `docs/billing-configuration.md`), logs, Swagger, migrations, troubleshooting.
 - **Rule 5.1b**: Before claiming work done, scan your diff against README sync triggers in `AGENTS.md` → Documentation policy. Update matching how-to sections and `.env.example` when env vars change. Multi-step provider setup (OAuth, billing) belongs in `docs/oauth-configuration.md` or `docs/billing-configuration.md` — link from README, do not duplicate steps.

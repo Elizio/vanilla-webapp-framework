@@ -1,4 +1,4 @@
-"""Doc-drift sensor: env keys, DigitalOcean claims, and stale log paths."""
+"""Doc-drift sensor: env keys, retired-PaaS claims, and stale log paths."""
 
 from __future__ import annotations
 
@@ -32,15 +32,21 @@ ENV_KEY_RE = re.compile(r'^[A-Z][A-Z0-9_]*$')
 ENV_LINE_RE = re.compile(r'^#?\s*([A-Z][A-Z0-9_]+)=')
 MAKE_TARGET_RE = re.compile(r'`make ([A-Za-z][A-Za-z0-9_-]*)`')
 MAKEFILE_TARGET_RE = re.compile(r'^([A-Za-z][A-Za-z0-9_-]*):')
-DIGITALOCEAN_RE = re.compile(r'digitalocean', re.IGNORECASE)
+# Concatenated so a repo-wide search for the retired PaaS name stays clean.
+RETIRED_PAAS_RE = re.compile("digital" + "ocean", re.IGNORECASE)
 DATA_LOGS_RE = re.compile(r'/data/logs')
+# Split so the needle is not a contiguous token in this file's own docs.
+STALE_CREATE_ALL_RE = re.compile("init" + "_db")
 
-DOC_PATHS_FOR_DIGITALOCEAN = [
+DOC_PATHS_FOR_RETIRED_PAAS = [
     README,
     REPO_ROOT / 'AGENTS.md',
+    REPO_ROOT / 'ARCHITECTURE.md',
+    REPO_ROOT / 'CONTRIBUTING.md',
     REPO_ROOT / 'backend' / 'AGENTS.md',
     REPO_ROOT / 'frontend' / 'AGENTS.md',
     *sorted((REPO_ROOT / '.cursor' / 'rules').glob('*.mdc')),
+    *sorted((REPO_ROOT / 'docs' / 'adr').glob('*.md')),
 ]
 
 DOC_PATHS_FOR_DATA_LOGS = [
@@ -263,19 +269,35 @@ def test_backend_env_keys_are_documented():
     assert not errors, 'Env-key drift:\n' + '\n'.join(errors)
 
 
-def test_no_digitalocean_deploy_claims_in_agent_docs():
-    """README, AGENTS, and Cursor rules must not claim a DigitalOcean deploy.
+def test_no_retired_paas_deploy_claims_in_agent_docs():
+    """README, AGENTS, and Cursor rules must not claim the retired PaaS deploy.
 
-    Historical notes under ``docs/superpowers/`` and the unused
-    ``.github/workflows/deploy.yml`` stub are excluded.
+    Historical notes under ``docs/superpowers/`` and the welcome-page
+    partner link under ``frontend/src/`` are excluded from the repo-wide
+    search; this test covers the operator/agent docs.
     """
     hits = []
-    for path in DOC_PATHS_FOR_DIGITALOCEAN:
+    for path in DOC_PATHS_FOR_RETIRED_PAAS:
         for lineno, line in _iter_lines(path):
-            if DIGITALOCEAN_RE.search(line):
+            if RETIRED_PAAS_RE.search(line):
                 rel = path.relative_to(REPO_ROOT).as_posix()
                 hits.append(f'{rel}:{lineno}: {line.strip()}')
-    assert not hits, 'DigitalOcean deploy claim:\n' + '\n'.join(hits)
+    assert not hits, 'Retired PaaS deploy claim:\n' + '\n'.join(hits)
+
+
+def test_no_stale_create_all_init_in_agent_docs():
+    """Operator/agent docs must not tell people to initialize the DB with create_all.
+
+    Schema changes go through Alembic (``make migrate`` / ``upgrade head``).
+    Test fixtures may still call the helper in code; that is out of scope here.
+    """
+    hits = []
+    for path in DOC_PATHS_FOR_RETIRED_PAAS:
+        for lineno, line in _iter_lines(path):
+            if STALE_CREATE_ALL_RE.search(line):
+                rel = path.relative_to(REPO_ROOT).as_posix()
+                hits.append(f'{rel}:{lineno}: {line.strip()}')
+    assert not hits, 'Stale create_all init in docs:\n' + '\n'.join(hits)
 
 
 def test_no_data_logs_paths_in_docs():
@@ -298,6 +320,8 @@ def test_make_targets_mentioned_in_docs_exist():
         [
             README,
             REPO_ROOT / 'AGENTS.md',
+            REPO_ROOT / 'ARCHITECTURE.md',
+            REPO_ROOT / 'CONTRIBUTING.md',
             REPO_ROOT / 'backend' / 'AGENTS.md',
             REPO_ROOT / 'frontend' / 'AGENTS.md',
         ]

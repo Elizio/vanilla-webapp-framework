@@ -2,6 +2,16 @@
 
 A modern, lightweight web application framework that combines Flask backend with a vanilla JavaScript frontend, leveraging Alpine.js and Tailwind CSS for enhanced functionality and styling.
 
+## Using this template
+
+1. Click **Use this template** on GitHub. Ticking **Template repository** is a repo setting (ask the owner after merge — it is not part of this PR).
+2. Clone the new repo, then `make setup`.
+3. `make init NAME=my-app` — rewrites every name in [docs/template-placeholders.md](docs/template-placeholders.md), resets dated `docs/superpowers/` plans, and runs `make check`.
+4. Fill `YOUR_GHCR_OWNER`, Hostinger VM/project, and GitHub owner in the generated values and on the VPS.
+5. Confirm a search for `vanilla-webapp-framework`, `dsfor.fun`, and `1136636` is empty.
+
+The `template-init` GitHub Actions job exercises this on a throwaway copy. **Do not add it to required branch-protection checks.** Required names stay `backend`, `frontend`, and `build-and-push` (plus `lint`).
+
 ## 🚀 Features
 
 ### Backend
@@ -76,9 +86,13 @@ vanilla-webapp-framework/
 │   ├── package.json
 │   ├── vite.config.js
 │   └── tailwind.config.js
-├── docs/                       # How-tos, design specs, and plans
+├── ARCHITECTURE.md             # Codemap, recipes, README sync triggers
+├── CONTRIBUTING.md             # PR/issue workflow
+├── docs/                       # How-tos, ADRs, design specs
+│   ├── adr/                    # Architecture decision records
 │   ├── oauth-configuration.md  # OAuth setup (Google, Facebook)
-│   └── billing-configuration.md # Billing setup (Lemon Squeezy)
+│   ├── billing-configuration.md # Billing setup (Lemon Squeezy)
+│   └── template-placeholders.md # Names rewritten by `make init`
 ├── .cursor/rules/              # Cursor coding standards
 ├── .env.example                # Environment variable template
 ├── Dockerfile
@@ -89,7 +103,7 @@ vanilla-webapp-framework/
 │   ├── install-lint-tools.sh   # pinned shellcheck, actionlint, gitleaks
 │   ├── migrations-check.sh     # alembic upgrade/check/downgrade round-trip
 │   └── smoke-image.sh          # container /api/health + / smoke (IMAGE=)
-├── Makefile                    # setup, lint, format, test, check, migrate
+├── Makefile                    # setup, lint, format, test, check, migrate, migrations-check, smoke
 ├── pyproject.toml              # Ruff, mypy, coverage floor
 ├── .pre-commit-config.yaml     # Ruff, Biome, gitleaks, shellcheck, hygiene
 ├── requirements.txt
@@ -149,7 +163,7 @@ Copy `.env.example` to `.env` and adjust values before running.
 3. **Database**
 
    - **Development:** `bootstrap_dev_database()` creates or upgrades the schema when Flask starts (`APP_PROFILE=development`).
-   - **Testing:** tables are created via `init_db()` (`create_all`) when `APP_PROFILE=testing`.
+   - **Testing:** `APP_PROFILE=testing` uses in-memory SQLite (pytest fixtures). Schema changes still go through Alembic.
    - **Production:** the container entrypoint runs `alembic -c backend/alembic.ini upgrade head` once, then gunicorn. Local `flask run` does **not** migrate:
 
      ```bash
@@ -286,27 +300,23 @@ Coverage floors: backend `fail_under` in `pyproject.toml` (omits `backend/tests`
 - Docker multi-stage build (see **Run — Docker** above). Runtime user **10001:10001**, read-only `/app`, migrate-once entrypoint, image `HEALTHCHECK`.
 - GitHub Actions: `backend` (pins, pip-audit, ruff, mypy, `alembic check`, pytest with coverage `fail_under`), `frontend` (Biome, npm audit, build + `backend/static/index.html`, Vitest coverage thresholds), `lint` (shellcheck + actionlint + gitleaks on full git history). `build-and-push` smokes the exact image (`/api/health` status ok and `/` 200) before push; PRs build and smoke without publishing. Actions are SHA-pinned; Dependabot updates them weekly (Python/node Docker majors are ignored). Biome does not lint `.hbs` templates. No extra required check names — new steps run inside `backend`, `frontend`, `lint`, and `build-and-push`.
 - Production auto-deploy is `scripts/deploy-hostinger.sh`, invoked by `.github/workflows/docker-publish.yml` after CI and the GHCR publish (private image `ghcr.io/elizio/vanilla-webapp-framework:sha-<full>`). See **Configure & operate**.
-- An unused `workflow_dispatch` stub remains at `.github/workflows/deploy.yml`. It is not the production deploy path.
 
 ## 📚 Documentation
 
 - **How-to guides:** this README (setup, run, configure); [OAuth configuration](docs/oauth-configuration.md) (Google, Facebook); [Billing configuration](docs/billing-configuration.md) (Lemon Squeezy)
 - **API reference:** Swagger UI at `/docs` when the Flask server is running
 - **In-code docs:** Python docstrings + type hints; JavaScript JSDoc (see [AGENTS.md](AGENTS.md) and `.cursor/rules/documentation.mdc`)
+- **Architecture / ADRs:** [ARCHITECTURE.md](ARCHITECTURE.md), [docs/adr/](docs/adr/)
 - **Agent workflows:** [AGENTS.md](AGENTS.md), [backend/AGENTS.md](backend/AGENTS.md), [frontend/AGENTS.md](frontend/AGENTS.md)
+- **Contributing:** [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## 🤝 Contributing
 
-1. Fork the repository (or use a feature branch on this repo)
-2. Create a feature branch — **never push to `master`**
-3. Open **one PR per change** targeting `master`
-4. Follow coding standards; add tests for new features
-5. Wait for required checks (`backend`, `frontend`, `build-and-push`, `lint`) and keep the branch up to date with `master`
-6. Say in the PR whether runtime behavior changes — every merge auto-deploys to the Hostinger VPS
+See [CONTRIBUTING.md](CONTRIBUTING.md). Short version: `make setup && make check`, one PR per change, never push to `master`.
 
 ## 📄 License
 
-[Your License Here]
+MIT — see `setup.py` classifiers.
 
 ---
 
