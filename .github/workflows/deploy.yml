@@ -9,12 +9,17 @@ on:
         required: true
         default: staging
 
+permissions:
+  contents: read
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Deploy placeholder
         run: |
           echo "Configure DigitalOcean App Platform or droplet deploy steps here."

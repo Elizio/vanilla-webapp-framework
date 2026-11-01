@@ -25,6 +25,7 @@ vanilla-webapp-framework/
 ├── requirements.txt   # Python deps
 ├── setup.py           # pip install -e .
 ├── .github/workflows/ # CI (pytest + frontend build/test)
+├── scripts/           # check_pins.py, deploy-hostinger.sh
 └── Dockerfile         # Multi-stage production image
 ```
 
@@ -145,6 +146,8 @@ Browser (:5000) → Flask
   ├─ /api/*     → blueprints (auth, routes)
   └─ /*         → SPA fallback (backend/static/index.html + assets)
 ```
+
+**Production deploy** — `.github/workflows/docker-publish.yml` runs CI, publishes a private GHCR image, then `scripts/deploy-hostinger.sh` updates Hostinger VM `1136636` / Docker project `dsfor`. The script asserts `GET /api/health` `version` equals `github.sha` and rolls back to the previous `VWF_IMAGE` on failure. The only deploy secret is `HOSTINGER_API_TOKEN`.
 
 Flask uses a custom SQLAlchemy singleton (`db_session`), not Flask-SQLAlchemy.
 

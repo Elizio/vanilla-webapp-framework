@@ -1,0 +1,275 @@
+#!/usr/bin/env bash
+# Deploy the GHCR image to Hostinger VPS Docker project dsfor.
+# Do not enable xtrace: it would print secret environment values.
+set -euo pipefail
+
+# Poll a Hostinger VPS action until it succeeds, errors, or times out.
+poll_action() {
+  local action_id="$1"
+  local description="$2"
+  local max_attempts=60
+  local attempt=0
+
+  echo "Polling $description (action $action_id)..."
+  while [ "$attempt" -lt "$max_attempts" ]; do
+    local response_file
+    response_file=$(mktemp)
+    local poll_http_code
+    poll_http_code=$(curl -w "%{http_code}" -o "$response_file" -s \
+      -H "Authorization: Bearer $HOSTINGER_API_TOKEN" \
+      "$API_BASE/virtual-machines/$VM_ID/actions/$action_id")
+
+    if [ "$poll_http_code" = "200" ]; then
+      local state
+      state=$(jq -r '.state // empty' "$response_file")
+      rm -f "$response_file"
+
+      if [ "$state" = "success" ]; then
+        echo "$description completed successfully"
+        return 0
+      elif [ "$state" = "error" ]; then
+        echo "::error::$description failed (state: error)"
+        return 1
+      fi
+    else
+      rm -f "$response_file"
+    fi
+
+    attempt=$((attempt + 1))
+    sleep 5
+  done
+
+  echo "::error::$description polling timed out"
+  return 1
+}
+
+# Emit ::add-mask:: lines for environment values whose keys look secret-like.
+emit_masks() {
+  local env_text="$1"
+  local quoted_re='^["'\'\''](.*)["'\'\'']$'
+
+  while IFS= read -r line; do
+    # Strip CR (handle CRLF)
+    line="${line%$'\r'}"
+
+    # Skip blank lines and comments
+    [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+
+    # Split on first '='
+    if [[ "$line" =~ ^([^=]+)=(.*)$ ]]; then
+      key="${BASH_REMATCH[1]}"
+      value="${BASH_REMATCH[2]}"
+
+      # Skip empty values
+      [ -z "$value" ] && continue
+
+      # Check if key contains sensitive patterns (case-insensitive)
+      if [[ "${key^^}" =~ (SECRET|TOKEN|KEY|PASSWORD|URI|URL|DSN) ]]; then
+        # Mask the raw value
+        echo "::add-mask::$value"
+
+        # If quoted, also mask the unquoted value
+        if [[ $value =~ $quoted_re ]]; then
+          unquoted="${BASH_REMATCH[1]}"
+          [ -n "$unquoted" ] && echo "::add-mask::$unquoted"
+        fi
+      fi
+    fi
+  done <<< "$env_text"
+}
+
+# Fetch the current project, retag VWF_IMAGE, health-gate, and roll back on failure.
+main() {
+  if [ -z "${HOSTINGER_API_TOKEN:-}" ]; then
+    echo "::error::HOSTINGER_API_TOKEN secret is not set"
+    exit 1
+  fi
+
+  API_BASE="https://developers.hostinger.com/api/vps/v1"
+  # shellcheck disable=SC2034
+  PROJECT_FILE="$RUNNER_TEMP/project.json"
+  OLD_ENV_FILE="$RUNNER_TEMP/old_env.txt"
+  NEW_ENV_FILE="$RUNNER_TEMP/new_env.txt"
+  DEPLOY_FAILED=0
+
+  echo "Fetching current project configuration..."
+  get_response=$(mktemp)
+  get_http_code=$(curl -w "%{http_code}" -o "$get_response" -s \
+    -H "Authorization: Bearer $HOSTINGER_API_TOKEN" \
+    "$API_BASE/virtual-machines/$VM_ID/docker/$PROJECT_NAME")
+
+  if [ "$get_http_code" != "200" ]; then
+    echo "::error::Failed to fetch project (HTTP $get_http_code)"
+    rm -f "$get_response"
+    exit 1
+  fi
+
+  content=$(jq -r '.content' "$get_response")
+  environment=$(jq -r '.environment // ""' "$get_response")
+  rm -f "$get_response"
+
+  # Mask sensitive environment variable values
+  # Only mask values where key name contains: SECRET, TOKEN, KEY, PASSWORD, URI, URL, or DSN
+
+  if [ -n "$environment" ]; then
+    # Self-check: verify masking logic with test data
+    test_env='TEST_SECRET="quoted_secret"
+TEST_TOKEN=unquoted_token
+TEST_API_KEY='\''single_quoted'\''
+TEST_DATABASE_URL=postgres://example
+TEST_DSN="dsn_value"
+NORMAL_VAR=normal_value'
+    echo "Running masking self-check..."
+
+    # Capture mask output to count lines without emitting real masks
+    test_output=$(emit_masks "$test_env")
+    masked_count=$(echo "$test_output" | grep -c '::add-mask::')
+
+    echo "Self-check: $masked_count mask operations (expected: 8)"
+    if [ "$masked_count" -ne 8 ]; then
+      echo "::error::Masking self-check failed: expected 8, got $masked_count"
+      exit 1
+    fi
+
+    # Apply actual masking to real environment
+    emit_masks "$environment"
+  fi
+
+  echo "$environment" > "$OLD_ENV_FILE"
+
+  # Find and replace VWF_IMAGE line
+  if ! grep -q "^VWF_IMAGE=" "$OLD_ENV_FILE"; then
+    echo "::error::VWF_IMAGE not found in project environment"
+    exit 1
+  fi
+
+  old_image=$(grep "^VWF_IMAGE=" "$OLD_ENV_FILE" | cut -d= -f2-)
+  echo "Old image: VWF_IMAGE=$old_image"
+  echo "New image: VWF_IMAGE=$NEW_IMAGE"
+
+  sed "s|^VWF_IMAGE=.*|VWF_IMAGE=$NEW_IMAGE|" "$OLD_ENV_FILE" > "$NEW_ENV_FILE"
+  new_environment=$(cat "$NEW_ENV_FILE")
+
+  # Deploy the updated project
+  echo "Deploying updated project..."
+  deploy_response=$(mktemp)
+  deploy_http_code=$(curl -w "%{http_code}" -o "$deploy_response" -s \
+    -X POST \
+    -H "Authorization: Bearer $HOSTINGER_API_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "$(jq -n --arg name "$PROJECT_NAME" --arg content "$content" --arg env "$new_environment" \
+      '{project_name: $name, content: $content, environment: $env}')" \
+    "$API_BASE/virtual-machines/$VM_ID/docker")
+
+  if [ "$deploy_http_code" != "200" ] && [ "$deploy_http_code" != "201" ]; then
+    echo "::error::Failed to deploy project (HTTP $deploy_http_code)"
+    rm -f "$deploy_response"
+    exit 1
+  fi
+
+  action_id=$(jq -r '.id // empty' "$deploy_response")
+  rm -f "$deploy_response"
+
+  if [ -z "$action_id" ]; then
+    echo "::error::No action ID returned from deploy API"
+    DEPLOY_FAILED=1
+  elif ! poll_action "$action_id" "Deploy"; then
+    DEPLOY_FAILED=1
+  fi
+
+  # Health check
+  if [ "$DEPLOY_FAILED" -eq 0 ]; then
+    echo "Waiting for application to be ready..."
+    health_attempts=36
+    health_attempt=0
+    health_ok=0
+
+    while [ "$health_attempt" -lt "$health_attempts" ]; do
+      health_file=$(mktemp)
+      health_http=$(curl -sS -o "$health_file" -w "%{http_code}" "$APP_URL/api/health" || true)
+      observed=$(jq -r '.version // empty' "$health_file" 2>/dev/null || true)
+      echo "Health check HTTP ${health_http:-000} expected version=$GITHUB_SHA observed version=${observed:-<none>}"
+      if [ "$health_http" = "200" ] && jq -e --arg sha "$GITHUB_SHA" '.status == "ok" and .version == $sha' "$health_file" > /dev/null 2>&1; then
+        rm -f "$health_file"
+        echo "Health check passed (version $GITHUB_SHA)"
+        health_ok=1
+        break
+      fi
+      rm -f "$health_file"
+      health_attempt=$((health_attempt + 1))
+      sleep 5
+    done
+
+    if [ "$health_ok" -eq 0 ]; then
+      echo "::error::Health check failed"
+      DEPLOY_FAILED=1
+    fi
+  fi
+
+  # Home page check (hard failure)
+  if [ "$DEPLOY_FAILED" -eq 0 ]; then
+    echo "Checking main page..."
+    page_attempts=3
+    page_attempt=0
+    page_ok=0
+
+    while [ "$page_attempt" -lt "$page_attempts" ]; do
+      if curl -sf -o /dev/null "$APP_URL/"; then
+        echo "Main page check passed"
+        page_ok=1
+        break
+      fi
+      page_attempt=$((page_attempt + 1))
+      sleep 2
+    done
+
+    if [ "$page_ok" -eq 0 ]; then
+      echo "::error::Main page check failed"
+      DEPLOY_FAILED=1
+    fi
+  fi
+
+  # Rollback if deployment failed
+  if [ "$DEPLOY_FAILED" -eq 1 ]; then
+    echo "Rolling back to previous image..."
+    old_environment=$(cat "$OLD_ENV_FILE")
+
+    rollback_response=$(mktemp)
+    rollback_http_code=$(curl -w "%{http_code}" -o "$rollback_response" -s \
+      -X POST \
+      -H "Authorization: Bearer $HOSTINGER_API_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d "$(jq -n --arg name "$PROJECT_NAME" --arg content "$content" --arg env "$old_environment" \
+        '{project_name: $name, content: $content, environment: $env}')" \
+      "$API_BASE/virtual-machines/$VM_ID/docker")
+
+    if [ "$rollback_http_code" != "200" ] && [ "$rollback_http_code" != "201" ]; then
+      echo "::error::Rollback POST failed (HTTP $rollback_http_code)"
+      rm -f "$rollback_response"
+    else
+      rollback_action_id=$(jq -r '.id // empty' "$rollback_response")
+      rm -f "$rollback_response"
+
+      if [ -n "$rollback_action_id" ]; then
+        poll_action "$rollback_action_id" "Rollback" || true
+      fi
+
+      # Re-check health after rollback
+      echo "Checking health after rollback..."
+      sleep 10
+      if curl -sf "$APP_URL/api/health" | jq -e '.status == "ok"' > /dev/null 2>&1; then
+        echo "Health check passed after rollback"
+      else
+        echo "::error::Health check failed even after rollback"
+      fi
+    fi
+
+    exit 1
+  fi
+
+  echo "Deployment completed successfully"
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
+fi
