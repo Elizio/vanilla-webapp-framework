@@ -1,4 +1,4 @@
-"""Tests for scripts/deploy-hostinger.sh masking, health, and rollback."""
+"""Tests for scripts/deploy-hostinger.sh masking, health, rollback, and timeouts."""
 
 from __future__ import annotations
 
@@ -36,6 +36,8 @@ write_fmt=""
 method="GET"
 data=""
 url=""
+connect_timeout=""
+max_time=""
 
 args=("$@")
 i=0
@@ -61,6 +63,14 @@ while [ "$i" -lt "${#args[@]}" ]; do
     -H|--header)
       i=$((i + 1))
       ;;
+    --connect-timeout)
+      i=$((i + 1))
+      connect_timeout="${args[$i]}"
+      ;;
+    --max-time)
+      i=$((i + 1))
+      max_time="${args[$i]}"
+      ;;
     -s|-S|-sS|-f|--fail|-sf|-sSf|-sfs) ;;
     http://*|https://*)
       url="$arg"
@@ -76,9 +86,10 @@ if [ -z "$url" ]; then
   exit 1
 fi
 
-# Record every call so tests can assert deploy vs rollback.
+# Record every call so tests can assert deploy vs rollback and timeouts.
 {
-  printf 'method=%s url=%s\n' "$method" "$url"
+  printf 'method=%s url=%s connect_timeout=%s max_time=%s\n' \
+    "$method" "$url" "$connect_timeout" "$max_time"
   if [ -n "$data" ]; then
     printf 'data=%s\n' "$data"
   fi
@@ -96,7 +107,16 @@ elif [[ "$url" == *"/virtual-machines/1136636/docker" && "$method" == "POST" ]];
 elif [[ "$url" == *"/actions/"* ]]; then
   body='{"state":"success"}'
 elif [[ "$url" == *"/api/health"* ]]; then
-  if [ "${CURL_STUB_HEALTH_MODE:-match}" = "mismatch" ]; then
+  if [ "${CURL_STUB_HEALTH_MODE:-match}" = "timeout" ]; then
+    if [ -n "$out_file" ]; then
+      : > "$out_file"
+    fi
+    if [ -n "$write_fmt" ]; then
+      printf '000'
+    fi
+    echo "curl: (28) Operation timed out after 30000 milliseconds" >&2
+    exit 28
+  elif [ "${CURL_STUB_HEALTH_MODE:-match}" = "mismatch" ]; then
     body='{"status":"ok","version":"not-the-expected-sha"}'
   else
     body="$(printf '{"status":"ok","version":"%s"}' "${GITHUB_SHA:?}")"
@@ -321,6 +341,7 @@ def test_health_match_does_not_rollback(tmp_path: Path) -> None:
 
     leaked = _secret_leaks(combined)
     assert leaked == [], leaked
+    _assert_logged_curl_timeouts((tmp_path / "curl.log").read_text())
 
 
 def test_health_mismatch_triggers_rollback(tmp_path: Path) -> None:
@@ -340,6 +361,7 @@ def test_health_mismatch_triggers_rollback(tmp_path: Path) -> None:
 
     leaked = _secret_leaks(combined)
     assert leaked == [], leaked
+    _assert_logged_curl_timeouts((tmp_path / "curl.log").read_text())
 
 
 def test_missing_token_fails_without_calling_hostinger(tmp_path: Path) -> None:
@@ -428,6 +450,99 @@ def test_packages_write_only_on_build_and_push() -> None:
     assert "contents: read" in ci_block
     assert "packages: write" not in ci_block
     assert "packages: write" not in CI_WORKFLOW.read_text()
+
+
+def _curl_invocations(script: str) -> list[str]:
+    """Return each ``curl`` command, joining bash line continuations.
+
+    Matches the ``curl`` command word only (not helper names like
+    ``curl_timed``). Comment-only tails are stripped.
+    """
+    invocations: list[str] = []
+    current: list[str] = []
+    continuing = False
+    for raw in script.splitlines():
+        code = raw.split("#", 1)[0].rstrip()
+        if continuing:
+            current.append(code.rstrip("\\").strip())
+            continuing = code.endswith("\\")
+            if not continuing:
+                invocations.append(" ".join(part for part in current if part))
+                current = []
+            continue
+        if re.search(r"(?:^|[`$;(]|\s)curl(?:\s|$)", code):
+            current = [code.rstrip("\\").strip()]
+            if code.endswith("\\"):
+                continuing = True
+            else:
+                invocations.append(current[0])
+                current = []
+    assert not continuing, "unterminated curl line continuation"
+    return invocations
+
+
+def _assert_logged_curl_timeouts(log: str) -> None:
+    """Assert every stubbed curl call received connect and max-time flags."""
+    calls = [
+        line
+        for line in log.splitlines()
+        if line.startswith("method=") and "url=" in line
+    ]
+    assert calls, "expected at least one stubbed curl call"
+    for line in calls:
+        match = re.search(
+            r"connect_timeout=(\S*) max_time=(\S*)",
+            line,
+        )
+        assert match, f"missing timeout fields: {line}"
+        connect, max_time = match.group(1), match.group(2)
+        assert connect == "10", f"connect-timeout: {line}"
+        assert max_time.isdigit() and int(max_time) >= 30, f"max-time: {line}"
+
+
+def test_every_curl_in_script_has_timeout_flags() -> None:
+    """Every curl in the deploy script carries connect and max-time flags."""
+    invocations = _curl_invocations(SCRIPT.read_text())
+    assert invocations, "expected at least one curl invocation"
+    missing = [
+        inv
+        for inv in invocations
+        if "--connect-timeout" not in inv or "--max-time" not in inv
+    ]
+    assert missing == [], missing
+
+
+def test_health_timeout_retries_then_rolls_back(tmp_path: Path) -> None:
+    """A health-check curl timeout is 'not healthy yet', then rollback runs.
+
+    Under ``set -e``, a timed-out curl (exit 28) must not abort the 36x5s
+    loop; otherwise rollback never runs.
+    """
+    result = _run_script(tmp_path, health_mode="timeout")
+    combined = result.stdout + result.stderr
+    assert result.returncode == 1, combined
+    assert "Health check failed" in combined
+    assert "Rolling back to previous image" in combined
+    assert (tmp_path / "rollback.log").exists()
+
+    log = (tmp_path / "curl.log").read_text()
+    health_calls = log.count("/api/health")
+    assert health_calls >= 36, f"health loop aborted early ({health_calls} calls)"
+    _assert_logged_curl_timeouts(log)
+
+    leaked = _secret_leaks(combined)
+    assert leaked == [], leaked
+
+
+def test_deploy_job_only_has_timeout_minutes() -> None:
+    """Only the deploy job is capped at 15 minutes."""
+    text = DOCKER_PUBLISH.read_text()
+    ci_block = text.split("\n  ci:")[1].split("build-and-push:")[0]
+    build_block = text.split("build-and-push:")[1].split("\n  deploy:")[0]
+    deploy_block = text.split("\n  deploy:")[1]
+    assert "timeout-minutes" not in ci_block
+    assert "timeout-minutes" not in build_block
+    assert re.search(r"^    timeout-minutes: 15\s*$", deploy_block, re.MULTILINE)
 
 
 def _secret_leaks(combined: str) -> list[str]:
