@@ -79,6 +79,17 @@ sequenceDiagram
 
 After a successful login, the SPA reads `#token=...` from the URL fragment (see [`frontend/src/js/app.js`](../frontend/src/js/app.js)), stores the JWT in `localStorage`, and sets `isLoggedIn`.
 
+### Account linking
+
+When a social login returns an email that already belongs to a local (password) account, the app may attach the OAuth identity to that account instead of creating a second user. `users.email` is **not** unique; this is a best-effort link, not a constraint.
+
+| Provider | When it links by email |
+|----------|------------------------|
+| **Google** | Only when Google userinfo asserts `email_verified` is `true`. An unverified Google email creates a separate OAuth-only account. |
+| **Facebook** | Never. Graph `me?fields=id,name,email` has no verified flag, so Facebook always creates or reuses its own provider account. |
+
+Inactive accounts cannot complete OAuth login: the callback redirects with `auth_error=ACCOUNT_INACTIVE` and does not set a session cookie.
+
 ---
 
 ## Google

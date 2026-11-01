@@ -7,7 +7,8 @@ from flask import Blueprint, current_app, jsonify, redirect
 
 from ..db_repository.database import db_session
 from ..models.user import User
-from .error_codes import PROVIDER_NOT_CONFIGURED
+from .auth import user_may_authenticate
+from .error_codes import ACCOUNT_INACTIVE, PROVIDER_NOT_CONFIGURED
 from .session_auth import set_auth_cookie
 
 oauth = OAuth()
@@ -80,23 +81,52 @@ def _generate_username(email, name, provider, oauth_id):
     base = re.sub(r'[^\w]', '', base)[:40] or f'{provider}_user'
     username = base
     suffix = 1
-    while User.query.filter_by(username=username).first():
+    while db_session.query(User).filter_by(username=username).first():
         username = f'{base}{suffix}'
         suffix += 1
     return username
 
 
-def find_or_create_oauth_user(provider, oauth_id, email, name):
-    """Find user by OAuth identity or create a new OAuth-only account."""
-    user = User.query.filter_by(
+def find_or_create_oauth_user(
+    provider: str,
+    oauth_id: str,
+    email: str | None,
+    name: str | None,
+    email_verified: bool = False,
+) -> User:
+    """Find an existing OAuth user or create a new OAuth-only account.
+
+    Email linking attaches the provider identity to a local (password)
+    account with the same email. That happens only when the provider
+    asserts the address is verified.
+
+    Google userinfo includes ``email_verified``. Facebook Graph
+    ``me?fields=id,name,email`` has no verified flag, so Facebook never
+    links by email: it always creates or reuses its own provider account
+    (the same fallback used for an unverified Google email). ``users.email``
+    is not unique.
+
+    Args:
+        provider: OAuth provider key (``google`` or ``facebook``).
+        oauth_id: Provider-specific user id.
+        email: Email from the provider profile, if any.
+        name: Display name from the provider profile, if any.
+        email_verified: True only when the provider asserts verification.
+
+    Returns:
+        The matched or newly created User.
+    """
+    user = db_session.query(User).filter_by(
         oauth_provider=provider,
         oauth_id=oauth_id,
     ).first()
     if user:
         return user
 
-    if email:
-        existing = User.query.filter_by(email=email).first()
+    # Google: link only when userinfo.email_verified is True.
+    # Facebook: never link by email (no verified signal).
+    if provider == 'google' and email and email_verified:
+        existing = db_session.query(User).filter_by(email=email).first()
         if existing and existing.oauth_provider is None:
             existing.oauth_provider = provider
             existing.oauth_id = oauth_id
@@ -124,6 +154,7 @@ def find_or_create_oauth_user(provider, oauth_id, email, name):
 
 
 def _fetch_userinfo(client, provider, token):
+    """Return oauth_id, email, name, and email_verified for a provider."""
     if provider == 'google':
         userinfo = token.get('userinfo')
         if not userinfo:
@@ -133,15 +164,18 @@ def _fetch_userinfo(client, provider, token):
             'oauth_id': userinfo['sub'],
             'email': userinfo.get('email'),
             'name': userinfo.get('name'),
+            'email_verified': userinfo.get('email_verified') is True,
         }
 
     if provider == 'facebook':
+        # Graph has no email-verified flag on me?fields=id,name,email.
         resp = client.get('me?fields=id,name,email', token=token)
         data = resp.json()
         return {
             'oauth_id': data['id'],
             'email': data.get('email'),
             'name': data.get('name'),
+            'email_verified': False,
         }
 
     raise ValueError(f'Unsupported provider: {provider}')
@@ -218,7 +252,10 @@ def oauth_callback(provider):
             profile['oauth_id'],
             profile.get('email'),
             profile.get('name'),
+            email_verified=profile.get('email_verified') is True,
         )
+        if not user_may_authenticate(user):
+            return _frontend_redirect(auth_error=ACCOUNT_INACTIVE)
         response = _frontend_redirect(auth='success')
         set_auth_cookie(response, user.id)
         return response

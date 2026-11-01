@@ -192,6 +192,18 @@
     "AUTH_FAILED": "Authentication failed",
     "OAUTH_NOT_CONFIGURED": "{provider} login is not configured. Add {envPrefix}_CLIENT_ID and {envPrefix}_CLIENT_SECRET to .env, then restart Flask.",
     "CSRF_INVALID": "Invalid or missing security token. Refresh the page and try again.",
+    "USER_CREATED": "User created successfully",
+    "ACCOUNT_INACTIVE": "This account is inactive",
+    "RATE_LIMIT_EXCEEDED": "Too many requests. Please try again later.",
+    "BILLING_NOT_CONFIGURED": "Billing is not configured",
+    "INVALID_PLAN": "Invalid plan",
+    "INVALID_AMOUNT": "Invalid amount",
+    "CHECKOUT_FAILED": "Checkout failed",
+    "WEBHOOK_INVALID": "Invalid webhook",
+    "ENTITLEMENT_REQUIRED": "This feature requires an active plan",
+    "METHOD_NOT_ALLOWED": "Method not allowed",
+    "BAD_REQUEST": "Bad request",
+    "FORBIDDEN": "Forbidden",
     "UNKNOWN_ERROR": "An unexpected error occurred"
   },
   "seo": {

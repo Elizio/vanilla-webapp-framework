@@ -3,7 +3,42 @@ import os
 from flask import Response, current_app, request, send_from_directory, abort
 from werkzeug.exceptions import HTTPException
 
-from .api.error_codes import NOT_FOUND, INTERNAL_ERROR, error_response
+from .api.error_codes import (
+    BAD_REQUEST,
+    FORBIDDEN,
+    INTERNAL_ERROR,
+    METHOD_NOT_ALLOWED,
+    NOT_FOUND,
+    RATE_LIMIT_EXCEEDED,
+    UNAUTHORIZED,
+    error_response,
+)
+
+_HTTP_STATUS_CODES = {
+    400: BAD_REQUEST,
+    401: UNAUTHORIZED,
+    403: FORBIDDEN,
+    404: NOT_FOUND,
+    405: METHOD_NOT_ALLOWED,
+    429: RATE_LIMIT_EXCEEDED,
+}
+
+
+def code_for_http_status(status: int | None) -> str:
+    """Map an HTTP status to a stable API error code.
+
+    Args:
+        status: HTTP status code from a Werkzeug/Flask HTTPException.
+
+    Returns:
+        A constant from ``error_codes``. Non-404 4xx statuses are never
+        mapped to ``NOT_FOUND``.
+    """
+    if status in _HTTP_STATUS_CODES:
+        return _HTTP_STATUS_CODES[status]
+    if status and 400 <= status < 500:
+        return BAD_REQUEST
+    return INTERNAL_ERROR
 
 
 def build_robots_txt(seo_mode: str) -> str:
@@ -87,8 +122,5 @@ def register_web_routes(app):
 
     @app.errorhandler(HTTPException)
     def http_exception(error):
-        if error.code == 404:
-            return error_response(NOT_FOUND, 404)
-        if error.code and error.code >= 500:
-            return error_response(INTERNAL_ERROR, error.code)
-        return error_response(NOT_FOUND, error.code or 400)
+        status = error.code or 400
+        return error_response(code_for_http_status(status), status)
