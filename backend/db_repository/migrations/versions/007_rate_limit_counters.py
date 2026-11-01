@@ -1,7 +1,8 @@
 """Add rate_limit_counters for shared auth rate limiting.
 
-Empty counter rows only. Existing ``users`` and billing tables are
-untouched. Downgrade drops this table.
+``key`` stores ``sha256(logical_key).hexdigest()`` (64 hex chars), not
+the raw username or IP. Empty counter rows only. Existing ``users`` and
+billing tables are untouched. Downgrade drops this table.
 
 Revision ID: 007
 Revises: 006

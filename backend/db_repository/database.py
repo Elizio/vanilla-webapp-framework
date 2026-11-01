@@ -9,11 +9,10 @@ from ..config.app_config import AppConfig, load_env_file
 
 
 def _sqlite_on_connect(dbapi_conn, _connection_record):
-    """Enable WAL and a busy timeout so two gunicorn workers can share SQLite."""
+    """Set a short busy timeout so SQLite lock waits fail before gunicorn."""
     cursor = dbapi_conn.cursor()
     try:
-        cursor.execute('PRAGMA busy_timeout=30000')
-        cursor.execute('PRAGMA journal_mode=WAL')
+        cursor.execute('PRAGMA busy_timeout=5000')
     finally:
         cursor.close()
 
@@ -44,9 +43,7 @@ class Database:
         self._engine = create_engine(
             database_url,
             echo=cfg.APP_PROFILE == 'development',
-            connect_args=(
-                {'check_same_thread': False, 'timeout': 30} if sqlite else {}
-            ),
+            connect_args=({'check_same_thread': False, 'timeout': 5} if sqlite else {}),
         )
         if sqlite:
             event.listen(self._engine, 'connect', _sqlite_on_connect)

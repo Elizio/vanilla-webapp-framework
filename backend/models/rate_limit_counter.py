@@ -14,7 +14,7 @@ class RateLimitCounter(_Base):
 
     Attributes:
         scope: Bucket family (``auth_ip`` or ``login_user``).
-        key: Client IP (IPv6 grouped by /64) or normalized username.
+        key: SHA-256 hex digest of the logical IP or exact username.
         window_start: Unix epoch seconds at the start of the window.
         hit_count: Hits recorded in this window.
         expires_at: Unix epoch seconds when the window is stale.

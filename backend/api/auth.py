@@ -28,12 +28,21 @@ from .session_auth import (
 from .csrf import csrf_protect
 from .rate_limit import (
     rate_limit_auth,
-    record_failed_login,
     reset_failed_logins,
     username_login_blocked,
 )
 
 auth_bp = Blueprint('auth', __name__)
+
+_DUMMY_PASSWORD_HASH: str | None = None
+
+
+def _dummy_password_hash() -> str:
+    """Return a cached dummy hash so unknown usernames still pay scrypt."""
+    global _DUMMY_PASSWORD_HASH
+    if _DUMMY_PASSWORD_HASH is None:
+        _DUMMY_PASSWORD_HASH = generate_password_hash('not-a-real-password')
+    return _DUMMY_PASSWORD_HASH
 
 
 def user_may_authenticate(user: User) -> bool:
@@ -172,19 +181,17 @@ def login():
     if blocked is not None:
         return blocked
     user = User.query.filter_by(username=username).first()
-
-    if (
-        user
-        and user.password_hash
-        and check_password_hash(user.password_hash, password)
-    ):
+    stored_hash = (
+        user.password_hash if user and user.password_hash else _dummy_password_hash()
+    )
+    password_ok = check_password_hash(stored_hash, password)
+    if user and user.password_hash and password_ok:
         if not user_may_authenticate(user):
             return error_response(ACCOUNT_INACTIVE, 403)
         reset_failed_logins(username)
         response = jsonify({'authenticated': True, 'username': user.username})
         return set_auth_cookie(response, user.id)
 
-    record_failed_login(username)
     return error_response(INVALID_CREDENTIALS, 401)
 
 

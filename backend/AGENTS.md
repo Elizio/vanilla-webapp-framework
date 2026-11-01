@@ -45,7 +45,7 @@ Provider-agnostic layer. To add an adapter: [ARCHITECTURE.md](../ARCHITECTURE.md
 
 Cookie session + CSRF. Inactive users: **403** `ACCOUNT_INACTIVE`. Google links by email only when `email_verified`; Facebook never links by email. `users.password_hash` is `String(255)`.
 
-Login/register rate limits live in `rate_limit_counters` (Alembic 007), shared across gunicorn workers. Per-IP (10 / 60 s, IPv6 /64) plus failed-login-per-username (5 / 15 min). `RATELIMIT_ENABLED` defaults off only in the testing profile — tests that assert 429 must turn it on. Store errors fail open. See [ADR 0006](../docs/adr/0006-auth-rate-limit-store.md).
+Login/register rate limits live in `rate_limit_counters` (Alembic 007), shared across gunicorn workers. Fixed windows (approximate; ~2× at a window edge): per-IP (10 / 60 s, IPv6 /64) plus login attempts per **exact** username (5 / 15 min; increment before the password check). Store keys are SHA-256 hex. `RATELIMIT_ENABLED` defaults off only in the testing profile — tests that assert 429 must turn it on. Store errors fail open. See [ADR 0006](../docs/adr/0006-auth-rate-limit-store.md).
 
 **Canonical:** `@backend/api/auth.py`, `@backend/api/rate_limit.py`, `@backend/api/oauth.py`, `@backend/api/session_auth.py`, `@backend/api/csrf.py`
 

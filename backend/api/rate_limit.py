@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import ipaddress
 import logging
 import time
@@ -22,31 +23,42 @@ logger = logging.getLogger(__name__)
 AUTH_IP_SCOPE = 'auth_ip'
 LOGIN_USER_SCOPE = 'login_user'
 _COUNTER_TABLE = RateLimitCounter.__tablename__
+STORE_FAILED_OPEN = 'Rate limit store failed open'
+SQLITE_BUSY_TIMEOUT_MS = 3000
 
-_UPSERT_SQL = (
-    f'INSERT INTO {_COUNTER_TABLE} '
-    '(scope, key, window_start, hit_count, expires_at) '
-    'VALUES (:scope, :key, :window_start, 1, :expires_at) '
-    'ON CONFLICT (scope, key, window_start) DO UPDATE SET '
-    f'hit_count = {_COUNTER_TABLE}.hit_count + 1 '
-    'RETURNING hit_count'
-)
-_PEEK_SQL = (
-    f'SELECT hit_count FROM {_COUNTER_TABLE} '
-    'WHERE scope = :scope AND key = :key '
-    'AND window_start = :window_start AND expires_at > :now'
-)
+
+def _upsert_sql(values_sql: str) -> str:
+    return (
+        f'INSERT INTO {_COUNTER_TABLE} '
+        '(scope, key, window_start, hit_count, expires_at) '
+        f'VALUES ({values_sql}) '
+        'ON CONFLICT (scope, key, window_start) DO UPDATE SET '
+        f'hit_count = {_COUNTER_TABLE}.hit_count + 1 '
+        'RETURNING hit_count'
+    )
+
+
+_UPSERT_NAMED = _upsert_sql(':scope, :key, :window_start, 1, :expires_at')
+_UPSERT_QMARK = _upsert_sql('?, ?, ?, 1, ?')
 _RESET_SQL = f'DELETE FROM {_COUNTER_TABLE} WHERE scope = :scope AND key = :key'
 _PRUNE_SQL = f'DELETE FROM {_COUNTER_TABLE} WHERE expires_at <= :now'
 
-_SQLITE_UPSERT = (
-    f'INSERT INTO {_COUNTER_TABLE} '
-    '(scope, key, window_start, hit_count, expires_at) '
-    'VALUES (?, ?, ?, 1, ?) '
-    'ON CONFLICT(scope, key, window_start) DO UPDATE SET '
-    'hit_count = hit_count + 1 '
-    'RETURNING hit_count'
-)
+
+def _now() -> float:
+    """Return the current Unix time (tests replace this, not ``time.time``)."""
+    return time.time()
+
+
+def hashed_counter_key(key: str) -> str:
+    """Return the SHA-256 hex digest stored in ``rate_limit_counters.key``.
+
+    Args:
+        key: Logical key (client IP grouping or exact stripped username).
+
+    Returns:
+        64-character hex digest.
+    """
+    return hashlib.sha256(key.encode('utf-8')).hexdigest()
 
 
 def client_ip_key(remote_addr: str | None) -> str:
@@ -77,16 +89,16 @@ def client_ip_key(remote_addr: str | None) -> str:
     return str(network)
 
 
-def normalize_username_key(username: str) -> str:
-    """Return the lowercase username used as a login-failure key.
+def username_key(username: str) -> str:
+    """Return the exact stripped username used for login lookup.
 
     Args:
         username: Raw username from the request body.
 
     Returns:
-        Strip + lowercase form so ``Alice`` and ``alice`` share a bucket.
+        ``username.strip()`` — not lowercased, matching ``User.username``.
     """
-    return username.strip().lower()
+    return username.strip()
 
 
 def increment_counter(
@@ -105,7 +117,7 @@ def increment_counter(
 
     Args:
         scope: Bucket family (``auth_ip`` or ``login_user``).
-        key: Client IP key or normalized username.
+        key: Logical client IP key or exact username.
         window_seconds: Fixed-window length.
         now: Unix timestamp override for tests.
         engine: Optional SQLAlchemy engine (defaults to the app engine).
@@ -120,43 +132,6 @@ def increment_counter(
         return None
 
 
-def peek_counter(
-    scope: str,
-    key: str,
-    window_seconds: int,
-    *,
-    now: float | None = None,
-    engine: Engine | None = None,
-) -> int:
-    """Return the current window count without incrementing.
-
-    Args:
-        scope: Bucket family.
-        key: Client IP key or normalized username.
-        window_seconds: Fixed-window length.
-        now: Unix timestamp override for tests.
-        engine: Optional SQLAlchemy engine.
-
-    Returns:
-        Stored hits, or ``0`` when missing or the read fails (fail-open).
-    """
-    clock = time.time() if now is None else now
-    params = {
-        'scope': scope,
-        'key': key,
-        'window_start': _window_start(clock, window_seconds),
-        'now': int(clock),
-    }
-    bind = engine if engine is not None else db.engine
-    try:
-        with bind.connect() as conn:
-            value = conn.execute(text(_PEEK_SQL), params).scalar()
-        return int(value) if value is not None else 0
-    except Exception as exc:
-        _log_store_failure(exc)
-        return 0
-
-
 def reset_counter(
     scope: str,
     key: str,
@@ -167,7 +142,7 @@ def reset_counter(
 
     Args:
         scope: Bucket family.
-        key: Client IP key or normalized username.
+        key: Logical client IP key or exact username.
         engine: Optional SQLAlchemy engine.
 
     Fail-open: a delete error is logged and swallowed.
@@ -175,7 +150,10 @@ def reset_counter(
     bind = engine if engine is not None else db.engine
     try:
         with bind.connect() as conn:
-            conn.execute(text(_RESET_SQL), {'scope': scope, 'key': key})
+            conn.execute(
+                text(_RESET_SQL),
+                {'scope': scope, 'key': hashed_counter_key(key)},
+            )
             conn.commit()
     except Exception as exc:
         _log_store_failure(exc)
@@ -191,11 +169,7 @@ def rate_limit_auth(func: Callable[..., Any]) -> Callable[..., Any]:
         max_hits = int(current_app.config.get('RATELIMIT_AUTH_IP_MAX', 10))
         window = int(current_app.config.get('RATELIMIT_AUTH_IP_WINDOW_SECONDS', 60))
         key = client_ip_key(request.remote_addr)
-        try:
-            count = increment_counter(AUTH_IP_SCOPE, key, window)
-        except Exception as exc:
-            _log_store_failure(exc)
-            return func(*args, **kwargs)
+        count = increment_counter(AUTH_IP_SCOPE, key, window)
         if count is None:
             return func(*args, **kwargs)
         if count > max_hits:
@@ -206,10 +180,11 @@ def rate_limit_auth(func: Callable[..., Any]) -> Callable[..., Any]:
 
 
 def username_login_blocked(username: str) -> tuple[Response, int] | None:
-    """Return a 429 if this username is over the failed-login limit.
+    """Increment the username counter; return 429 when the limit is exceeded.
 
-    Peek only — the password is not checked and the counter is not
-    incremented. Missing and existing usernames share this path.
+    The increment happens before the password check so concurrent
+    attempts cannot all sneak through. A later successful login resets
+    this exact username key.
 
     Args:
         username: Raw username from the request body.
@@ -221,38 +196,23 @@ def username_login_blocked(username: str) -> tuple[Response, int] | None:
         return None
     max_hits = int(current_app.config.get('RATELIMIT_LOGIN_USER_MAX', 5))
     window = int(current_app.config.get('RATELIMIT_LOGIN_USER_WINDOW_SECONDS', 900))
-    key = normalize_username_key(username)
-    try:
-        count = peek_counter(LOGIN_USER_SCOPE, key, window)
-    except Exception as exc:
-        _log_store_failure(exc)
+    count = increment_counter(LOGIN_USER_SCOPE, username_key(username), window)
+    if count is None:
         return None
-    if count >= max_hits:
+    if count > max_hits:
         return _limit_response(_retry_after(window))
     return None
 
 
-def record_failed_login(username: str) -> None:
-    """Count a failed password login against the normalized username.
-
-    Args:
-        username: Raw username from the request body.
-    """
-    if not current_app.config.get('RATELIMIT_ENABLED', True):
-        return
-    window = int(current_app.config.get('RATELIMIT_LOGIN_USER_WINDOW_SECONDS', 900))
-    increment_counter(LOGIN_USER_SCOPE, normalize_username_key(username), window)
-
-
 def reset_failed_logins(username: str) -> None:
-    """Clear failed-login counters after a successful password login.
+    """Clear failed-login counters for this exact username after success.
 
     Args:
-        username: Raw username from the request body.
+        username: Raw username from the request body (same string as lookup).
     """
     if not current_app.config.get('RATELIMIT_ENABLED', True):
         return
-    reset_counter(LOGIN_USER_SCOPE, normalize_username_key(username))
+    reset_counter(LOGIN_USER_SCOPE, username_key(username))
 
 
 def _window_start(now: float, window_seconds: int) -> int:
@@ -261,7 +221,7 @@ def _window_start(now: float, window_seconds: int) -> int:
 
 
 def _retry_after(window_seconds: int, now: float | None = None) -> int:
-    clock = time.time() if now is None else now
+    clock = _now() if now is None else now
     remaining = _window_start(clock, window_seconds) + window_seconds - int(clock)
     return max(1, remaining)
 
@@ -276,7 +236,7 @@ def _limit_response(retry_after: int) -> tuple[Response, int]:
 
 
 def _log_store_failure(exc: BaseException) -> None:
-    message = 'Rate limit store failed open: %s'
+    message = f'{STORE_FAILED_OPEN}: %s'
     logger.warning(message, exc)
     try:
         current_app.logger.warning(message, exc)
@@ -296,11 +256,11 @@ def _atomic_hit(
     now: float | None,
     engine: Engine | None,
 ) -> int:
-    clock = time.time() if now is None else now
+    clock = _now() if now is None else now
     window_start = _window_start(clock, window_seconds)
     params = {
         'scope': scope,
-        'key': key,
+        'key': hashed_counter_key(key),
         'window_start': window_start,
         'expires_at': window_start + window_seconds,
         'now': int(clock),
@@ -318,9 +278,10 @@ def _atomic_hit_sqlite(engine: Engine, params: Mapping[str, Any]) -> int:
         setattr(raw, 'isolation_level', None)
         cursor = raw.cursor()
         try:
+            cursor.execute(f'PRAGMA busy_timeout={SQLITE_BUSY_TIMEOUT_MS}')
             cursor.execute('BEGIN IMMEDIATE')
             cursor.execute(
-                _SQLITE_UPSERT,
+                _UPSERT_QMARK,
                 (
                     params['scope'],
                     params['key'],
@@ -355,7 +316,7 @@ def _atomic_hit_sqlite(engine: Engine, params: Mapping[str, Any]) -> int:
 
 def _atomic_hit_sql(engine: Engine, params: Mapping[str, Any]) -> int:
     with engine.connect() as conn:
-        count = int(conn.execute(text(_UPSERT_SQL), dict(params)).scalar_one())
+        count = int(conn.execute(text(_UPSERT_NAMED), dict(params)).scalar_one())
         if _should_prune(count, int(params['now'])):
             conn.execute(text(_PRUNE_SQL), {'now': params['now']})
         conn.commit()
