@@ -57,7 +57,7 @@ npm run test          # Vitest + jsdom
 npm run test:coverage # CI / make test (thresholds)
 ```
 
-From the repo root, `make lint-frontend` / `make test` wrap these. Flask must be on `:5000` for API calls during `npm run dev`.
+From the repo root, `make lint-frontend`, `make test-frontend`, and `make build-frontend` wrap these. Flask must be on `:5000` for API calls during `npm run dev`.
 
 ## i18n and SEO
 

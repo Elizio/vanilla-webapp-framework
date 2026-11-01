@@ -41,8 +41,8 @@ Vite `npm run build` writes into `backend/static/` (`emptyOutDir: true`). The Do
 
 ## CI → GHCR → Hostinger
 
-1. PR/push CI (`.github/workflows/ci.yml`): jobs `backend`, `frontend`, `lint`.
-2. `build-and-push` (`.github/workflows/docker-publish.yml`) builds `ghcr.io/elizio/vanilla-webapp-framework:sha-<full>`.
+1. PR/push CI (`.github/workflows/ci.yml`): `backend` (`check-pins`, `audit-python`, ruff/mypy, `prove-ruff-fail` / `prove-mypy-fail`, `migrations-check`, `test-backend`), `frontend` (`audit-frontend`, biome, `prove-biome-fail`, `build-frontend`, `test-frontend`), `lint` (shellcheck, actionlint, gitleaks, `prove-gitleaks-fail`).
+2. `build-and-push` (`.github/workflows/docker-publish.yml`) builds with `load: true`, runs `make smoke`, then pushes off PRs (`ghcr.io/elizio/vanilla-webapp-framework:sha-<full>`).
 3. On `master` push, `scripts/deploy-hostinger.sh` updates Hostinger VM `1136636` / Docker project `dsfor` and asserts `GET /api/health` `version ==` the merge SHA. Rollback is the previous `VWF_IMAGE`.
 4. Required check names stay `backend`, `frontend`, `build-and-push` (plus `lint`). Never push to `master`.
 

@@ -11,7 +11,7 @@ make setup
 make check
 ```
 
-`make check` is the local equivalent of CI (`backend`, `frontend`, `lint`). Do not push to `master`.
+`make check` is the local equivalent of CI (`backend`, `frontend`, `lint`) except Docker `make smoke`, which runs inside `build-and-push`. Do not push to `master`.
 
 ## Pull requests
 

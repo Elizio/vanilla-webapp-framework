@@ -58,15 +58,18 @@ Two terminals from the repo root: `flask run` (`:5000`) and `cd frontend && npm 
 | Target | What it runs |
 |--------|----------------|
 | `make setup` | `requirements-dev.txt` + editable install + frontend `npm ci` + lint binaries |
+| `make check-pins` | `scripts/check_pins.py` |
+| `make audit` | `audit-python` (`pip-audit`) + `audit-frontend` (`npm audit --omit=dev`) |
 | `make lint` | Ruff, mypy, Biome, shellcheck, actionlint, gitleaks |
+| `make prove-linters-fail` | `prove-ruff-fail`, `prove-mypy-fail`, `prove-biome-fail`, `prove-gitleaks-fail` |
+| `make migrations-check` | `alembic upgrade head` + `check` + `downgrade -1` + `upgrade head` on throwaway SQLite |
+| `make build-frontend` | Vite build + `backend/static/index.html` exists |
+| `make test` | `test-backend` (`pytest` + `fail_under`) + `test-frontend` (`npm run test:coverage`) |
+| `make check` | `check-pins` + `audit` + `lint` + `prove-linters-fail` + `migrations-check` + `build-frontend` + `test` — same gates as CI except Docker `smoke` |
+| `make smoke` | Built image, dummy secrets, SQLite, curl `/api/health` + `/` (`IMAGE=`, Docker; `build-and-push` before push) |
 | `make format` | Ruff + Biome autofixes |
-| `make test` | `pytest` (backend `fail_under`) + `npm run test:coverage` |
-| `make check` | pins, audit, lint, linter-fail proofs, `alembic check`, frontend build, tests — the same gates CI runs (except Docker `smoke`) |
-| `make migrations-check` | `alembic upgrade head` + `check` + `downgrade -1` + `upgrade head` on a throwaway SQLite file |
-| `make smoke` | Run the built image with dummy secrets and curl `/api/health` + `/` (needs `IMAGE=` and Docker) |
 | `make migrate` | `alembic -c backend/alembic.ini upgrade head` |
 | `make typecheck` | `mypy backend` |
-| `make audit` | `pip-audit` + `npm audit --omit=dev` |
 
 Biome lints JS and JSON only — not `.hbs` templates. `frontend/src/styles/main.css` is excluded (Tailwind stays on Vite/PostCSS). New Python modules inherit strict mypy in `pyproject.toml`; do not add them to the ignore list.
 
@@ -87,6 +90,7 @@ Floors live in `[tool.coverage.report] fail_under` (`pyproject.toml`) and `test.
 ## Git and deploy
 
 - Never push to `master`. One PR per change. Branch protection: up to date + `backend`, `frontend`, `build-and-push`, `lint`.
+- `build-and-push` runs `make smoke` on the loaded image before push (PRs smoke without publishing).
 - Merge auto-deploys: CI → `ghcr.io/elizio/vanilla-webapp-framework:sha-<full>` → `scripts/deploy-hostinger.sh` (VM `1136636` / `dsfor`). Health `version` must equal the merge SHA.
 - Say whether runtime behavior changes. No secrets in the repo. Actions are SHA-pinned.
 

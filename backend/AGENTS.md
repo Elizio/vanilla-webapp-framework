@@ -72,6 +72,7 @@ Models stay data-only in `backend/models/` and export from `backend/models/__ini
 
 ```bash
 make test-backend
+make migrations-check   # alembic upgrade / check / downgrade / upgrade
 # or: pytest
 # full local CI loop: make check
 ```
