@@ -393,6 +393,26 @@ def test_actions_are_sha_pinned() -> None:
     assert unpinned == []
 
 
+def test_build_and_push_smokes_loaded_image_before_push() -> None:
+    """build-and-push loads the image, smokes it, then pushes only off PRs.
+
+    The deploy job is unchanged: it still waits on ``build-and-push`` and
+    still calls ``scripts/deploy-hostinger.sh``.
+    """
+    text = DOCKER_PUBLISH.read_text()
+    build_block = text.split("build-and-push:")[1].split("\n  deploy:")[0]
+    deploy_block = text.split("\n  deploy:")[1]
+    assert "load: true" in build_block
+    assert "make smoke" in build_block
+    smoke_at = build_block.index("make smoke")
+    assert "docker push" in build_block[smoke_at:]
+    assert "github.event_name != 'pull_request'" in build_block
+    assert "push: false" in build_block or "push: 'false'" in build_block
+    assert "FLASK_SECRET" in Path(REPO_ROOT / "scripts" / "smoke-image.sh").read_text()
+    assert "scripts/deploy-hostinger.sh" in deploy_block
+    assert "make smoke" not in deploy_block
+
+
 def test_packages_write_only_on_build_and_push() -> None:
     """packages: write is limited to the build-and-push job."""
     text = DOCKER_PUBLISH.read_text()

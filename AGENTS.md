@@ -25,11 +25,11 @@ vanilla-webapp-framework/
 ├── requirements.txt   # Python runtime pins
 ├── requirements-dev.txt # runtime + ruff, mypy, pytest, pre-commit
 ├── pyproject.toml     # Ruff, mypy, coverage floor
-├── Makefile           # setup, lint, format, test, check, migrate
+├── Makefile           # setup, lint, format, test, check, migrate, migrations-check, smoke
 ├── .pre-commit-config.yaml
 ├── setup.py           # pip install -e .
-├── .github/workflows/ # CI (backend, frontend, lint)
-├── scripts/           # check_pins.py, deploy-hostinger.sh, install-lint-tools.sh
+├── .github/workflows/ # CI (backend, frontend, lint) + image smoke in build-and-push
+├── scripts/           # check_pins.py, deploy-hostinger.sh, install-lint-tools.sh, migrations-check.sh, smoke-image.sh
 └── Dockerfile         # Multi-stage production image
 ```
 
@@ -93,7 +93,9 @@ Canonical local loop (same tools CI runs, split across the `backend`, `frontend`
 | `make lint` | Ruff, mypy, Biome, shellcheck, actionlint, gitleaks |
 | `make format` | Ruff + Biome autofixes |
 | `make test` | `pytest` (backend `fail_under`) + `npm run test:coverage` |
-| `make check` | `lint` + `test` |
+| `make check` | pins, audit, lint, linter-fail proofs, `alembic check`, frontend build, tests — the same gates CI runs (except Docker `smoke`) |
+| `make migrations-check` | `alembic upgrade head` + `check` + `downgrade -1` + `upgrade head` on a throwaway SQLite file |
+| `make smoke` | Run the built image with dummy secrets and curl `/api/health` + `/` (needs `IMAGE=` and Docker) |
 | `make migrate` | `alembic -c backend/alembic.ini upgrade head` |
 | `make typecheck` | `mypy backend` |
 | `make audit` | `pip-audit` + `npm audit --omit=dev` |
