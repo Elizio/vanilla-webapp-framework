@@ -44,8 +44,8 @@ Configure these once in `.env` (see [`.env.example`](../.env.example)):
 3. In development, run both servers and use **`:5173`** in the browser (not `:5000`):
 
    ```bash
-   # Terminal 1 — API on :5000
-   cd backend && flask run
+   # Terminal 1 — API on :5000 (from the repo root)
+   flask run
 
    # Terminal 2 — SPA on :5173
    cd frontend && npm run dev
@@ -212,7 +212,7 @@ Before switching the app to **Live**:
 | Facebook login blocked for a user | App is Unpublished and user has no app role | Add the user under App settings → Roles, or invite a consumer tester |
 | OAuth works on `:5000` but not `:5173` | `OAUTH_REDIRECT_BASE` points to `:5000` in dev | Use `http://localhost:5173` for both `FRONTEND_URL` and `OAUTH_REDIRECT_BASE` |
 | `Provider not configured` (404) | Only one of the two env vars is set | Both ID and secret are required per provider |
-| `Authentication failed` after provider redirect | Token exchange or profile fetch failed | Check `{PROJECT_FOLDER}/logs/app.log` |
+| `Authentication failed` after provider redirect | Token exchange or profile fetch failed | Check Flask / `docker logs` (stdout); file logging is opt-in |
 | Facebook user has no email after login | User denied email or app lacks Advanced Access in Live mode | Request App Review for `email` before going Live |
 
 ---

@@ -25,4 +25,4 @@ See [AGENTS.md](../AGENTS.md) for narrative policy. These rules are enforceable 
 ### **Anti-patterns (Rule 5.3)**
 - Restating the function name in a docstring.
 - README-style essays in module docstrings.
-- Claiming unimplemented features in README (e.g. DigitalOcean deploy until built).
+- Claiming unimplemented features in README (e.g. a deploy target that is not wired).

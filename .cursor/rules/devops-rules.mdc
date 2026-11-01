@@ -10,7 +10,7 @@ alwaysApply: false
 
 ### **CI/CD (GitHub Actions)**
 - **Rule 3.3**: Run tests on every push (`pytest` + frontend checks).
-- **Rule 3.4**: Auto-deploy to **DigitalOcean** on `main` branch merges.
+- **Rule 3.4**: Auto-deploy to the Hostinger VPS on `master` merges (`scripts/deploy-hostinger.sh` + GHCR image). Never push to `master`.
 
 ### **Environment Management**
 - **Rule 3.5**: Use `.venv` for Python dependencies (`pip install -r requirements-dev.txt` then `pip install -e . --no-deps`).

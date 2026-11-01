@@ -210,13 +210,9 @@ Open Graph tags and structured data can be added per fork when sharing previews 
 
 ## Templates (.hbs)
 
-**Actual pattern:** `.hbs` files are **static HTML + Alpine directives** fetched at runtime. They are **not** Handlebars-rendered.
+`.hbs` files are **static HTML + Alpine directives**. They are **not** Handlebars-rendered. There is no `handlebars` dependency, no import in `main.js`, and no `vite-plugin-handlebars`.
 
-- Handlebars is imported in `main.js` but only a `json` helper is registered
-- `vite-plugin-handlebars` is configured for compile-time use in `index.html` (currently unused)
-- Display API data with Alpine: `x-text="JSON.stringify(currentPage.response, null, 2)"`
-
-Cursor rule 2.2 (render with Handlebars) is aspirational — follow the Alpine pattern above until migrated.
+Templates are bundled at build time via Vite `?raw` imports in `frontend/src/js/pages.js`. Display API data with Alpine: `x-text="JSON.stringify(currentPage.response, null, 2)"`.
 
 ## Alpine.js conventions
 

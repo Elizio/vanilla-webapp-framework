@@ -47,8 +47,8 @@ Configure these once in `.env` (see [`.env.example`](../.env.example)):
 3. In development, run both servers and use **`:5173`** in the browser (not `:5000`):
 
    ```bash
-   # Terminal 1 — API on :5000
-   cd backend && flask run
+   # Terminal 1 — API on :5000 (from the repo root)
+   flask run
 
    # Terminal 2 — SPA on :5173
    cd frontend && npm run dev
@@ -138,7 +138,7 @@ The framework demo uses a **pay-what-you-want** `supporter` plan (custom amount,
 
 Use Lemon Squeezy **test mode** while developing. Complete a test checkout from the app menu → **Billing**. Confirm:
 
-- Webhook received (check provider dashboard or `{PROJECT_FOLDER}/logs/app.log`).
+- Webhook received (check the provider dashboard or container/Flask stdout; file logging is opt-in).
 - `GET /api/billing/status` (with JWT) shows the new entitlement or credit balance.
 - Demo gated route `GET /api/supporter-badge` returns 200 after a successful `supporter` donation.
 
