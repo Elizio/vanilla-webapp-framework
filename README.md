@@ -121,9 +121,11 @@ Copy `.env.example` to `.env` and adjust values before running.
    | `APP_PROFILE` | `development`, `testing`, or `production` |
    | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth (optional) |
    | `FACEBOOK_CLIENT_ID` / `FACEBOOK_CLIENT_SECRET` | Facebook OAuth (optional) |
-   | `FRONTEND_URL` | SPA URL after OAuth (default `http://localhost:5173` in dev) |
+   | `FRONTEND_URL` | Full SPA URL after OAuth/billing (keep any subpath; default `http://localhost:5173` in dev) |
    | `OAUTH_REDIRECT_BASE` | OAuth callback base URL (default `http://localhost:5173` in dev) |
-   | `CORS_ORIGINS` | Comma-separated allowed browser origins for credentialed API calls (defaults to `FRONTEND_URL`) |
+   | `CORS_ORIGINS` | Comma-separated browser origins only (`scheme://host[:port]`, no paths). Paths are stripped at startup. Defaults to the origin of `FRONTEND_URL`. |
+   | `APP_BASE_PATH` | Cookie `Path` for `auth_token`, `csrf_token`, and the Flask session (default `/`). Use `/vanilla-webapp-framework` on the dsfor.fun subpath deploy. Empty/unset keeps today's `Path=/`. |
+   | `HSTS_ENABLED` | Production HSTS on/off (default on). Sends `max-age=31536000` without `includeSubDomains`. Keep on for at least one max-age before setting `0`. |
    | `SEO_MODE` | `auth-first` (default, noindex app pages) or `public-first` (indexable by default); drives frontend meta tags and `/robots.txt`. The public welcome page always uses `index, follow` regardless of mode. |
    | `BILLING_PROVIDER` | Active billing adapter (default `lemon_squeezy`) |
    | `LEMON_SQUEEZY_API_KEY` | Lemon Squeezy API key (billing disabled until set) |
@@ -196,6 +198,7 @@ cd frontend && npm run build && npm run test
 
 - **OAuth / social login:** optional Google and Facebook. See [docs/oauth-configuration.md](docs/oauth-configuration.md) for provider console setup, redirect URIs, and troubleshooting. Env vars remain in the table above.
 - **Billing:** optional Lemon Squeezy demo (donations, spot purchases, credit top-ups). See [docs/billing-configuration.md](docs/billing-configuration.md) for dashboard setup, webhooks, test mode, and troubleshooting. Env vars remain in the table above.
+- **Subpath cookies and HSTS:** behind a prefix-stripping proxy (Caddy), Flask still sees `/api/...`. Set `APP_BASE_PATH` to the public prefix (no trailing slash) so cookies are not host-wide. `Path` is not a security boundary between same-origin apps — a sibling `Path=/` cookie is still sent here; a dedicated subdomain (for example `vwf.dsfor.fun`) is the real isolation. Production HSTS is `max-age=31536000` without `includeSubDomains` so a later header replaces a cached includeSubDomains policy (RFC 6797 §8.1). Keep HSTS on for at least one max-age before `HSTS_ENABLED=0`. Prefer domain-wide HSTS on the reverse proxy if this host is shared.
 - **Logs:** stdout/stderr by default (`docker logs`). File logging is opt-in (`LOG_TO_FILE=1` or `LOG_FILE`).
 - **Migrations (local production / `flask run`):** `make migrate` or `alembic -c backend/alembic.ini upgrade head` (the container entrypoint does this once before gunicorn).
 - **Health check:** `GET /api/health` runs `SELECT 1` through the app database session. Returns 200 `{"status":"ok","db":"ok","version":"<APP_VERSION>"}` when the database is reachable, or 503 with a non-ok `status` when it is not. `version` is the image git SHA (`APP_VERSION` bake-time env), or `unknown` when unset.
@@ -233,9 +236,10 @@ cd frontend && npm run build && npm run test
 
 ## 🔒 Security
 
-- Session auth via httpOnly `auth_token` cookie (JWT signed server-side)
-- CSRF double-submit protection on mutating API routes (`GET /api/csrf` + `X-CSRF-Token` header)
-- CORS restricted to configured origins with credentials support
+- Session auth via httpOnly `auth_token` cookie (JWT signed server-side); cookie `Path` follows `APP_BASE_PATH`
+- CSRF double-submit protection on mutating API routes (`GET /api/csrf` JSON token + HttpOnly `csrf_token` cookie + `X-CSRF-Token` header)
+- CORS restricted to configured origins (`scheme://host[:port]` only) with credentials support
+- Production HSTS `max-age=31536000` without `includeSubDomains`
 - Rate limiting on login and registration (10 requests/minute per IP)
 - Input validation and structured error codes (no raw stack traces to clients)
 - Bearer token header still supported for API clients and tests

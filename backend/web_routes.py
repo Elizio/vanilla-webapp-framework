@@ -77,10 +77,14 @@ def register_web_routes(app):
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['X-Frame-Options'] = 'SAMEORIGIN'
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-        if current_app.config.get('APP_PROFILE') == 'production':
-            response.headers['Strict-Transport-Security'] = (
-                'max-age=31536000; includeSubDomains'
-            )
+        if (
+            current_app.config.get('APP_PROFILE') == 'production'
+            and current_app.config.get('HSTS_ENABLED', True)
+        ):
+            # Plain max-age replaces a cached includeSubDomains policy
+            # (RFC 6797 §8.1). Keep sending this for at least one max-age
+            # before setting HSTS_ENABLED=0.
+            response.headers['Strict-Transport-Security'] = 'max-age=31536000'
         return response
 
     @app.route('/robots.txt')

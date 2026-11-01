@@ -4,6 +4,7 @@ from functools import wraps
 
 from flask import Blueprint, jsonify, make_response, request
 
+from .cookie_path import app_cookie_path, cookie_secure, expire_legacy_root_cookie
 from .error_codes import CSRF_INVALID, error_response
 
 csrf_bp = Blueprint('csrf', __name__)
@@ -37,17 +38,15 @@ def get_csrf():
       200:
         description: CSRF token for mutating requests
     """
-    from flask import current_app
-
     token = secrets.token_urlsafe(32)
     response = make_response(jsonify({'csrf_token': token}))
-    secure = current_app.config.get('APP_PROFILE') == 'production'
     response.set_cookie(
         CSRF_COOKIE_NAME,
         token,
-        httponly=False,
-        secure=secure,
+        httponly=True,
+        secure=cookie_secure(),
         samesite='Lax',
-        path='/',
+        path=app_cookie_path(),
     )
+    expire_legacy_root_cookie(response, CSRF_COOKIE_NAME, httponly=True)
     return response

@@ -48,8 +48,11 @@ Create `.env` in the project root:
 | `APP_PROFILE` | `development`, `testing`, or `production` |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth (optional) |
 | `FACEBOOK_CLIENT_ID` / `FACEBOOK_CLIENT_SECRET` | Facebook OAuth (optional) |
-| `FRONTEND_URL` | SPA URL after OAuth (default `http://localhost:5173` in dev) |
+| `FRONTEND_URL` | Full SPA URL after OAuth/billing (keep any subpath; default `http://localhost:5173` in dev) |
 | `OAUTH_REDIRECT_BASE` | OAuth callback base URL (default `http://localhost:5173` in dev) |
+| `CORS_ORIGINS` | Comma-separated browser origins only (`scheme://host[:port]`, no paths). Defaults to the origin of `FRONTEND_URL`. |
+| `APP_BASE_PATH` | Cookie `Path` for `auth_token`, `csrf_token`, and the Flask session (default `/`) |
+| `HSTS_ENABLED` | Production HSTS on/off (default on; plain `max-age`, no `includeSubDomains`) |
 | `SEO_MODE` | `auth-first` (default) or `public-first`; frontend meta defaults + `/robots.txt` |
 | `BILLING_PROVIDER` | Active billing adapter (default `lemon_squeezy`; optional) |
 | `LEMON_SQUEEZY_*` | Lemon Squeezy API key, store id, webhook secret, variant ids (optional) |
