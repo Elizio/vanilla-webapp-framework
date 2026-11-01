@@ -31,12 +31,17 @@ jobs:
           pip install -r requirements-dev.txt
           pip install -e . --no-deps
       - name: Verify pinned versions match requirements.txt
-        run: python scripts/check_pins.py
+        run: make check-pins
       - name: Run pip-audit on runtime dependencies
-        run: pip-audit -r requirements.txt
+        run: make audit-python
       - name: Lint and typecheck Python
         run: make lint-python
-      - run: pytest
+      - name: Prove Ruff and mypy fail on bad input
+        run: make prove-ruff-fail prove-mypy-fail
+      - name: Check Alembic model/migration drift
+        run: make migrations-check
+      - name: Run backend tests
+        run: make test-backend
 
   frontend:
     runs-on: ubuntu-latest
@@ -51,12 +56,15 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: cd frontend && npm ci
       - name: Run npm audit on production dependencies
-        run: cd frontend && npm audit --omit=dev --audit-level=high
+        run: make audit-frontend
       - name: Lint frontend JS and JSON
         run: make lint-frontend
-      - run: cd frontend && npm run build
-      - run: test -f backend/static/index.html
-      - run: cd frontend && npm run test:coverage
+      - name: Prove Biome fails on bad input
+        run: make prove-biome-fail
+      - name: Build frontend
+        run: make build-frontend
+      - name: Run frontend tests with coverage floor
+        run: make test-frontend
 
   lint:
     runs-on: ubuntu-latest
@@ -72,3 +80,5 @@ jobs:
         run: ./scripts/install-lint-tools.sh
       - name: Run shellcheck, actionlint, and gitleaks
         run: make lint-shell
+      - name: Prove gitleaks fails on a planted secret
+        run: make prove-gitleaks-fail

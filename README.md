@@ -86,7 +86,9 @@ vanilla-webapp-framework/
 ├── scripts/
 │   ├── check_pins.py           # CI pin verification
 │   ├── deploy-hostinger.sh     # Hostinger VPS deploy (called from CI)
-│   └── install-lint-tools.sh   # pinned shellcheck, actionlint, gitleaks
+│   ├── install-lint-tools.sh   # pinned shellcheck, actionlint, gitleaks
+│   ├── migrations-check.sh     # alembic upgrade/check/downgrade round-trip
+│   └── smoke-image.sh          # container /api/health + / smoke (IMAGE=)
 ├── Makefile                    # setup, lint, format, test, check, migrate
 ├── pyproject.toml              # Ruff, mypy, coverage floor
 ├── .pre-commit-config.yaml     # Ruff, Biome, gitleaks, shellcheck, hygiene
@@ -209,11 +211,14 @@ Do not chown at container start. The entrypoint runs as 10001 and cannot fix own
 ### Run — testing
 
 ```bash
-make check          # lint (ruff, mypy, biome, shellcheck, actionlint, gitleaks) + tests
+make check          # same gates as CI: pins, audit, lint, linter-fail proofs,
+                    # alembic check, frontend build + backend/static/index.html, tests
 # or separately:
 make test           # pytest (coverage floor) + npm run test:coverage
 make lint
+make migrations-check
 cd frontend && npm run build && npm run test:coverage
+# Docker image smoke (CI build-and-push, before push): IMAGE=... make smoke
 ```
 
 Coverage floors: backend `fail_under` in `pyproject.toml` (omits `backend/tests`); frontend thresholds in `frontend/vitest.config.js` over `src/js`. Raise a floor when coverage goes up by at least 1 point. Do not lower one without a PR justification. See [AGENTS.md](AGENTS.md) → Coverage ratchet.
@@ -279,7 +284,7 @@ Coverage floors: backend `fail_under` in `pyproject.toml` (omits `backend/tests`
 ## 📦 Deployment
 
 - Docker multi-stage build (see **Run — Docker** above). Runtime user **10001:10001**, read-only `/app`, migrate-once entrypoint, image `HEALTHCHECK`.
-- GitHub Actions: `backend` (pytest with coverage `fail_under`, ruff, mypy, pip-audit, pin check), `frontend` (Biome, npm audit, build, Vitest coverage thresholds), `lint` (shellcheck + actionlint + gitleaks on full git history). Actions are SHA-pinned; Dependabot updates them weekly. Biome does not lint `.hbs` templates. No extra required check names — floors run inside `backend` and `frontend`.
+- GitHub Actions: `backend` (pins, pip-audit, ruff, mypy, `alembic check`, pytest with coverage `fail_under`), `frontend` (Biome, npm audit, build + `backend/static/index.html`, Vitest coverage thresholds), `lint` (shellcheck + actionlint + gitleaks on full git history). `build-and-push` smokes the exact image (`/api/health` status ok and `/` 200) before push; PRs build and smoke without publishing. Actions are SHA-pinned; Dependabot updates them weekly (Python/node Docker majors are ignored). Biome does not lint `.hbs` templates. No extra required check names — new steps run inside `backend`, `frontend`, `lint`, and `build-and-push`.
 - Production auto-deploy is `scripts/deploy-hostinger.sh`, invoked by `.github/workflows/docker-publish.yml` after CI and the GHCR publish (private image `ghcr.io/elizio/vanilla-webapp-framework:sha-<full>`). See **Configure & operate**.
 - An unused `workflow_dispatch` stub remains at `.github/workflows/deploy.yml`. It is not the production deploy path.
 

@@ -55,13 +55,13 @@ jobs:
           labels: |
             org.opencontainers.image.source=${{ github.event.repository.html_url }}
 
-      - name: Build and push Docker image
+      - name: Build Docker image
         id: build
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5.4.0
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' }}
-          load: ${{ github.event_name == 'pull_request' }}
+          push: false
+          load: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
@@ -69,6 +69,11 @@ jobs:
             GIT_SHA=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Smoke-test the image
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+        run: make smoke
 
       - name: Verify image has no development tools
         run: |
@@ -100,6 +105,17 @@ jobs:
             exit 1
           fi
           echo "Container runs as UID 10001 with read-only /app/backend"
+
+      - name: Push Docker image
+        if: github.event_name != 'pull_request'
+        env:
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$IMAGE_TAGS" | while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
+            docker push "$tag"
+          done
 
   deploy:
     runs-on: ubuntu-latest

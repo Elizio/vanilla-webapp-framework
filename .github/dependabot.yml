@@ -43,3 +43,13 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    # A Python minor (3.10 → 3.15) has no psycopg2-binary wheel — see PR #24.
+    # Node majors (20 → 26) are similarly a deliberate upgrade.
+    ignore:
+      - dependency-name: "python"
+        update-types:
+          - "version-update:semver-minor"
+          - "version-update:semver-major"
+      - dependency-name: "node"
+        update-types:
+          - "version-update:semver-major"
