@@ -13,11 +13,10 @@ from .db_repository.database import (
     db,
     db_session,
     init_db,
-    run_migrations,
 )
 
 
-def create_app():
+def create_app() -> Flask:
     """Create and configure the Flask application."""
     app_config = AppConfig.get_instance()
     static_dir = (
@@ -68,12 +67,11 @@ def create_app():
 
     register_web_routes(app)
 
-    if app_config.APP_PROFILE == 'production':
-        run_migrations()
-    elif app_config.APP_PROFILE == 'development':
+    if app_config.APP_PROFILE == 'development':
         bootstrap_dev_database()
-    else:
+    elif app_config.APP_PROFILE == 'testing':
         init_db()
+    # production: alembic runs once in docker-entrypoint.sh, not per worker.
 
     return app
 

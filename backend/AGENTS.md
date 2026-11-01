@@ -42,7 +42,7 @@ backend/
 5. Initializes Flasgger Swagger (`/docs`)
 6. Registers `auth_bp`, `api_bp`, `oauth_bp`, and `billing_bp`
 7. Registers web routes via `register_web_routes(app)`
-8. Runs `init_db()` (dev/test) or `run_migrations()` (production)
+8. Runs `init_db()` (test) or `bootstrap_dev_database()` (development). Production migrations run once in `docker-entrypoint.sh`, not in `create_app()`.
 
 A module-level `app = create_app()` runs at import time. Tests call `create_app()` again via fixtures in `tests/conftest.py`.
 
@@ -267,7 +267,7 @@ No manual schema coordination in dev/test — use Alembic for production (see Al
 
 `database.py` reads the database URI from `AppConfig`, not raw `os.environ`.
 
-Logging writes to `{PROJECT_FOLDER}/logs/app.log` via `setup_logging(app)`.
+`setup_logging(app)` is called once from the app factory (not again in `app.py`). It logs to stdout/stderr by default. File logging is opt-in (`LOG_TO_FILE` / `LOG_FILE`); `PROJECT_FOLDER=/data/logs` writes `app.log` in that folder (no doubled `/logs/logs` path).
 
 ## Error handling
 
@@ -315,12 +315,14 @@ Coverage is configured in `setup.cfg` (`--cov=backend`).
 
 - Config: `backend/alembic.ini`
 - Scripts: `backend/db_repository/migrations/`
-- Dev/test: `init_db()` via `create_all()`
-- Production: `alembic upgrade head` via `run_migrations()` in `create_app()`
+- Dev/test: `init_db()` via `create_all()` (or `bootstrap_dev_database()` in development)
+- Production: `alembic upgrade head` once in `docker-entrypoint.sh` before gunicorn (not per worker). Local `APP_PROFILE=production flask run` does **not** migrate — run `make migrate` first.
+- Rollback is image-only: a new migration must stay compatible with the previous image.
 
 ```bash
 # From project root with DATABASE_URI set
-alembic -c backend/alembic.ini upgrade head
+make migrate
+# or: alembic -c backend/alembic.ini upgrade head
 alembic -c backend/alembic.ini revision --autogenerate -m "describe change"
 ```
 

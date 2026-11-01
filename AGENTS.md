@@ -44,7 +44,7 @@ Create `.env` in the project root:
 | `FLASK_SECRET` | Flask sessions / CSRF |
 | `JWT_SECRET` | JWT signing |
 | `DATABASE_URI` | DB connection string |
-| `PROJECT_FOLDER` | Log file directory |
+| `PROJECT_FOLDER` | Optional file-log directory (stdout/stderr by default) |
 | `APP_PROFILE` | `development`, `testing`, or `production` |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth (optional) |
 | `FACEBOOK_CLIENT_ID` / `FACEBOOK_CLIENT_SECRET` | Facebook OAuth (optional) |
@@ -79,7 +79,7 @@ Run before claiming work is done:
 - [ ] `pytest` from project root (backend tests with coverage)
 - [ ] `cd frontend && npm run build && npm run test`
 - [ ] `cd frontend && npm run dev` — app loads at `:5173`
-- [ ] Production smoke: `cd frontend && npm run build && APP_PROFILE=production flask run` → `:5000`
+- [ ] Production smoke: `cd frontend && npm run build && make migrate && APP_PROFILE=production flask run` → `:5000` (`flask run` no longer migrates)
 - [ ] New API endpoints have Swagger docstrings and pytest coverage
 - [ ] README how-tos checked against diff triggers (setup, run per environment, configure/operate)
 - [ ] `.env.example` updated if env vars changed
