@@ -2,6 +2,16 @@
 
 A modern, lightweight web application framework that combines Flask backend with a vanilla JavaScript frontend, leveraging Alpine.js and Tailwind CSS for enhanced functionality and styling.
 
+## Using this template
+
+1. Click **Use this template** on GitHub. Ticking **Template repository** is a repo setting (ask the owner after merge — it is not part of this PR).
+2. Clone the new repo, then `make setup`.
+3. `make init NAME=my-app` — rewrites every name in [docs/template-placeholders.md](docs/template-placeholders.md), resets dated `docs/superpowers/` plans, and runs `make check`.
+4. Fill `YOUR_GHCR_OWNER`, Hostinger VM/project, and GitHub owner in the generated values and on the VPS.
+5. Confirm a search for `vanilla-webapp-framework`, `dsfor.fun`, and `1136636` is empty.
+
+The `template-init` GitHub Actions job exercises this on a throwaway copy. **Do not add it to required branch-protection checks.** Required names stay `backend`, `frontend`, and `build-and-push` (plus `lint`).
+
 ## 🚀 Features
 
 ### Backend
@@ -81,7 +91,8 @@ vanilla-webapp-framework/
 ├── docs/                       # How-tos, ADRs, design specs
 │   ├── adr/                    # Architecture decision records
 │   ├── oauth-configuration.md  # OAuth setup (Google, Facebook)
-│   └── billing-configuration.md # Billing setup (Lemon Squeezy)
+│   ├── billing-configuration.md # Billing setup (Lemon Squeezy)
+│   └── template-placeholders.md # Names rewritten by `make init`
 ├── .cursor/rules/              # Cursor coding standards
 ├── .env.example                # Environment variable template
 ├── Dockerfile
