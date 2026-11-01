@@ -306,13 +306,15 @@ def test_jwt_without_user_id_on_protected_route_returns_401(test_client, test_db
     assert response.json['code'] == 'INVALID_TOKEN'
 
 
-def test_jwt_without_user_id_on_session_returns_401(test_client, test_db):
+def test_jwt_without_user_id_on_session_is_unauthenticated(test_client, test_db):
+    """Session bootstrap treats a JWT without user_id like any other bad token."""
     response = test_client.get(
         '/api/auth/session',
         headers={'Authorization': f'Bearer {_jwt_without_user_id()}'},
     )
-    assert response.status_code == 401
-    assert response.json['code'] == 'INVALID_TOKEN'
+    assert response.status_code != 500
+    assert response.status_code == 200
+    assert response.json == {'authenticated': False}
 
 
 def test_jwt_non_int_user_id_returns_401(test_client, test_db):
@@ -334,8 +336,9 @@ def test_jwt_non_int_user_id_returns_401(test_client, test_db):
     )
     assert protected.status_code == 401
     assert protected.json['code'] == 'INVALID_TOKEN'
-    assert session.status_code == 401
-    assert session.json['code'] == 'INVALID_TOKEN'
+    assert session.status_code != 500
+    assert session.status_code == 200
+    assert session.json == {'authenticated': False}
 
 
 def test_put_login_returns_method_not_allowed(test_client, test_db):

@@ -112,7 +112,7 @@ def session_status():
         data = jwt.decode(token, _jwt_secret(), algorithms=[JWT_ALGORITHM])
         user_id = _user_id_from_payload(data)
         if user_id is None:
-            return error_response(INVALID_TOKEN, 401)
+            return jsonify({'authenticated': False})
         user = db_session.get(User, user_id)
         if not user or not user_may_authenticate(user):
             return jsonify({'authenticated': False})
