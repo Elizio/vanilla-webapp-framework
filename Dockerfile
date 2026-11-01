@@ -11,7 +11,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # Stage 2: Python runtime
-FROM python:3.10-slim
+FROM python:3.15-slim
 
 WORKDIR /app
 
