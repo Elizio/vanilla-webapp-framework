@@ -43,6 +43,9 @@ dist-ssr/
 *.sln
 *.sw?
 
+# Local lint binaries (shellcheck, actionlint, gitleaks)
+.tools/
+
 # Environment variables
 .env
 .env.local

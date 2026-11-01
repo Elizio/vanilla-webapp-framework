@@ -34,7 +34,8 @@ jobs:
         run: python scripts/check_pins.py
       - name: Run pip-audit on runtime dependencies
         run: pip-audit -r requirements.txt
-      - run: flake8 backend
+      - name: Lint and typecheck Python
+        run: make lint-python
       - run: pytest
 
   frontend:
@@ -51,6 +52,8 @@ jobs:
       - run: cd frontend && npm ci
       - name: Run npm audit on production dependencies
         run: cd frontend && npm audit --omit=dev --audit-level=high
+      - name: Lint frontend JS and JSON
+        run: make lint-frontend
       - run: cd frontend && npm run build
       - run: test -f backend/static/index.html
       - run: cd frontend && npm run test
@@ -59,32 +62,13 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    env:
-      SHELLCHECK_VERSION: "0.11.0"
-      SHELLCHECK_SHA256: "8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198"
-      ACTIONLINT_VERSION: "1.7.12"
-      ACTIONLINT_SHA256: "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - name: Install pinned shellcheck and actionlint
-        run: |
-          set -euo pipefail
-          tmp="$(mktemp -d)"
-          curl -fsSL -o "$tmp/shellcheck.tar.xz" \
-            "https://github.com/koalaman/shellcheck/releases/download/v${SHELLCHECK_VERSION}/shellcheck-v${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
-          echo "${SHELLCHECK_SHA256}  $tmp/shellcheck.tar.xz" | sha256sum -c -
-          tar -xJf "$tmp/shellcheck.tar.xz" -C "$tmp"
-          sudo install -m 0755 \
-            "$tmp/shellcheck-v${SHELLCHECK_VERSION}/shellcheck" \
-            /usr/local/bin/shellcheck
-          curl -fsSL -o "$tmp/actionlint.tar.gz" \
-            "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
-          echo "${ACTIONLINT_SHA256}  $tmp/actionlint.tar.gz" | sha256sum -c -
-          tar -xzf "$tmp/actionlint.tar.gz" -C "$tmp" actionlint
-          sudo install -m 0755 "$tmp/actionlint" /usr/local/bin/actionlint
-          shellcheck --version
-          actionlint -version
-      - name: Run shellcheck
-        run: shellcheck scripts/*.sh docker-entrypoint.sh
-      - name: Run actionlint
-        run: actionlint
+        with:
+          # Full history so `gitleaks detect` scans every commit, not just the
+          # PR tip (default fetch-depth: 1).
+          fetch-depth: 0
+      - name: Install pinned shellcheck, actionlint, and gitleaks
+        run: ./scripts/install-lint-tools.sh
+      - name: Run shellcheck, actionlint, and gitleaks
+        run: make lint-shell

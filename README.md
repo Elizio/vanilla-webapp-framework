@@ -85,8 +85,11 @@ vanilla-webapp-framework/
 ├── docker-entrypoint.sh        # validate env, migrate once, then gunicorn
 ├── scripts/
 │   ├── check_pins.py           # CI pin verification
-│   └── deploy-hostinger.sh     # Hostinger VPS deploy (called from CI)
-├── Makefile                    # make migrate
+│   ├── deploy-hostinger.sh     # Hostinger VPS deploy (called from CI)
+│   └── install-lint-tools.sh   # pinned shellcheck, actionlint, gitleaks
+├── Makefile                    # setup, lint, format, test, check, migrate
+├── pyproject.toml              # Ruff + mypy
+├── .pre-commit-config.yaml     # Ruff, Biome, gitleaks, shellcheck, hygiene
 ├── requirements.txt
 ├── setup.py
 └── AGENTS.md                   # Agent guide (AI contributors)
@@ -103,9 +106,9 @@ Copy `.env.example` to `.env` and adjust values before running.
    ```bash
    python -m venv .venv
    source .venv/bin/activate
-   pip install -r requirements-dev.txt
-   pip install -e . --no-deps
-   cd frontend && npm install
+   make setup
+   # same files CI uses: requirements-dev.txt, then pip install -e . --no-deps,
+   # frontend npm ci, and pinned shellcheck/actionlint/gitleaks into .tools/
    ```
 
 2. **Environment variables**
@@ -206,7 +209,10 @@ Do not chown at container start. The entrypoint runs as 10001 and cannot fix own
 ### Run — testing
 
 ```bash
-pytest
+make check          # lint (ruff, mypy, biome, shellcheck, actionlint, gitleaks) + tests
+# or separately:
+make test           # pytest + vitest
+make lint
 cd frontend && npm run build && npm run test
 ```
 
@@ -271,7 +277,7 @@ cd frontend && npm run build && npm run test
 ## 📦 Deployment
 
 - Docker multi-stage build (see **Run — Docker** above). Runtime user **10001:10001**, read-only `/app`, migrate-once entrypoint, image `HEALTHCHECK`.
-- GitHub Actions: `backend` (pytest, flake8, pip-audit, pin check), `frontend` (npm audit, build, Vitest), `lint` (shellcheck + actionlint). Actions are SHA-pinned; Dependabot updates them weekly.
+- GitHub Actions: `backend` (pytest, ruff, mypy, pip-audit, pin check), `frontend` (Biome, npm audit, build, Vitest), `lint` (shellcheck + actionlint + gitleaks on full git history). Actions are SHA-pinned; Dependabot updates them weekly. Biome does not lint `.hbs` templates.
 - Production auto-deploy is `scripts/deploy-hostinger.sh`, invoked by `.github/workflows/docker-publish.yml` after CI and the GHCR publish (private image `ghcr.io/elizio/vanilla-webapp-framework:sha-<full>`). See **Configure & operate**.
 - An unused `workflow_dispatch` stub remains at `.github/workflows/deploy.yml`. It is not the production deploy path.
 

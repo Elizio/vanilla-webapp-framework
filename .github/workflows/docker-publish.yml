@@ -76,7 +76,7 @@ jobs:
           if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
             docker pull "$IMAGE"
           fi
-          output="$(docker run --rm --entrypoint sh "$IMAGE" -c 'pip show pytest pytest-cov coverage mypy black flake8' 2>&1 || true)"
+          output="$(docker run --rm --entrypoint sh "$IMAGE" -c 'pip show pytest pytest-cov coverage mypy black flake8 ruff pre-commit' 2>&1 || true)"
           if printf '%s\n' "$output" | grep -q '^Name:'; then
             echo "::error::Development tools found in production image"
             printf '%s\n' "$output"

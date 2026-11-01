@@ -1,0 +1,15 @@
+# Gitleaks config. CI scans full git history (`gitleaks detect` with
+# actions/checkout fetch-depth: 0). Allowlist test fixtures only.
+title = "vanilla-webapp-framework"
+
+[extend]
+useDefault = true
+
+# Test-only strings. The only history hit on master (08f967c, 113 commits)
+# is generic-api-key on `pbkdf2_password = 'pbkdf2-secret-17a'` in the
+# migration 006 fixture. Not a real secret.
+[[allowlists]]
+description = "Test fixtures only"
+paths = [
+    '''(^|/)backend/tests/test_migrations\.py$''',
+]

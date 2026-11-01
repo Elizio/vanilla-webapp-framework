@@ -50,7 +50,7 @@ export const billingController = {
                 style: 'currency',
                 currency,
             }).format(value);
-        } catch (err) {
+        } catch (_err) {
             return `${value.toFixed(2)} ${currency}`;
         }
     },
@@ -92,7 +92,7 @@ export const billingController = {
                     this.amounts[plan.plan_key] = (plan.default_amount_cents ?? 0) / 100;
                 }
             });
-        } catch (err) {
+        } catch (_err) {
             this.error = this.appContext.t('errors.FETCH_FAILED');
         }
     },
@@ -113,7 +113,7 @@ export const billingController = {
             const data = await response.json();
             this.entitlements = data.entitlements || [];
             this.creditBalanceCents = data.credit_balance_cents || 0;
-        } catch (err) {
+        } catch (_err) {
             /* status is best-effort; ignore transient errors */
         }
     },
@@ -160,7 +160,7 @@ export const billingController = {
             }
             const data = await response.json();
             window.location.href = data.checkout_url;
-        } catch (err) {
+        } catch (_err) {
             this.error = this.appContext.t('errors.FETCH_FAILED');
         } finally {
             this.isLoading = false;

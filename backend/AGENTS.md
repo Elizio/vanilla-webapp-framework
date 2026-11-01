@@ -284,7 +284,9 @@ No manual schema coordination in dev/test — use Alembic for production (see Al
 Run from project root:
 
 ```bash
-pytest
+make test-backend
+# or: pytest
+# full local CI loop: make check
 ```
 
 Fixtures in `tests/conftest.py`:

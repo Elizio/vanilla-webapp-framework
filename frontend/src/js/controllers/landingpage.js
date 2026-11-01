@@ -40,7 +40,7 @@ export const landingPageController = {
             } else {
                 this.response = await response.json();
             }
-        } catch (err) {
+        } catch (_err) {
             this.error = this.appContext.t('errors.FETCH_FAILED');
             this.appContext.logout();
         } finally {
@@ -59,7 +59,7 @@ export const landingPageController = {
             } else {
                 this.response = await response.json();
             }
-        } catch (err) {
+        } catch (_err) {
             this.error = this.appContext.t('errors.FETCH_FAILED');
         } finally {
             this.isLoading = false;

@@ -44,9 +44,9 @@ setup(
     ],
     extras_require={
         "dev": [
-            "black>=22.0.0",
-            "flake8>=4.0.0",
-            "mypy>=0.900",
+            "ruff>=0.17.0",
+            "mypy>=1.15.0",
+            "pre-commit>=4.0.0",
         ],
         "postgres": [
             "psycopg2-binary>=2.9.9; sys_platform != 'win32'",
