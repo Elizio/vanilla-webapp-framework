@@ -68,12 +68,9 @@ def test_cors_disallowed_origin(cors_client):
     )
 
     assert response.status_code == 200
-    # With flask-cors 6.0, disallowed origins should not get CORS headers
-    malicious_origin = "http://malicious.example.com"
-    assert (
-        "Access-Control-Allow-Origin" not in response.headers
-        or response.headers.get("Access-Control-Allow-Origin") != malicious_origin
-    )
+    # flask-cors 6.0: disallowed origins must not get CORS headers at all
+    assert "Access-Control-Allow-Origin" not in response.headers
+    assert "Access-Control-Allow-Credentials" not in response.headers
 
 
 def test_cors_preflight_allowed(cors_client):
@@ -103,9 +100,6 @@ def test_cors_preflight_disallowed(cors_client):
         },
     )
 
-    # Preflight should return 200 but no CORS headers for disallowed origins
-    malicious_origin = "http://malicious.example.com"
-    assert (
-        "Access-Control-Allow-Origin" not in response.headers
-        or response.headers.get("Access-Control-Allow-Origin") != malicious_origin
-    )
+    # Preflight must not return CORS headers for disallowed origins
+    assert "Access-Control-Allow-Origin" not in response.headers
+    assert "Access-Control-Allow-Credentials" not in response.headers

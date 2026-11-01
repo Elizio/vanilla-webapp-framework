@@ -25,19 +25,7 @@ jobs:
           pip install -r requirements-dev.txt
           pip install -e . --no-deps
       - name: Verify pinned versions match requirements.txt
-        run: |
-          echo "Checking that CI uses the same versions as production..."
-          pip freeze > /tmp/ci-freeze.txt
-          # Extract runtime packages from requirements.txt (excluding comments and empty lines)
-          grep -v '^#' requirements.txt | grep -v '^-r' | grep -v '^$' | sort > /tmp/requirements-sorted.txt
-          # Extract matching packages from pip freeze
-          while IFS='==' read -r pkg version; do
-            if [ -n "$pkg" ]; then
-              grep "^${pkg}==" /tmp/ci-freeze.txt || echo "Missing: $pkg"
-            fi
-          done < /tmp/requirements-sorted.txt > /tmp/ci-versions.txt
-          echo "Runtime package versions in CI:"
-          cat /tmp/ci-versions.txt
+        run: python scripts/check_pins.py
       - name: Run pip-audit on runtime dependencies
         run: pip-audit -r requirements.txt
       - run: flake8 backend
