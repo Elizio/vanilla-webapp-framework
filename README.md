@@ -82,6 +82,8 @@ vanilla-webapp-framework/
 ├── .cursor/rules/              # Cursor coding standards
 ├── .env.example                # Environment variable template
 ├── Dockerfile
+├── docker-entrypoint.sh        # migrate once, then gunicorn
+├── Makefile                    # make migrate
 ├── requirements.txt
 ├── setup.py
 └── AGENTS.md                   # Agent guide (AI contributors)
@@ -112,7 +114,10 @@ Copy `.env.example` to `.env` and adjust values before running.
    | `FLASK_SECRET` | Secret key for Flask sessions and CSRF protection |
    | `JWT_SECRET` | Secret key for JWT token generation and validation |
    | `DATABASE_URI` | Database connection string (SQLite, PostgreSQL, MySQL, etc.) |
-   | `PROJECT_FOLDER` | Directory for log files (must exist and be writable) |
+   | `PROJECT_FOLDER` | Optional file-log directory. Default logging is stdout/stderr. If `LOG_TO_FILE=1` and this path already ends with `/logs` (prod: `/data/logs`), logs go to `{PROJECT_FOLDER}/app.log` rather than a doubled `/logs/logs` path. |
+   | `LOG_TO_FILE` / `LOG_FILE` | Opt-in file logging (`LOG_TO_FILE=1` or an explicit `LOG_FILE` path). Unset in the container. |
+   | `PORT` | Container listen port (default `5000`). The image `HEALTHCHECK` uses the same value. |
+   | `HEALTHCHECK_PATH` | Path the image `HEALTHCHECK` probes (default `/api/health`). |
    | `APP_PROFILE` | `development`, `testing`, or `production` |
    | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth (optional) |
    | `FACEBOOK_CLIENT_ID` / `FACEBOOK_CLIENT_SECRET` | Facebook OAuth (optional) |
@@ -129,10 +134,11 @@ Copy `.env.example` to `.env` and adjust values before running.
 3. **Database**
 
    - **Development / testing:** tables are created automatically via `init_db()` when Flask starts (`APP_PROFILE=development` or `testing`).
-   - **Production:** run Alembic migrations before serving traffic:
+   - **Production:** run Alembic migrations before serving traffic (`flask run` no longer migrates):
 
      ```bash
-     alembic -c backend/alembic.ini upgrade head
+     make migrate
+     # or: alembic -c backend/alembic.ini upgrade head
      ```
 
 ### Run — development
@@ -155,8 +161,11 @@ API-only work: `flask run` is enough. Swagger UI: http://localhost:5000/docs
 
 ```bash
 cd frontend && npm run build
+make migrate   # or: alembic -c backend/alembic.ini upgrade head
 APP_PROFILE=production flask run
 ```
+
+`flask run` no longer runs migrations. The Docker image runs `alembic upgrade head` once in `docker-entrypoint.sh` before gunicorn.
 
 Open **http://localhost:5000**. Flask serves the Vite build from `backend/static/`.
 
@@ -168,10 +177,13 @@ docker run -p 5000:5000 \
   -e DATABASE_URI=postgresql://user:pass@host/db \
   -e FLASK_SECRET=your-secret \
   -e JWT_SECRET=your-jwt-secret \
-  -e PROJECT_FOLDER=/data \
+  -e PROJECT_FOLDER=/data/logs \
   -e APP_PROFILE=production \
+  -v mydata:/data \
   vanilla-webapp
 ```
+
+The image runs as UID/GID **10001**, migrates once on start, and logs to stdout. A named volume mounted at `/data` must be owned `10001:10001` (do not chown it at container start).
 
 ### Run — testing
 
@@ -184,14 +196,14 @@ cd frontend && npm run build && npm run test
 
 - **OAuth / social login:** optional Google and Facebook. See [docs/oauth-configuration.md](docs/oauth-configuration.md) for provider console setup, redirect URIs, and troubleshooting. Env vars remain in the table above.
 - **Billing:** optional Lemon Squeezy demo (donations, spot purchases, credit top-ups). See [docs/billing-configuration.md](docs/billing-configuration.md) for dashboard setup, webhooks, test mode, and troubleshooting. Env vars remain in the table above.
-- **Logs:** written to `{PROJECT_FOLDER}/logs/app.log`.
+- **Logs:** stdout/stderr by default (`docker logs`). File logging is opt-in (`LOG_TO_FILE=1` or `LOG_FILE`).
+- **Migrations (local production / `flask run`):** `make migrate` or `alembic -c backend/alembic.ini upgrade head` (the container entrypoint does this once before gunicorn).
 - **Health check:** `GET /api/health` runs `SELECT 1` through the app database session. Returns 200 `{"status":"ok","db":"ok","version":"<APP_VERSION>"}` when the database is reachable, or 503 with a non-ok `status` when it is not. `version` is the image git SHA (`APP_VERSION` bake-time env), or `unknown` when unset.
 - **API docs:** Swagger UI at `/docs` in development; disabled in production unless `SWAGGER_ENABLED=true`.
-- **Migrations (production):**
+- **Create a migration revision:**
 
   ```bash
   alembic -c backend/alembic.ini revision --autogenerate -m "describe change"
-  alembic -c backend/alembic.ini upgrade head
   ```
 
 - **AI contributors:** see [AGENTS.md](AGENTS.md) for agent workflows and verification checklists.

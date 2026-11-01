@@ -82,6 +82,19 @@ jobs:
           fi
           echo "No development tools found in image"
 
+      - name: Verify image runs as UID 10001
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}"
+          if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+            docker pull "$IMAGE"
+          fi
+          uid="$(docker run --rm "$IMAGE" id -u)"
+          if [ "$uid" != "10001" ]; then
+            echo "::error::Expected container UID 10001, got $uid"
+            exit 1
+          fi
+          echo "Container runs as UID 10001"
+
   deploy:
     runs-on: ubuntu-latest
     needs: [ci, build-and-push]

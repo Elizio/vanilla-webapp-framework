@@ -28,7 +28,11 @@ class UserConfig:
             'PROJECT_FOLDER',
             str(Path.home() / 'project_folder'),
         )
-        self.log_folder = str(Path(self.project_folder) / 'logs')
+        project_path = Path(self.project_folder)
+        if project_path.name == 'logs':
+            self.log_folder = self.project_folder
+        else:
+            self.log_folder = str(project_path / 'logs')
         self._initialized = True
 
     @classmethod
@@ -45,3 +49,14 @@ class UserConfig:
 
 
 user_config = UserConfig.get_instance()
+
+
+def reset_user_config_for_tests() -> None:
+    """Clear cached user config so tests can re-read ``PROJECT_FOLDER``.
+
+    For use in tests only — do not call in application code.
+    """
+    global user_config
+    UserConfig._instance = None
+    UserConfig._initialized = False
+    user_config = UserConfig.get_instance()
