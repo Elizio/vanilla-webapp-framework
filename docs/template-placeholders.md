@@ -24,7 +24,7 @@ SETUP_URL=https://github.com/yourusername/vanilla-webapp-framework
 | `FRONTEND_PACKAGE` | `frontend/package.json` `name` |
 | `IMAGE_NAME` | GHCR image (`ghcr.io/<IMAGE_NAME>`) |
 | `PUBLIC_HOST` | Public hostname |
-| `APP_SUBPATH` | Cookie / Vite public prefix (no trailing slash) |
+| `APP_SUBPATH` | Cookie / Vite public prefix (no trailing slash). Init sets `/{NAME}`; use `/` for an apex deploy. |
 | `HOSTINGER_VM` | VPS id used by `scripts/deploy-hostinger.sh` |
 | `HOSTINGER_PROJECT` | Hostinger Docker project name |
 | `GITHUB_OWNER` | GitHub user/org (`CODEOWNERS`, advisory URL) |

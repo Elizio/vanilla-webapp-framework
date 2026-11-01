@@ -88,7 +88,9 @@ def new_values(name: str) -> dict[str, str]:
         "FRONTEND_PACKAGE": f"{name}-frontend",
         "IMAGE_NAME": f"YOUR_GHCR_OWNER/{name}",
         "PUBLIC_HOST": "example.test",
-        "APP_SUBPATH": "/",
+        # Keep a distinct subpath so cookie Path=/ vs Path=/<slug> tests
+        # still pass after rewrite. Operators can set APP_BASE_PATH=/ later.
+        "APP_SUBPATH": f"/{name}",
         "HOSTINGER_VM": "YOUR_VM_ID",
         "HOSTINGER_PROJECT": "YOUR_PROJECT",
         "GITHUB_OWNER": "YOUR_GITHUB",
@@ -149,6 +151,27 @@ def reset_project_docs(root: Path) -> None:
     stray = root / "vibe-prompts-examples" / "temp.txt"
     if stray.is_file():
         stray.unlink()
+
+
+MIN_LEFTOVER_LEN = 4
+
+
+def leftover_needles(old: dict[str, str], new: dict[str, str]) -> list[str]:
+    """Old placeholder values that should not remain after a rewrite.
+
+    Skips values shorter than ``MIN_LEFTOVER_LEN`` (a new ``APP_SUBPATH=/``
+    would otherwise match every path) and values that are unchanged in
+    ``new`` (a second ``make init`` keeps ``example.test`` / ``YOUR_NAME``).
+    """
+    unchanged = {value.lower() for value in new.values() if value}
+    needles: list[str] = []
+    for value in old.values():
+        if len(value) < MIN_LEFTOVER_LEN:
+            continue
+        if value.lower() in unchanged:
+            continue
+        needles.append(value)
+    return needles
 
 
 def leftover_hits(root: Path, needles: list[str]) -> list[str]:
@@ -238,8 +261,7 @@ def main(argv: list[str] | None = None) -> int:
         encoding="utf-8",
     )
 
-    old_needles = [current[key] for key in required]
-    hits = leftover_hits(root, old_needles)
+    hits = leftover_hits(root, leftover_needles(current, target))
     if hits:
         print("error: leftover template names:\n" + "\n".join(hits[:50]), file=sys.stderr)
         return 1

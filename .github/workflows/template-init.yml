@@ -53,6 +53,9 @@ jobs:
             --exclude-dir=node_modules \
             --exclude-dir=.tools \
             --exclude-dir=__pycache__ \
+            --exclude-dir=.pytest_cache \
+            --exclude-dir=.ruff_cache \
+            --exclude-dir=.mypy_cache \
             'vanilla-webapp-framework|Vanilla WebApp Framework|dsfor\.fun|1136636' \
             /tmp/vwf-init; then
             echo "::error::leftover template names after make init"

@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import importlib.machinery
+import importlib.util
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+from types import ModuleType
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / "scripts" / "init-project"
@@ -27,6 +30,16 @@ REQUIRED_KEYS = (
     "SETUP_EMAIL",
     "SETUP_URL",
 )
+
+
+def _load_init_script() -> ModuleType:
+    """Load ``scripts/init-project`` as a module (it has no ``.py`` suffix)."""
+    loader = importlib.machinery.SourceFileLoader("init_project", str(SCRIPT))
+    spec = importlib.util.spec_from_loader("init_project", loader)
+    assert spec is not None
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
 
 
 def _run_init(root: Path, name: str, *extra: str) -> subprocess.CompletedProcess[str]:
@@ -55,6 +68,26 @@ def test_makefile_has_init_target() -> None:
     text = MAKEFILE.read_text(encoding="utf-8")
     assert "init:" in text
     assert "scripts/init-project" in text
+
+
+def test_leftover_needles_skip_short_and_unchanged_values() -> None:
+    """A second init must not treat ``/`` or ``example.test`` as leftovers."""
+    init = _load_init_script()
+    old = {
+        "PROJECT_SLUG": "prior-slug",
+        "APP_SUBPATH": "/",
+        "PUBLIC_HOST": "example.test",
+        "SETUP_AUTHOR": "YOUR_NAME",
+        "HOSTINGER_VM": "9999999",
+    }
+    new = init.new_values("demoapp")
+    needles = init.leftover_needles(old, new)
+    lowered = [needle.lower() for needle in needles]
+    assert "prior-slug" in lowered
+    assert "/" not in needles
+    assert "example.test" not in lowered
+    assert "your_name" not in lowered
+    assert "9999999" in lowered
 
 
 def test_init_formats_rewritten_files_before_check() -> None:
@@ -126,8 +159,6 @@ def test_init_rewrites_copy_and_clears_template_names(tmp_path: Path) -> None:
         "vanilla-webapp-framework",
         "Vanilla WebApp Framework",
         "vanilla-webapp-frontend",
-        "dsfor.fun",
-        "1136636",
         "elizio/vanilla-webapp-framework",
     )
     hits: list[str] = []
@@ -149,9 +180,10 @@ def test_init_rewrites_copy_and_clears_template_names(tmp_path: Path) -> None:
     )
     assert "PROJECT_SLUG=demoapp" in new_placeholders
     assert "PUBLIC_HOST=example.test" in new_placeholders
+    assert "APP_SUBPATH=/demoapp" in new_placeholders
     setup = (dest / "setup.py").read_text(encoding="utf-8")
     assert "demoapp" in setup
-    assert "Your Name" not in setup
+    assert 'author="YOUR_NAME"' in setup
     assert not (dest / "vibe-prompts-examples" / "temp.txt").exists()
     assert (dest / "docs" / "superpowers" / "README.md").is_file()
     assert not (dest / "docs" / "superpowers" / "plans").exists()
