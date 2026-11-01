@@ -1,6 +1,12 @@
 """HttpOnly cookie helpers for JWT session authentication."""
-from flask import current_app, request
+from flask import request
 
+from .cookie_path import (
+    app_cookie_path,
+    cookie_secure,
+    expire_legacy_root_cookie,
+)
+from .csrf import CSRF_COOKIE_NAME
 from .jwt_utils import JWT_EXPIRATION, generate_token
 
 AUTH_COOKIE_NAME = 'auth_token'
@@ -8,6 +14,9 @@ AUTH_COOKIE_NAME = 'auth_token'
 
 def set_auth_cookie(response, user_id: int):
     """Attach a signed JWT as an httpOnly session cookie.
+
+    Also expires any leftover ``Path=/`` ``auth_token`` or ``csrf_token``
+    so a stale root-path cookie cannot shadow the scoped one.
 
     Args:
         response: Flask response to mutate.
@@ -17,30 +26,43 @@ def set_auth_cookie(response, user_id: int):
         The same response with ``Set-Cookie`` applied.
     """
     token = generate_token(user_id)
-    secure = current_app.config.get('APP_PROFILE') == 'production'
     response.set_cookie(
         AUTH_COOKIE_NAME,
         token,
         httponly=True,
-        secure=secure,
+        secure=cookie_secure(),
         samesite='Lax',
-        path='/',
+        path=app_cookie_path(),
         max_age=JWT_EXPIRATION,
     )
+    expire_legacy_root_cookie(response, AUTH_COOKIE_NAME, httponly=True)
+    expire_legacy_root_cookie(response, CSRF_COOKIE_NAME, httponly=True)
     return response
 
 
 def clear_auth_cookie(response):
-    """Remove the session cookie from the client."""
+    """Remove the session cookie from the client.
+
+    Clears the cookie at ``APP_BASE_PATH`` and expires leftover ``Path=/``
+    ``auth_token`` and ``csrf_token`` cookies.
+
+    Args:
+        response: Flask response to mutate.
+
+    Returns:
+        The same response with clear ``Set-Cookie`` headers applied.
+    """
     response.set_cookie(
         AUTH_COOKIE_NAME,
         '',
         expires=0,
         httponly=True,
-        secure=current_app.config.get('APP_PROFILE') == 'production',
+        secure=cookie_secure(),
         samesite='Lax',
-        path='/',
+        path=app_cookie_path(),
     )
+    expire_legacy_root_cookie(response, AUTH_COOKIE_NAME, httponly=True)
+    expire_legacy_root_cookie(response, CSRF_COOKIE_NAME, httponly=True)
     return response
 
 

@@ -35,8 +35,11 @@ def create_app() -> Flask:
             x_prefix=1
         )
 
-    cors_origins = app.config.get('CORS_ORIGINS') or [app.config.get('FRONTEND_URL')]
-    CORS(app, origins=cors_origins, supports_credentials=True)
+    CORS(
+        app,
+        origins=list(app.config.get('CORS_ORIGINS') or []),
+        supports_credentials=True,
+    )
 
     user_config = UserConfig.get_instance()
     app.config.update(user_config.to_dict())

@@ -7,7 +7,7 @@ import { withBase } from './basepath.js';
 let csrfToken = null;
 
 /**
- * Fetch and cache a CSRF token (sets readable cookie server-side).
+ * Fetch and cache a CSRF token from the JSON body (cookie is HttpOnly).
  * @returns {Promise<void>}
  */
 export async function initCsrf() {

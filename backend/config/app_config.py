@@ -10,6 +10,8 @@ from typing import Any, Dict, Optional
 
 from dotenv import load_dotenv
 
+from .url_settings import normalize_app_base_path, parse_cors_origins
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _ENV_LOADED = False
 
@@ -99,15 +101,17 @@ class AppConfig:
             else '',
         )
 
-        cors_raw = os.getenv('CORS_ORIGINS', '').strip()
-        if cors_raw:
-            self.CORS_ORIGINS = [
-                origin.strip().rstrip('/')
-                for origin in cors_raw.split(',')
-                if origin.strip()
-            ]
+        self.APP_BASE_PATH = normalize_app_base_path(os.getenv('APP_BASE_PATH'))
+        self.SESSION_COOKIE_PATH = self.APP_BASE_PATH
+
+        cors_raw = os.getenv('CORS_ORIGINS', '')
+        self.CORS_ORIGINS = parse_cors_origins(cors_raw, self.FRONTEND_URL)
+
+        hsts_raw = os.getenv('HSTS_ENABLED', '').strip().lower()
+        if hsts_raw == '':
+            self.HSTS_ENABLED = True
         else:
-            self.CORS_ORIGINS = [self.FRONTEND_URL.rstrip('/')]
+            self.HSTS_ENABLED = hsts_raw in ('1', 'true', 'yes')
 
         seo_mode = os.getenv('SEO_MODE', 'auth-first').strip("'\"")
         self.SEO_MODE = (
