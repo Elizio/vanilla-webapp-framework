@@ -12,7 +12,7 @@ The app needs a small REST API, ORM models, and production migrations. Flask-SQL
 
 - Flask blueprints and a `create_app()` factory in `backend/__init__.py`.
 - Custom SQLAlchemy singleton (`db`, `db_session`) in `backend/db_repository/database.py`, not Flask-SQLAlchemy.
-- Alembic revisions under `backend/db_repository/migrations/`. Dev/test use `init_db()` / `bootstrap_dev_database()`; production migrates once in `docker-entrypoint.sh`.
+- Alembic revisions under `backend/db_repository/migrations/`. Operators apply them with `make migrate` / `alembic -c backend/alembic.ini upgrade head`. Production migrates once in `docker-entrypoint.sh`.
 
 ## Consequences
 
