@@ -1,5 +1,5 @@
 # Stage 1: Build frontend assets
-FROM node:20-alpine AS frontend-builder
+FROM node:26-alpine AS frontend-builder
 
 ARG VITE_BASE_PATH=/
 ENV VITE_BASE_PATH=${VITE_BASE_PATH}
