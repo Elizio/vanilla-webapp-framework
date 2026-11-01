@@ -10,12 +10,12 @@ with open("README.md", "r", encoding="utf-8") as fh:
 setup(
     name="vanilla-webapp-framework",
     version="1.0.1",
-    author="Your Name",
-    author_email="your.email@example.com",
+    author="Elizio",
+    author_email="Elizio@users.noreply.github.com",
     description="A modern, lightweight web application framework",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/vanilla-webapp-framework",
+    url="https://github.com/Elizio/vanilla-webapp-framework",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 3 - Alpha",
