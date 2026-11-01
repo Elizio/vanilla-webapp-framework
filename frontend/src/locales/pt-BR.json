@@ -192,6 +192,18 @@
     "AUTH_FAILED": "Falha na autenticação",
     "OAUTH_NOT_CONFIGURED": "Login {provider} não configurado. Adicione {envPrefix}_CLIENT_ID e {envPrefix}_CLIENT_SECRET ao .env e reinicie o Flask.",
     "CSRF_INVALID": "Token de segurança inválido ou ausente. Atualize a página e tente novamente.",
+    "USER_CREATED": "Usuário criado com sucesso",
+    "ACCOUNT_INACTIVE": "Esta conta está inativa",
+    "RATE_LIMIT_EXCEEDED": "Limite de requisições excedido. Tente novamente em instantes.",
+    "BILLING_NOT_CONFIGURED": "Pagamentos ainda não configurados",
+    "INVALID_PLAN": "Plano inválido",
+    "INVALID_AMOUNT": "Valor inválido",
+    "CHECKOUT_FAILED": "Não foi possível iniciar o pagamento",
+    "WEBHOOK_INVALID": "Webhook inválido",
+    "ENTITLEMENT_REQUIRED": "Este recurso exige um plano ativo",
+    "METHOD_NOT_ALLOWED": "Método não permitido",
+    "BAD_REQUEST": "Requisição inválida",
+    "FORBIDDEN": "Acesso negado",
     "UNKNOWN_ERROR": "Ocorreu um erro inesperado"
   },
   "seo": {

@@ -1,3 +1,4 @@
+"""Password login, registration, session status, and JWT gate."""
 from flask import Blueprint, jsonify, request, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
@@ -29,7 +30,46 @@ from .rate_limit import rate_limit_auth
 auth_bp = Blueprint('auth', __name__)
 
 
+def user_may_authenticate(user: User) -> bool:
+    """Return True if the account is allowed to start or keep a session.
+
+    Args:
+        user: Loaded user row.
+
+    Returns:
+        ``False`` when the account has been deactivated.
+    """
+    return bool(user.is_active)
+
+
+def _user_id_from_payload(data: dict) -> int | None:
+    """Return ``user_id`` from a JWT payload when it is a real int."""
+    user_id = data.get('user_id')
+    if isinstance(user_id, int) and not isinstance(user_id, bool):
+        return user_id
+    return None
+
+
+def _read_username_password():
+    """Parse username and password from JSON, requiring both to be strings.
+
+    Returns:
+        ``((username, password), None)`` on success, or
+        ``(None, error_response(...))`` when validation fails.
+    """
+    data = request.get_json(silent=True) or {}
+    username = data.get('username')
+    password = data.get('password')
+    if not isinstance(username, str) or not isinstance(password, str):
+        return None, error_response(USERNAME_PASSWORD_REQUIRED, 400)
+    username = username.strip()
+    if not username or not password:
+        return None, error_response(USERNAME_PASSWORD_REQUIRED, 400)
+    return (username, password), None
+
+
 def token_required(f):
+    """Require a valid JWT and an active user; inject ``current_user``."""
     @wraps(f)
     def decorated(*args, **kwargs):
         token = get_token_from_request()
@@ -37,10 +77,13 @@ def token_required(f):
             return error_response(TOKEN_MISSING, 401)
         try:
             data = jwt.decode(token, _jwt_secret(), algorithms=[JWT_ALGORITHM])
-            current_user = db_session.get(User, data['user_id'])
+            user_id = _user_id_from_payload(data)
+            if user_id is None:
+                return error_response(INVALID_TOKEN, 401)
+            current_user = db_session.get(User, user_id)
             if not current_user:
                 return error_response(INVALID_TOKEN, 401)
-            if not current_user.is_active:
+            if not user_may_authenticate(current_user):
                 return error_response(ACCOUNT_INACTIVE, 403)
         except jwt.ExpiredSignatureError:
             return error_response(TOKEN_EXPIRED, 401)
@@ -67,8 +110,11 @@ def session_status():
 
     try:
         data = jwt.decode(token, _jwt_secret(), algorithms=[JWT_ALGORITHM])
-        user = db_session.get(User, data['user_id'])
-        if not user:
+        user_id = _user_id_from_payload(data)
+        if user_id is None:
+            return error_response(INVALID_TOKEN, 401)
+        user = db_session.get(User, user_id)
+        if not user or not user_may_authenticate(user):
             return jsonify({'authenticated': False})
         return jsonify({'authenticated': True, 'username': user.username})
     except jwt.InvalidTokenError:
@@ -101,17 +147,24 @@ def login():
     responses:
       200:
         description: Login successful
+      400:
+        description: Missing or non-string username/password
       401:
         description: Invalid credentials
       403:
-        description: CSRF validation failed
+        description: CSRF validation failed or account inactive
     """
-    data = request.get_json(silent=True) or {}
-    user = User.query.filter_by(username=data.get('username')).first()
+    credentials, error = _read_username_password()
+    if error:
+        return error
+    username, password = credentials
+    user = User.query.filter_by(username=username).first()
 
     if user and user.password_hash and check_password_hash(
-        user.password_hash, data.get('password')
+        user.password_hash, password
     ):
+        if not user_may_authenticate(user):
+            return error_response(ACCOUNT_INACTIVE, 403)
         response = jsonify({'authenticated': True, 'username': user.username})
         return set_auth_cookie(response, user.id)
 
@@ -167,12 +220,10 @@ def register():
       403:
         description: CSRF validation failed
     """
-    data = request.get_json(silent=True) or {}
-    username = (data.get('username') or '').strip()
-    password = data.get('password')
-
-    if not username or not password:
-        return error_response(USERNAME_PASSWORD_REQUIRED, 400)
+    credentials, error = _read_username_password()
+    if error:
+        return error
+    username, password = credentials
 
     if len(password) < 8:
         return error_response(PASSWORD_TOO_SHORT, 400)
