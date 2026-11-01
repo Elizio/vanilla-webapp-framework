@@ -1,6 +1,7 @@
 """
 Vanilla WebApp Framework - A modern, lightweight web application framework.
 """
+
 from setuptools import setup, find_packages
 
 with open("README.md", "r", encoding="utf-8") as fh:
@@ -58,4 +59,4 @@ setup(
             "vanilla-webapp=backend.app:app",
         ],
     },
-) 
+)

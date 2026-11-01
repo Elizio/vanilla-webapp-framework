@@ -1,4 +1,5 @@
 """Cookie Path scoping for auth_token, csrf_token, and the Flask session."""
+
 from http.cookies import SimpleCookie
 
 import pytest
@@ -46,11 +47,7 @@ def _stable_cookie_attrs(header):
         Semicolon-joined attribute string (Max-Age, flags, Path, SameSite).
     """
     parts = [part.strip() for part in header.split(';')[1:]]
-    kept = [
-        part
-        for part in parts
-        if not part.lower().startswith('expires=')
-    ]
+    kept = [part for part in parts if not part.lower().startswith('expires=')]
     return '; '.join(kept)
 
 
@@ -109,9 +106,7 @@ def default_client(monkeypatch):
 @pytest.fixture
 def scoped_app(monkeypatch):
     """App with cookies scoped to the production subpath."""
-    app = _make_app(
-        monkeypatch, APP_BASE_PATH='/vanilla-webapp-framework'
-    )
+    app = _make_app(monkeypatch, APP_BASE_PATH='/vanilla-webapp-framework')
     with app.app_context():
         db._Session.remove()
         db.Base.metadata.drop_all(db.engine)
@@ -203,9 +198,7 @@ def test_scoped_cookies_use_app_base_path(scoped_app, scoped_client):
     assert scoped_auth[0]['httponly'] is True
     assert scoped_auth[0]['samesite'] == 'Lax'
 
-    assert scoped_app.config['SESSION_COOKIE_PATH'] == (
-        '/vanilla-webapp-framework'
-    )
+    assert scoped_app.config['SESSION_COOKIE_PATH'] == ('/vanilla-webapp-framework')
     session_client = scoped_app.test_client()
     with session_client.session_transaction() as session:
         session['oauth_state'] = 'probe'

@@ -1,4 +1,5 @@
 """Tests for scripts/deploy-hostinger.sh masking, health, and rollback."""
+
 from __future__ import annotations
 
 import os
@@ -365,8 +366,7 @@ def test_workflow_calls_script_with_same_inputs() -> None:
     assert "VM_ID: 1136636" in text
     assert "PROJECT_NAME: dsfor" in text
     image_line = (
-        "NEW_IMAGE: ghcr.io/elizio/vanilla-webapp-framework:"
-        "sha-${{ github.sha }}"
+        "NEW_IMAGE: ghcr.io/elizio/vanilla-webapp-framework:sha-${{ github.sha }}"
     )
     assert image_line in text
     assert "APP_URL: https://dsfor.fun/vanilla-webapp-framework" in text

@@ -4,45 +4,42 @@ import tailwindcss from 'tailwindcss';
 import autoprefixer from 'autoprefixer';
 
 export default defineConfig(({ mode }) => {
-  const projectRoot = resolve(__dirname, '..');
-  const env = loadEnv(mode, projectRoot, '');
-  const seoMode = env.SEO_MODE || env.VITE_SEO_MODE || 'auth-first';
-  const basePath = env.VITE_BASE_PATH || '/';
+    const projectRoot = resolve(__dirname, '..');
+    const env = loadEnv(mode, projectRoot, '');
+    const seoMode = env.SEO_MODE || env.VITE_SEO_MODE || 'auth-first';
+    const basePath = env.VITE_BASE_PATH || '/';
 
-  return {
-    root: 'src',
-    base: basePath,
-    envDir: projectRoot,
-    define: {
-      'import.meta.env.VITE_SEO_MODE': JSON.stringify(seoMode),
-    },
-    css: {
-      postcss: {
-        plugins: [
-          tailwindcss(),
-          autoprefixer(),
-        ],
-      },
-    },
-    build: {
-      outDir: resolve(__dirname, '../backend/static'),
-      emptyOutDir: true,
-      rollupOptions: {
-        input: {
-          main: resolve(__dirname, 'src/index.html'),
+    return {
+        root: 'src',
+        base: basePath,
+        envDir: projectRoot,
+        define: {
+            'import.meta.env.VITE_SEO_MODE': JSON.stringify(seoMode),
         },
-      },
-    },
-    server: {
-      port: 5173,
-      proxy: {
-        '/api': {
-          target: 'http://localhost:5000',
-          changeOrigin: true,
-          secure: false,
-          cookieDomainRewrite: 'localhost',
+        css: {
+            postcss: {
+                plugins: [tailwindcss(), autoprefixer()],
+            },
         },
-      },
-    },
-  };
+        build: {
+            outDir: resolve(__dirname, '../backend/static'),
+            emptyOutDir: true,
+            rollupOptions: {
+                input: {
+                    main: resolve(__dirname, 'src/index.html'),
+                },
+            },
+        },
+        server: {
+            port: 5173,
+            proxy: {
+                '/api': {
+                    target: 'http://localhost:5000',
+                    changeOrigin: true,
+                    secure: false,
+                    cookieDomainRewrite: 'localhost',
+                },
+            },
+        },
+    };
 });

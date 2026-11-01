@@ -1,4 +1,5 @@
 """Main application module — WSGI / flask-run entrypoint."""
+
 from . import create_app
 from .config.app_config import app_config
 

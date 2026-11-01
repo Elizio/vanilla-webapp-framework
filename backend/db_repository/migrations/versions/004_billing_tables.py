@@ -5,6 +5,7 @@ Revises: 003
 Create Date: 2026-06-22
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -31,9 +32,7 @@ def upgrade() -> None:
         sa.Column('updated_at', sa.DateTime(), nullable=False),
         sa.ForeignKeyConstraint(['user_id'], ['users.id']),
         sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint(
-            'user_id', 'plan_key', 'provider', name='uq_entitlement'
-        ),
+        sa.UniqueConstraint('user_id', 'plan_key', 'provider', name='uq_entitlement'),
     )
     op.create_table(
         'billing_events',
@@ -44,9 +43,7 @@ def upgrade() -> None:
         sa.Column('payload_json', sa.Text(), nullable=True),
         sa.Column('processed_at', sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint(
-            'provider', 'provider_event_id', name='uq_billing_event'
-        ),
+        sa.UniqueConstraint('provider', 'provider_event_id', name='uq_billing_event'),
     )
     op.create_table(
         'billing_credit_ledger',
@@ -59,9 +56,7 @@ def upgrade() -> None:
         sa.Column('created_at', sa.DateTime(), nullable=False),
         sa.ForeignKeyConstraint(['user_id'], ['users.id']),
         sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint(
-            'provider', 'provider_reference_id', name='uq_credit_ref'
-        ),
+        sa.UniqueConstraint('provider', 'provider_reference_id', name='uq_credit_ref'),
     )
 
 

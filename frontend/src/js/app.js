@@ -28,7 +28,9 @@ function pageKeyFromPath() {
     }
     const match = Object.entries(PAGE_ROUTES)
         .sort((a, b) => b[1].length - a[1].length)
-        .find(([, routePath]) => path.startsWith(routePath) && routePath !== '/');
+        .find(
+            ([, routePath]) => path.startsWith(routePath) && routePath !== '/',
+        );
     return match ? match[0] : null;
 }
 
@@ -152,7 +154,10 @@ export const createSpaApp = () => {
                 this.loadPage('menu-container', 'menu');
                 this.loadPage('view-container', this.activeViewPageKey);
             } else if (this.showLogin) {
-                this.loadPage('login-register-container', this.activeAuthPageKey);
+                this.loadPage(
+                    'login-register-container',
+                    this.activeAuthPageKey,
+                );
             } else {
                 this.loadPage('public-container', 'welcome');
             }
@@ -187,9 +192,15 @@ export const createSpaApp = () => {
 
         applyInitialSeo() {
             if (this.isLoggedIn) {
-                applySeo(pages[this.activeViewPageKey]?.seo ?? pages.landingpage.seo, SEO_MODE);
+                applySeo(
+                    pages[this.activeViewPageKey]?.seo ?? pages.landingpage.seo,
+                    SEO_MODE,
+                );
             } else if (this.showLogin) {
-                applySeo(pages[this.activeAuthPageKey]?.seo ?? pages.login.seo, SEO_MODE);
+                applySeo(
+                    pages[this.activeAuthPageKey]?.seo ?? pages.login.seo,
+                    SEO_MODE,
+                );
             } else {
                 applySeo(pages.welcome.seo, SEO_MODE);
             }
@@ -212,7 +223,8 @@ export const createSpaApp = () => {
 
         startSocialLogin(provider) {
             if (!this.isOAuthEnabled(provider)) {
-                const label = provider.charAt(0).toUpperCase() + provider.slice(1);
+                const label =
+                    provider.charAt(0).toUpperCase() + provider.slice(1);
                 loginController.error = this.t('errors.OAUTH_NOT_CONFIGURED', {
                     provider: label,
                     envPrefix: provider.toUpperCase(),
@@ -317,7 +329,10 @@ export const createSpaApp = () => {
                 this.loadPage('view-container', this.activeViewPageKey);
                 syncUrlForPage(this.activeViewPageKey, { replace: true });
             } else if (this.showLogin) {
-                this.loadPage('login-register-container', this.activeAuthPageKey);
+                this.loadPage(
+                    'login-register-container',
+                    this.activeAuthPageKey,
+                );
             } else {
                 this.loadPage('public-container', 'welcome');
             }

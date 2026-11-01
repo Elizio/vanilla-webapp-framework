@@ -13,9 +13,8 @@ export const testPageController = {
         this.isLoading = true;
         console.log('ttt called, abc is:', this.abc);
         // Simulate work
-        await new Promise(resolve => setTimeout(resolve, 500)); 
+        await new Promise((resolve) => setTimeout(resolve, 500));
         console.log('ttt finished');
         this.isLoading = false;
     },
-
 };

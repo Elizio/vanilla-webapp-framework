@@ -1,6 +1,7 @@
 """
 Pytest configuration and fixtures.
 """
+
 import os
 
 os.environ["APP_PROFILE"] = "testing"

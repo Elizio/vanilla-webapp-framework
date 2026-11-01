@@ -1,6 +1,7 @@
 """
 CORS configuration tests.
 """
+
 from unittest.mock import patch
 
 import pytest
@@ -162,9 +163,7 @@ def test_frontend_url_path_is_normalized_only_for_cors(monkeypatch, test_db):
         CORS_ORIGINS=None,
         FRONTEND_URL='https://dsfor.fun/vanilla-webapp-framework',
     )
-    assert app.config['FRONTEND_URL'] == (
-        'https://dsfor.fun/vanilla-webapp-framework'
-    )
+    assert app.config['FRONTEND_URL'] == ('https://dsfor.fun/vanilla-webapp-framework')
     assert app.config['CORS_ORIGINS'] == ['https://dsfor.fun']
     client = app.test_client()
     response = client.get('/api/public', headers={'Origin': 'https://dsfor.fun'})
@@ -191,8 +190,7 @@ def test_cors_warns_once_when_path_stripped(monkeypatch, test_db):
         _cors_app(
             monkeypatch,
             CORS_ORIGINS=(
-                'https://dsfor.fun/vanilla-webapp-framework,'
-                'https://dsfor.fun/other'
+                'https://dsfor.fun/vanilla-webapp-framework,https://dsfor.fun/other'
             ),
         )
     assert warn.call_count == 1

@@ -1,4 +1,5 @@
 """Tests for the /api/health endpoint."""
+
 from sqlalchemy.exc import SQLAlchemyError
 
 from backend.db_repository.database import db_session

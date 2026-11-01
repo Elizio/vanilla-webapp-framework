@@ -1,4 +1,5 @@
 """Tests for the provider-agnostic billing module (Lemon Squeezy adapter)."""
+
 import hashlib
 import hmac
 import json

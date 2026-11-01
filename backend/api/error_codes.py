@@ -1,4 +1,5 @@
 """Stable API error and success codes for language-neutral responses."""
+
 from flask import jsonify
 
 TOKEN_MISSING = 'TOKEN_MISSING'

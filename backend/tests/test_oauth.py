@@ -1,4 +1,5 @@
 """Tests for OAuth social login endpoints."""
+
 import pytest
 
 from ..models.user import User
@@ -255,9 +256,7 @@ def facebook_oauth_client(test_app, test_db):
     return test_app.test_client()
 
 
-def test_facebook_never_links_by_email(
-    facebook_oauth_client, test_db, monkeypatch
-):
+def test_facebook_never_links_by_email(facebook_oauth_client, test_db, monkeypatch):
     existing = User(
         username='fblocal',
         email='fb@test.com',

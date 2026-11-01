@@ -1,4 +1,5 @@
 """Public and protected API routes."""
+
 import os
 
 from flask import Blueprint, jsonify
@@ -46,16 +47,20 @@ def health():
     try:
         db_session.execute(text('SELECT 1'))
     except Exception:
-        return jsonify({
-            'status': 'error',
-            'db': 'error',
+        return jsonify(
+            {
+                'status': 'error',
+                'db': 'error',
+                'version': version,
+            }
+        ), 503
+    return jsonify(
+        {
+            'status': 'ok',
+            'db': 'ok',
             'version': version,
-        }), 503
-    return jsonify({
-        'status': 'ok',
-        'db': 'ok',
-        'version': version,
-    })
+        }
+    )
 
 
 @api_bp.route('/api/public', methods=['GET'])

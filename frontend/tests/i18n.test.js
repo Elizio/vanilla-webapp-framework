@@ -33,8 +33,9 @@ describe('t', () => {
     });
 
     it('interpolates params', () => {
-        expect(t('errors.OAUTH_NOT_CONFIGURED', { provider: 'Google' }))
-            .toContain('Google');
+        expect(
+            t('errors.OAUTH_NOT_CONFIGURED', { provider: 'Google' }),
+        ).toContain('Google');
     });
 
     it('falls back to en for missing pt-BR key', () => {

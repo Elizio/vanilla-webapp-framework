@@ -11,7 +11,9 @@ let csrfToken = null;
  * @returns {Promise<void>}
  */
 export async function initCsrf() {
-    const response = await fetch(withBase('/api/csrf'), { credentials: 'include' });
+    const response = await fetch(withBase('/api/csrf'), {
+        credentials: 'include',
+    });
     if (response.ok) {
         const data = await response.json();
         csrfToken = data.csrf_token;

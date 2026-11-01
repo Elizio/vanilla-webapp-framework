@@ -1,4 +1,5 @@
 """OAuth 2.0 social login via Authlib (Google, Facebook)."""
+
 import re
 from urllib.parse import quote
 
@@ -116,10 +117,14 @@ def find_or_create_oauth_user(
     Returns:
         The matched or newly created User.
     """
-    user = db_session.query(User).filter_by(
-        oauth_provider=provider,
-        oauth_id=oauth_id,
-    ).first()
+    user = (
+        db_session.query(User)
+        .filter_by(
+            oauth_provider=provider,
+            oauth_id=oauth_id,
+        )
+        .first()
+    )
     if user:
         return user
 

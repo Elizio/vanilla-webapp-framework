@@ -13,22 +13,26 @@ export const menuController = {
     init() {
         this.darkMode = localStorage.getItem('darkMode') === 'true';
         this.applyTheme();
-        
+
         // Check for system preference if no local storage setting
         if (localStorage.getItem('darkMode') === null) {
-            this.darkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            this.darkMode = window.matchMedia(
+                '(prefers-color-scheme: dark)',
+            ).matches;
             localStorage.setItem('darkMode', this.darkMode);
             this.applyTheme();
         }
 
         // Listen for system theme changes
-        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
-            if (localStorage.getItem('darkMode') === null) {
-                this.darkMode = e.matches;
-                localStorage.setItem('darkMode', this.darkMode);
-                this.applyTheme();
-            }
-        });
+        window
+            .matchMedia('(prefers-color-scheme: dark)')
+            .addEventListener('change', (e) => {
+                if (localStorage.getItem('darkMode') === null) {
+                    this.darkMode = e.matches;
+                    localStorage.setItem('darkMode', this.darkMode);
+                    this.applyTheme();
+                }
+            });
     },
 
     toggleDarkMode() {
@@ -43,5 +47,5 @@ export const menuController = {
         } else {
             document.documentElement.classList.remove('dark');
         }
-    }
+    },
 };

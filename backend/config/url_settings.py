@@ -1,4 +1,5 @@
 """Normalize APP_BASE_PATH and browser origins for cookies and CORS."""
+
 from __future__ import annotations
 
 import logging
@@ -29,9 +30,7 @@ def normalize_app_base_path(raw: str | None) -> str:
     if not value:
         return '/'
     if '..' in value:
-        raise ValueError(
-            'APP_BASE_PATH is invalid: must be a path without ..'
-        )
+        raise ValueError('APP_BASE_PATH is invalid: must be a path without ..')
     parsed = urlparse(value)
     if parsed.scheme or parsed.netloc or parsed.query or parsed.fragment:
         raise ValueError(

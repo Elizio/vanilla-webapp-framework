@@ -1,4 +1,5 @@
 """Tests for API error code helpers."""
+
 import json
 from pathlib import Path
 

@@ -3,8 +3,12 @@ import { resolveVisibility, applySeo } from '../src/js/seo.js';
 
 describe('resolveVisibility', () => {
     it('returns explicit visibility when set', () => {
-        expect(resolveVisibility({ visibility: 'public' }, 'auth-first')).toBe('public');
-        expect(resolveVisibility({ visibility: 'auth' }, 'public-first')).toBe('auth');
+        expect(resolveVisibility({ visibility: 'public' }, 'auth-first')).toBe(
+            'public',
+        );
+        expect(resolveVisibility({ visibility: 'auth' }, 'public-first')).toBe(
+            'auth',
+        );
     });
 
     it('inherits auth-first default as app', () => {
@@ -37,9 +41,15 @@ describe('applySeo', () => {
         );
 
         expect(document.title).toBe('Public Page');
-        expect(document.querySelector('meta[name="description"]').content).toBe('Public description');
-        expect(document.querySelector('meta[name="robots"]').content).toBe('index, follow');
-        expect(document.querySelector('link[rel="canonical"]').href).toContain('http');
+        expect(document.querySelector('meta[name="description"]').content).toBe(
+            'Public description',
+        );
+        expect(document.querySelector('meta[name="robots"]').content).toBe(
+            'index, follow',
+        );
+        expect(document.querySelector('link[rel="canonical"]').href).toContain(
+            'http',
+        );
     });
 
     it('sets noindex for app pages', () => {
@@ -52,7 +62,9 @@ describe('applySeo', () => {
         );
 
         expect(document.title).toBe('App Page');
-        expect(document.querySelector('meta[name="robots"]').content).toBe('noindex, nofollow');
+        expect(document.querySelector('meta[name="robots"]').content).toBe(
+            'noindex, nofollow',
+        );
         expect(document.querySelector('link[rel="canonical"]')).toBeNull();
     });
 
@@ -65,7 +77,9 @@ describe('applySeo', () => {
             'public-first',
         );
 
-        expect(document.querySelector('meta[name="robots"]').content).toBe('index, follow');
+        expect(document.querySelector('meta[name="robots"]').content).toBe(
+            'index, follow',
+        );
     });
 
     it('inherits auth-first mode as noindex when visibility omitted', () => {
@@ -76,7 +90,9 @@ describe('applySeo', () => {
             'auth-first',
         );
 
-        expect(document.querySelector('meta[name="robots"]').content).toBe('noindex, nofollow');
+        expect(document.querySelector('meta[name="robots"]').content).toBe(
+            'noindex, nofollow',
+        );
     });
 
     it('resolves titleKey and descriptionKey via t()', () => {
@@ -88,7 +104,11 @@ describe('applySeo', () => {
             },
             'auth-first',
         );
-        expect(document.title).toBe('Vanilla WebApp Framework — Ship your SaaS faster');
-        expect(document.querySelector('meta[name="description"]').content).toContain('Vanilla WebApp Framework');
+        expect(document.title).toBe(
+            'Vanilla WebApp Framework — Ship your SaaS faster',
+        );
+        expect(
+            document.querySelector('meta[name="description"]').content,
+        ).toContain('Vanilla WebApp Framework');
     });
 });

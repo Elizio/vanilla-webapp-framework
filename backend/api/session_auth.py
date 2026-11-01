@@ -1,4 +1,5 @@
 """HttpOnly cookie helpers for JWT session authentication."""
+
 from flask import request
 
 from .cookie_path import (

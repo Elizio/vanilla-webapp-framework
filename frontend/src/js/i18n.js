@@ -26,7 +26,11 @@ let activeLocale = 'en';
  */
 export function resolveLocale(tag = 'en') {
     const normalized = (tag || 'en').toLowerCase();
-    if (normalized === 'pt-br' || normalized === 'pt' || normalized.startsWith('pt-')) {
+    if (
+        normalized === 'pt-br' ||
+        normalized === 'pt' ||
+        normalized.startsWith('pt-')
+    ) {
         return 'pt-BR';
     }
     return 'en';
@@ -53,7 +57,9 @@ export function initLocale() {
     if (stored && SUPPORTED_LOCALES.includes(stored)) {
         activeLocale = stored;
     } else {
-        activeLocale = resolveLocale(typeof navigator !== 'undefined' ? navigator.language : 'en');
+        activeLocale = resolveLocale(
+            typeof navigator !== 'undefined' ? navigator.language : 'en',
+        );
     }
     applyHtmlLang(activeLocale);
     return activeLocale;
@@ -70,7 +76,9 @@ export function setLocale(locale) {
     activeLocale = locale;
     localStorage.setItem(LOCALE_STORAGE_KEY, locale);
     applyHtmlLang(locale);
-    window.dispatchEvent(new CustomEvent('localechange', { detail: { locale } }));
+    window.dispatchEvent(
+        new CustomEvent('localechange', { detail: { locale } }),
+    );
 }
 
 /**
@@ -113,8 +121,9 @@ export function t(key, params = {}) {
  * @returns {string}
  */
 export function tError(code) {
-    const msg = lookup(catalogs[activeLocale], `errors.${code}`)
-        ?? lookup(catalogs.en, `errors.${code}`);
+    const msg =
+        lookup(catalogs[activeLocale], `errors.${code}`) ??
+        lookup(catalogs.en, `errors.${code}`);
     if (typeof msg === 'string') {
         return msg;
     }

@@ -1,4 +1,5 @@
 """SQLAlchemy User model for password and OAuth accounts."""
+
 from sqlalchemy import Boolean, Column, Integer, String, UniqueConstraint
 from ..db_repository.database import db
 
@@ -15,10 +16,9 @@ class User(db.Base):
         oauth_provider (str): OAuth provider name (google, facebook)
         oauth_id (str): Provider-specific user id
     """
+
     __tablename__ = 'users'
-    __table_args__ = (
-        UniqueConstraint('oauth_provider', 'oauth_id', name='uq_oauth'),
-    )
+    __table_args__ = (UniqueConstraint('oauth_provider', 'oauth_id', name='uq_oauth'),)
 
     id = Column(Integer, primary_key=True)
     username = Column(String(80), unique=True, nullable=False)

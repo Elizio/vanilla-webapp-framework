@@ -1,4 +1,5 @@
 """Static checks on the production Dockerfile."""
+
 from pathlib import Path
 
 DOCKERFILE = Path(__file__).resolve().parents[2] / 'Dockerfile'

@@ -4,6 +4,7 @@ This is the app-owned source of truth for feature access. Feature code should
 call :func:`user_has_plan` or use :func:`entitlement_required`, never the
 payment provider directly.
 """
+
 from datetime import datetime, timezone
 from functools import wraps
 from typing import List, Optional

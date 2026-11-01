@@ -1,4 +1,5 @@
 """Alembic migration tests, including revision 006 password_hash widen."""
+
 import os
 
 from alembic import command
@@ -48,9 +49,9 @@ def _fetch_users(engine) -> list[dict]:
     """Return every users row as a dict, ordered by id."""
     cols = ', '.join(_USER_COLUMNS)
     with engine.connect() as conn:
-        rows = conn.execute(
-            text(f'SELECT {cols} FROM users ORDER BY id')
-        ).mappings().all()
+        rows = (
+            conn.execute(text(f'SELECT {cols} FROM users ORDER BY id')).mappings().all()
+        )
     return [dict(row) for row in rows]
 
 
@@ -131,9 +132,7 @@ def test_migration_006_preserves_rows_and_password_hashes(tmp_path, monkeypatch)
     scrypt_password = 'scrypt-secret-17a'
     pbkdf2_password = 'pbkdf2-secret-17a'
     scrypt_hash = generate_password_hash(scrypt_password)
-    pbkdf2_hash = generate_password_hash(
-        pbkdf2_password, method='pbkdf2:sha256'
-    )
+    pbkdf2_hash = generate_password_hash(pbkdf2_password, method='pbkdf2:sha256')
     assert len(scrypt_hash) == 162
     assert len(pbkdf2_hash) < 128
 

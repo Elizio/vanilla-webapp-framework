@@ -1,4 +1,5 @@
 """In-memory rate limiting for auth endpoints."""
+
 import time
 from collections import defaultdict
 from functools import wraps

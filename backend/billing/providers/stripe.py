@@ -20,6 +20,7 @@ enable Stripe later:
 
 The entitlements/credits tables and feature gates stay unchanged.
 """
+
 from typing import Optional
 
 from .base import BillingWebhookResult

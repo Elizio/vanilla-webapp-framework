@@ -1,4 +1,5 @@
 """Alembic environment: run revisions against DATABASE_URI."""
+
 import os
 import sys
 from logging.config import fileConfig

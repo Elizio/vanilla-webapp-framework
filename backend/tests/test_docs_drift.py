@@ -1,4 +1,5 @@
 """Doc-drift sensor: env keys, DigitalOcean claims, and stale log paths."""
+
 from __future__ import annotations
 
 import ast
@@ -132,10 +133,7 @@ def _env_keys_from_ast(tree: ast.AST) -> set[str]:
                 name = 'environ.get'
             elif isinstance(func.value, ast.Name) and func.value.id == 'os':
                 name = func.attr
-            elif (
-                isinstance(func.value, ast.Name)
-                and func.value.id == 'environ'
-            ):
+            elif isinstance(func.value, ast.Name) and func.value.id == 'environ':
                 name = 'environ.get'
         if name is None:
             continue
@@ -150,9 +148,8 @@ def _env_keys_from_ast(tree: ast.AST) -> set[str]:
             continue
         target = node.value
         is_environ = (
-            (isinstance(target, ast.Attribute) and target.attr == 'environ')
-            or (isinstance(target, ast.Name) and target.id == 'environ')
-        )
+            isinstance(target, ast.Attribute) and target.attr == 'environ'
+        ) or (isinstance(target, ast.Name) and target.id == 'environ')
         if not is_environ:
             continue
         sl = node.slice
@@ -248,9 +245,7 @@ def test_backend_env_keys_are_documented():
     code = parse_backend_env_keys()
 
     undocumented = sorted(set(code) - documented - CODE_ONLY_ALLOWLIST)
-    stale_docs = sorted(
-        documented - set(code) - DOCS_ONLY_ALLOWLIST
-    )
+    stale_docs = sorted(documented - set(code) - DOCS_ONLY_ALLOWLIST)
     errors = []
     for key in undocumented:
         files = ', '.join(code[key])
@@ -308,9 +303,7 @@ def test_make_targets_mentioned_in_docs_exist():
         ]
     )
     missing = {
-        target: locs
-        for target, locs in mentions.items()
-        if target not in declared
+        target: locs for target, locs in mentions.items() if target not in declared
     }
     errors = [
         f'make {target} mentioned at {", ".join(locs)} is not in Makefile'

@@ -1,4 +1,5 @@
 """Billing credit ledger model: append-only in-app budget entries."""
+
 from datetime import datetime
 
 from sqlalchemy import (
@@ -33,9 +34,7 @@ class BillingCreditLedger(db.Base):
 
     __tablename__ = 'billing_credit_ledger'
     __table_args__ = (
-        UniqueConstraint(
-            'provider', 'provider_reference_id', name='uq_credit_ref'
-        ),
+        UniqueConstraint('provider', 'provider_reference_id', name='uq_credit_ref'),
     )
 
     id = Column(Integer, primary_key=True)
@@ -48,7 +47,4 @@ class BillingCreditLedger(db.Base):
 
     def __repr__(self) -> str:
         """String representation of the ledger entry."""
-        return (
-            f'<BillingCreditLedger user={self.user_id} '
-            f'delta={self.delta_cents}>'
-        )
+        return f'<BillingCreditLedger user={self.user_id} delta={self.delta_cents}>'

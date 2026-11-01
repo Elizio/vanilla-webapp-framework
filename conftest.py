@@ -1,4 +1,5 @@
 """Root pytest configuration — set test env before any backend imports."""
+
 import os
 
 os.environ["APP_PROFILE"] = "testing"

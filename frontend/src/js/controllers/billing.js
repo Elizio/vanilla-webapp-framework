@@ -27,11 +27,17 @@ export const billingController = {
         this.creditBalanceCents = 0;
         this.amounts = {};
         this.checkoutPlanKey = null;
-        this.showSuccess = new URLSearchParams(window.location.search).get('billing') === 'success';
+        this.showSuccess =
+            new URLSearchParams(window.location.search).get('billing') ===
+            'success';
         if (this.showSuccess) {
             const url = new URL(window.location.href);
             url.searchParams.delete('billing');
-            window.history.replaceState(null, '', url.pathname + url.search + url.hash);
+            window.history.replaceState(
+                null,
+                '',
+                url.pathname + url.search + url.hash,
+            );
         }
         this.loadPlans();
         this.loadStatus();
@@ -83,13 +89,16 @@ export const billingController = {
         try {
             const response = await apiFetch('/api/billing/plans');
             if (!response.ok) {
-                this.error = this.appContext.t('errors.HTTP_ERROR', { status: response.status });
+                this.error = this.appContext.t('errors.HTTP_ERROR', {
+                    status: response.status,
+                });
                 return;
             }
             this.plans = await response.json();
             this.plans.forEach((plan) => {
                 if (plan.custom_amount) {
-                    this.amounts[plan.plan_key] = (plan.default_amount_cents ?? 0) / 100;
+                    this.amounts[plan.plan_key] =
+                        (plan.default_amount_cents ?? 0) / 100;
                 }
             });
         } catch (_err) {
@@ -154,7 +163,9 @@ export const billingController = {
                 if (data.code === 'BILLING_NOT_CONFIGURED') {
                     this.error = this.appContext.t('billing.notConfigured');
                 } else {
-                    this.error = this.appContext.t('errors.HTTP_ERROR', { status: response.status });
+                    this.error = this.appContext.t('errors.HTTP_ERROR', {
+                        status: response.status,
+                    });
                 }
                 return;
             }
