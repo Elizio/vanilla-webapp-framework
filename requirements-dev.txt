@@ -1,0 +1,17 @@
+# Development dependencies
+# Includes all runtime dependencies plus dev/test tools
+
+-r requirements.txt
+
+# Testing
+pytest==9.0.3
+pytest-cov==6.1.0
+coverage==7.8.0
+
+# Code quality and linting
+black==26.10.1
+flake8==7.2.0
+mypy==1.15.0
+
+# Security auditing
+pip-audit==2.10.1

@@ -98,7 +98,8 @@ Copy `.env.example` to `.env` and adjust values before running.
    ```bash
    python -m venv .venv
    source .venv/bin/activate
-   pip install -e .
+   pip install -r requirements-dev.txt
+   pip install -e . --no-deps
    cd frontend && npm install
    ```
 

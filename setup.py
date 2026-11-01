@@ -36,8 +36,6 @@ setup(
         "sqlalchemy>=1.4.0",  # Base SQLAlchemy
         "pyjwt>=2.3.0",
         "werkzeug>=2.0.0",
-        "pytest>=7.0.0",
-        "pytest-cov>=3.0.0",
         "python-dotenv>=1.0.0",
         "alembic>=1.13.0",
         "authlib>=1.3.0",
@@ -49,9 +47,6 @@ setup(
             "black>=22.0.0",
             "flake8>=4.0.0",
             "mypy>=0.900",
-            "pytest>=7.0.0",
-            "pytest-cov>=3.0.0",
-            "python-dotenv>=1.0.0",  # Added to dev dependencies as well
         ],
         "postgres": [
             "psycopg2-binary>=2.9.9; sys_platform != 'win32'",
