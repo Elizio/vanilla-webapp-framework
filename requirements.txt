@@ -23,6 +23,7 @@ Mako==1.3.12
 # Authentication and security
 PyJWT==2.15.0
 Authlib==1.9.1
+cryptography==50.0.2
 requests==2.33.0
 python-dotenv==1.2.2
 itsdangerous==2.2.0
