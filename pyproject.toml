@@ -4,6 +4,16 @@ build-backend = "setuptools.build_meta"
 
 # Tooling lives here. Pytest still reads setup.cfg [tool:pytest] because this
 # file has no [tool.pytest.ini_options] (pytest would stop reading setup.cfg).
+# Coverage lives here ([tool.coverage.*]). setup.cfg has no [coverage:*]
+# section, so coverage.py / pytest-cov fall through to this file.
+
+# Measured 2026-11-01 on Python 3.10.22 (CI): 1321 statements, 141 missed,
+# 89.33% excluding backend/tests. Floor is floor(89.33) minus ~1 point.
+[tool.coverage.run]
+omit = ["backend/tests/*"]
+
+[tool.coverage.report]
+fail_under = 88
 
 [tool.ruff]
 line-length = 88

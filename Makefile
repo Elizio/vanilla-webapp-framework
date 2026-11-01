@@ -44,7 +44,7 @@ test-backend:
 	pytest
 
 test-frontend:
-	cd frontend && npm run test
+	cd frontend && npm run test:coverage
 
 test: test-backend test-frontend
 
