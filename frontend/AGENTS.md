@@ -1,6 +1,6 @@
 # Frontend Agent Guide
 
-Vite-powered SPA with Alpine.js state, controller modules, and `.hbs` view fragments. Global context: [../AGENTS.md](../AGENTS.md). Standards: [../.cursor/rules/frontend-rules.mdc](../.cursor/rules/frontend-rules.mdc).
+Vite SPA with Alpine.js, controller modules, and `.hbs` view fragments. Global: [../AGENTS.md](../AGENTS.md). Recipes: [../ARCHITECTURE.md](../ARCHITECTURE.md). Standards: [../.cursor/rules/frontend-rules.mdc](../.cursor/rules/frontend-rules.mdc).
 
 ## Directory map
 
@@ -10,382 +10,77 @@ frontend/
 ├── tailwind.config.js
 ├── package.json
 └── src/
-    ├── index.html              # Shell: x-data="spaApp", x-init loadPage calls
-    ├── js/
-    │   ├── main.js             # Entry: Alpine.start(), imports CSS
-    │   ├── pages.js            # Page registry (bundled templates + controllers)
-    │   ├── app.js              # createSpaApp(), loadPage() router
-    │   └── controllers/        # One named export per page/partial
-    ├── templates/
-    │   ├── pages/              # Main view (#view-container)
-    │   └── partials/           # menu, login, shared regions
-    └── styles/
-        └── main.css            # @tailwind directives only
+    ├── index.html              # x-data="spaApp"
+    ├── js/                     # main.js, pages.js, app.js, controllers/
+    ├── templates/pages|partials
+    └── styles/main.css         # @tailwind directives only
 ```
 
-## Boot sequence
+## Boot
 
-```
-index.html
-  └─ <script type="module" src="/js/main.js">
-       └─ main.js
-            ├─ import Alpine, main.css
-            ├─ window.spaApp = createSpaApp()
-            └─ Alpine.start()
-                 └─ x-init on root div:
-                      isLoggedIn = !!localStorage.getItem('token')
-                      loadPage(...) × 3  (menu, login, landing page)
-```
+`index.html` → `main.js` (Alpine + CSS) → `window.spaApp = createSpaApp()` → `Alpine.start()` → `x-init` loads menu, login, and the landing page.
 
-**Canonical references:** `@frontend/src/index.html`, `@frontend/src/js/main.js`, `@frontend/src/js/app.js`
+**Canonical:** `@frontend/src/index.html`, `@frontend/src/js/main.js`, `@frontend/src/js/app.js`
 
-## Page registry (`pages.js`)
+## Page registry and router
 
-All controllers and templates are statically imported in `frontend/src/js/pages.js` (Vite bundles them):
+Controllers and templates are statically imported in `frontend/src/js/pages.js` (`?raw`). `loadPage(elementIdTarget, pageKey)` looks up the registry, sets `innerHTML`, copies the controller to `this.currentPage`, calls `init`, then `Alpine.initTree`.
 
-```javascript
-import landingTpl from '../templates/pages/landingpage.hbs?raw';
-import { landingPageController } from './controllers/landingpage.js';
+Persistent partials (`loginController`, `menuController`) bind directly. Page controllers bind as `currentPage.*`.
 
-export const pages = {
-  landingpage: { template: landingTpl, controller: landingPageController },
-  // ...
-};
-```
+Add a page: [ARCHITECTURE.md](../ARCHITECTURE.md#add-a-spa-page). Classify `seo.visibility` (`public` | `app` | `auth`) before finishing.
 
-## SPA router: `loadPage()`
+## Templates
 
-Defined in `app.js`:
+`.hbs` files are **static HTML + Alpine**. They are not Handlebars-rendered. No `handlebars` package, no import in `main.js`, no `vite-plugin-handlebars`. Display API data with `x-text`.
 
-```javascript
-loadPage(elementIdTarget, pageKey)
-```
+## Alpine and API
 
-| Step | Action |
-|------|--------|
-| 1 | Lookup `pages[pageKey]` |
-| 2 | Set `innerHTML` on target element |
-| 3 | Shallow-copy controller to `this.currentPage` |
-| 4 | Call `currentPage.init(this)` if present |
-| 5 | Call `Alpine.initTree(targetEl)` |
+Root `x-data="spaApp"`: `isLoggedIn`, `loadPage`, `logout`, `currentPage`. Dark mode: `class="dark"` on `<html>`, initialized in `menu.js`.
 
-Navigation example from `menu.hbs`:
+Fetch `/api/*` with credentials. 401 → `this.appContext.logout()`. Session cookie is httpOnly; CSRF token comes from `GET /api/csrf` via `api.js` (not `document.cookie`).
 
-```html
-<a href="#" @click.prevent="loadPage('view-container', 'landingpage')">
-```
+**Canonical:** `@frontend/src/js/controllers/landingpage.js`, `@frontend/src/js/api.js`
 
-## Controller types
+## Vite, Tailwind, Biome
 
-### Persistent partials
-
-Always mounted; bound directly in templates:
-
-| Controller | Export | Template binding |
-|------------|--------|------------------|
-| Login | `loginController` | `loginController.username`, `loginController.login()` |
-| Menu | `menuController` | `menuController.sidebarOpen`, `menuController.toggleDarkMode()` |
-
-Also exposed on `window` for Alpine access.
-
-### Page controllers
-
-Loaded into `#view-container`; bound as `currentPage.*`:
-
-```html
-<button @click="currentPage.fetchProtectedData()">Fetch Protected Data</button>
-<pre x-text="JSON.stringify(currentPage.response, null, 2)"></pre>
-```
-
-**Canonical references:** `@frontend/src/js/controllers/login.js`, `@frontend/src/js/controllers/menu.js`, `@frontend/src/js/controllers/landingpage.js`
-
-## Recipe: add a SPA page
-
-1. **Create template** — `frontend/src/templates/pages/myfeature.hbs`
-
-   Use Alpine directives only (`x-show`, `x-model`, `@click`, `x-text`). No `{{handlebars}}` syntax at runtime.
-
-2. **Create controller** — `frontend/src/js/controllers/myfeature.js`
-
-```javascript
-export const myFeatureController = {
-    appContext: null,
-    isLoading: false,
-    data: null,
-    error: null,
-
-    init(appContext) {
-        this.appContext = appContext;
-    },
-
-    async fetchData() {
-        this.isLoading = true;
-        this.error = null;
-        try {
-            const token = localStorage.getItem('token');
-            const response = await fetch('/api/myfeature', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (!response.ok) throw new Error('Request failed');
-            this.data = await response.json();
-        } catch (err) {
-            this.error = err.message;
-        } finally {
-            this.isLoading = false;
-        }
-    }
-};
-```
-
-3. **Wire navigation** in `frontend/src/templates/partials/menu.hbs`:
-
-```html
-<a href="#" @click.prevent="loadPage('view-container', '/templates/pages/myfeature.hbs', '/js/controllers/myfeature.js', 'myFeatureController')">
-  My Feature
-</a>
-```
-
-4. **Verify** via `cd frontend && npm run dev` at `http://localhost:5173`
-
-5. **SEO defaults** — classify the page and fill its `seo` block in `pages.js`:
-
-```javascript
-myfeature: {
-    template: myFeatureTpl,
-    controller: myFeatureController,
-    seo: {
-        visibility: 'app',  // public | app | auth — omit to inherit SEO_MODE default
-        title: 'My Feature — Your Product',
-        description: 'Short summary for search and social previews.',
-    },
-},
-```
-
-If indexability is unclear, **ask the user** to confirm `public` vs `app`/`auth` before finishing — do not guess.
-
-### SEO definition-of-done checklist
-
-Before claiming a page complete, verify:
-
-- [ ] `visibility` classified (`public`, `app`, or `auth`) in the registry `seo` block
-- [ ] Public pages: unique `title` + `description`, one `<h1>`, semantic landmarks, real `<a href>` links
-- [ ] `app`/`auth` pages: `noindex` via `applySeo()` (automatic when visibility is not `public`)
-- [ ] Images have meaningful `alt` text
-- [ ] Tab title updates after `loadPage('view-container', …)`; view-source shows expected meta tags
-
-## SEO toolbox
-
-Per-fork switch in project root `.env`:
-
-| Variable | Values | Default | Purpose |
-|----------|--------|---------|---------|
-| `SEO_MODE` | `auth-first`, `public-first` | `auth-first` | Default page visibility when `seo.visibility` is unset; drives `robots.txt` |
-
-- **`auth-first`** — pages default to `app` (noindex). Best for SaaS / authenticated products.
-- **`public-first`** — pages default to `public` (indexable). Best for ad/content sites.
-
-Vite reads `SEO_MODE` at build time and exposes it to the browser as `import.meta.env.VITE_SEO_MODE`. Rebuild the frontend after changing `SEO_MODE`.
-
-**Mechanism:** `applySeo()` in `@frontend/src/js/seo.js` runs inside `loadPage()` when the target is `view-container`. It sets `document.title`, meta description, robots, and canonical.
-
-**Backend:** Flask serves `/robots.txt` from `@backend/web_routes.py` using the same `SEO_MODE`.
-
-### Page registry `seo` field
-
-| Field | Required | Description |
-|-------|----------|-------------|
-| `visibility` | No | `public`, `app`, or `auth`; inherits `SEO_MODE` default when omitted |
-| `title` | Recommended | Browser tab title |
-| `description` | Public pages | Meta description for search/social |
-| `canonical` | No | Canonical URL; defaults to current location for public pages |
-
-### Ready-to-activate recipes (organic-traffic forks)
-
-When a fork's business depends on search traffic, flag and activate these — the metadata helper alone is a partial measure for SPAs:
-
-1. **History API URL routing** — map `pageKey` to paths (`/pricing`), use `history.pushState` in `loadPage()`, parse `pathname` on boot, replace `href="#"` with real links for public pages.
-2. **Build-time prerender / SSR** — serve full HTML for public pages so crawlers receive content without executing JS.
-
-Open Graph tags and structured data can be added per fork when sharing previews matter.
-
-## Templates (.hbs)
-
-`.hbs` files are **static HTML + Alpine directives**. They are **not** Handlebars-rendered. There is no `handlebars` dependency, no import in `main.js`, and no `vite-plugin-handlebars`.
-
-Templates are bundled at build time via Vite `?raw` imports in `frontend/src/js/pages.js`. Display API data with Alpine: `x-text="JSON.stringify(currentPage.response, null, 2)"`.
-
-## Alpine.js conventions
-
-Root scope (`x-data="spaApp"`):
-
-| Property / method | Purpose |
-|-------------------|---------|
-| `isLoggedIn` | Set from `localStorage.token` in `x-init` |
-| `loadPage(...)` | SPA navigation |
-| `logout()` | Clears token, reloads to `/` |
-| `currentPage` | Active page controller copy |
-
-Common directives: `x-show`, `x-model`, `x-text`, `@click.prevent`, `:class`, `:disabled`, `x-cloak`.
-
-Dark mode: `class="dark"` on `<html>`, Tailwind `darkMode: 'class'` in `tailwind.config.js`. Initialized in `menu.js` before Alpine starts.
-
-## API integration
-
-All calls use Fetch to `/api/*`:
-
-| Endpoint | Method | Auth | Controller |
-|----------|--------|------|------------|
-| `/api/login` | POST | No | `login.js` |
-| `/api/auth/providers` | GET | No | `login.js` |
-| `/api/auth/<provider>/login` | GET | No | `login.hbs` (redirect) |
-| `/api/register` | POST | No | `user_registry.js` |
-| `/api/public` | GET | No | `landingpage.js` |
-| `/api/data` | GET | Bearer token | `landingpage.js` |
-
-**Auth pattern:**
-
-```javascript
-const response = await fetch('/api/data', {
-    headers: { Authorization: `Bearer ${token}` }
-});
-if (response.status === 401) {
-    this.appContext.logout();
-}
-```
-
-Token stored in `localStorage.setItem('token', ...)`.
-
-**Canonical reference:** `@frontend/src/js/controllers/landingpage.js`
-
-## Vite configuration
-
-Dev server (`npm run dev`):
-
-- Port: `5173`
-- Root: `frontend/src`
-- Proxy: `/api` → `http://localhost:5000`
-
-Build (`npm run build`):
-
-- Output: `backend/static/` (with `emptyOutDir: true`)
-- Production Flask serves this directory via SPA fallback (see root AGENTS.md Architecture)
-
-PostCSS runs Tailwind + Autoprefixer inline in `vite.config.js`.
-
-## Tailwind CSS
-
-- Config: `frontend/tailwind.config.js` — scans `./src/**/*.{html,js,hbs}`
-- Entry: `frontend/src/styles/main.css` (`@tailwind base/components/utilities`)
-- Plugin: `@tailwindcss/forms`
-- Use utility classes; avoid custom CSS except `[x-cloak]` in `index.html`
-
-## Development commands
+- Dev: port `5173`, root `frontend/src`, proxy `/api` → `:5000`.
+- Build: `backend/static/` with `emptyOutDir: true`.
+- Tailwind scans `./src/**/*.{html,js,hbs}`; plugin `@tailwindcss/forms`.
+- `npm run lint` / `format:check` = Biome (JS + JSON). Biome does **not** lint `.hbs`. `main.css` is excluded.
 
 ```bash
 cd frontend
-npm install
-npm run dev           # Development — use :5173 in browser
-npm run build         # Production bundle → backend/static/
-npm run preview       # Preview production build
-npm run lint          # Biome (JS + JSON)
-npm run format:check  # Biome formatter (check only)
+npm run dev
+npm run build
+npm run test          # Vitest + jsdom
+npm run test:coverage # CI / make test (thresholds)
 ```
 
-From the repo root, `make lint-frontend` / `make format` / `make test` wrap these. Biome does **not** lint `.hbs` templates (Alpine HTML fragments, not Handlebars). `frontend/src/styles/main.css` is excluded (Biome 2.6 ignores it even with Tailwind directive parsing; Vite/PostCSS still process it).
+From the repo root, `make lint-frontend`, `make test-frontend`, and `make build-frontend` wrap these. Flask must be on `:5000` for API calls during `npm run dev`.
 
-Flask must be running on `:5000` for API calls during dev.
+## i18n and SEO
 
-## Testing
+Locales: `en`, `pt-BR` in `frontend/src/locales/`. Use `t(key)` / `tError(code)`. Add keys to **both** files. API errors map under `errors.*`.
 
-```bash
-cd frontend && npm run test            # Vitest + jsdom
-cd frontend && npm run test:coverage   # same + src/js thresholds (CI / make test)
-```
+`SEO_MODE` (`auth-first` default, or `public-first`) is a build-time Vite env (`VITE_SEO_MODE`) and also drives Flask `/robots.txt`. `applySeo()` runs inside `loadPage()` for `view-container`. History API routing and prerender are optional fork recipes — see [ARCHITECTURE.md](../ARCHITECTURE.md#add-a-spa-page).
 
-Coverage thresholds live in `vitest.config.js` (`test.coverage.thresholds`, include `src/js`). Raise them when a PR adds at least 1 point; do not lower them without a PR justification. See [../AGENTS.md](../AGENTS.md) → Coverage ratchet.
-
-## i18n (internationalization)
-
-Supported locales: `en`, `pt-BR`. Locale files live in `frontend/src/locales/`. The `i18n.js` module provides `t(key, params?)`, `tError(code)`, and `setLocale()`.
-
-### Add a translatable string
-
-1. Add the key to `locales/en.json` (source of truth).
-2. Add the same key to `locales/pt-BR.json` (and any future locale files).
-3. In templates: `x-text="t('section.key')"` or `:aria-label="t('section.key')"`.
-4. In controllers: `this.appContext.t('section.key')` or `this.appContext.tError(apiCode)`.
-
-### Add a new locale
-
-1. Create `frontend/src/locales/<locale>.json` mirroring `en.json`.
-2. Register in `SUPPORTED_LOCALES` in `i18n.js` and extend `resolveLocale()` if needed.
-3. Add a button to the EN | PT switcher in `menu.hbs` and `welcome.hbs`.
-
-### API errors
-
-Backend returns `{ "code": "INVALID_CREDENTIALS" }`. Map codes under `errors.*` in locale files. Use `tError(code)` in controllers — never display raw API codes to users.
-
-### SEO
-
-Page registry uses `titleKey` / `descriptionKey` (not literal strings). `applySeo()` resolves via `t()`.
-
-## Frontend debt register
+## Debt
 
 | Issue | Detail |
 |-------|--------|
-| Controller binding inconsistency | Partials use `loginController.*`; pages use `currentPage.*` |
-| SSR/prerender | Optional fork recipe for SEO-heavy products (see SEO toolbox) |
+| Controller binding | Partials use `loginController.*`; pages use `currentPage.*` |
+| SSR/prerender | Optional for SEO-heavy forks |
 
-Resolved: cookie session auth via [`api.js`](src/js/api.js), Vitest coverage, `Alpine.initTree()` in `loadPage()`, History API paths, Settings/Profile placeholders.
+Resolved: cookie session via `api.js`, Vitest coverage, `Alpine.initTree()`, History API paths.
 
 ## Code documentation
 
-Enforceable rules: [../.cursor/rules/documentation.mdc](../.cursor/rules/documentation.mdc).
-
-### Module / router
-
-```javascript
-/**
- * SPA shell: page registry router, OAuth fragment handler, Alpine root state.
- * @module app
- */
-
-/**
- * Create the Alpine root application object.
- * @returns {object} Alpine x-data root (isLoggedIn, loadPage, controllers, …)
- */
-export const createSpaApp = () => { /* … */ };
-
-/**
- * Load a registered page into a DOM target and init Alpine on it.
- * @param {string} elementIdTarget - DOM id of the mount point (e.g. ``view-container``).
- * @param {string} pageKey - Key in ``pages.js`` registry.
- */
-loadPage(elementIdTarget, pageKey) { /* … */ }
-```
-
-### Page controller
-
-```javascript
-/**
- * Landing page: fetches public and protected API samples for demo.
- * Bound in templates as ``currentPage.*`` after loadPage().
- */
-export const landingPageController = {
-    appContext: null,
-    response: null,
-
-    /** @param {object} appContext - Root spaApp from createSpaApp(). */
-    init(appContext) {
-        this.appContext = appContext;
-    },
-};
-```
-
-**Canonical references:** `@frontend/src/js/app.js`, `@frontend/src/js/controllers/landingpage.js`
+File-level JSDoc on exported modules; `@param` / `@returns` when not obvious. [../.cursor/rules/documentation.mdc](../.cursor/rules/documentation.mdc).
 
 ## See also
 
-- [../AGENTS.md](../AGENTS.md) — global setup and verification
-- [../backend/AGENTS.md](../backend/AGENTS.md) — API and auth patterns
-- [../.cursor/rules/frontend-rules.mdc](../.cursor/rules/frontend-rules.mdc) — coding standards
+- [../AGENTS.md](../AGENTS.md)
+- [../ARCHITECTURE.md](../ARCHITECTURE.md)
+- [../backend/AGENTS.md](../backend/AGENTS.md)
+- [../.cursor/rules/frontend-rules.mdc](../.cursor/rules/frontend-rules.mdc)
