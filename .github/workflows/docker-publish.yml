@@ -16,8 +16,16 @@ env:
   IMAGE_NAME: elizio/vanilla-webapp-framework
 
 jobs:
+  ci:
+    if: github.event_name == 'push'
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
   build-and-push:
     runs-on: ubuntu-latest
+    needs: [ci]
+    if: "!cancelled() && (github.event_name != 'push' || needs.ci.result == 'success')"
 
     steps:
       - name: Checkout repository
@@ -51,16 +59,32 @@ jobs:
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
+          load: ${{ github.event_name == 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VITE_BASE_PATH=/vanilla-webapp-framework/
+            GIT_SHA=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      - name: Verify image has no development tools
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:sha-${{ github.sha }}"
+          if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+            docker pull "$IMAGE"
+          fi
+          output="$(docker run --rm --entrypoint sh "$IMAGE" -c 'pip show pytest pytest-cov coverage mypy black flake8' 2>&1 || true)"
+          if printf '%s\n' "$output" | grep -q '^Name:'; then
+            echo "::error::Development tools found in production image"
+            printf '%s\n' "$output"
+            exit 1
+          fi
+          echo "No development tools found in image"
+
   deploy:
     runs-on: ubuntu-latest
-    needs: build-and-push
+    needs: [ci, build-and-push]
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     concurrency:
       group: deploy-dsfor
@@ -255,11 +279,17 @@ jobs:
             health_ok=0
 
             while [ $health_attempt -lt $health_attempts ]; do
-              if curl -sf "$APP_URL/api/health" | jq -e '.status == "ok"' > /dev/null 2>&1; then
-                echo "Health check passed"
+              health_file=$(mktemp)
+              health_http=$(curl -sS -o "$health_file" -w "%{http_code}" "$APP_URL/api/health" || true)
+              observed=$(jq -r '.version // empty' "$health_file" 2>/dev/null || true)
+              echo "Health check HTTP ${health_http:-000} expected version=$GITHUB_SHA observed version=${observed:-<none>}"
+              if [ "$health_http" = "200" ] && jq -e --arg sha "$GITHUB_SHA" '.status == "ok" and .version == $sha' "$health_file" > /dev/null 2>&1; then
+                rm -f "$health_file"
+                echo "Health check passed (version $GITHUB_SHA)"
                 health_ok=1
                 break
               fi
+              rm -f "$health_file"
               health_attempt=$((health_attempt + 1))
               sleep 5
             done

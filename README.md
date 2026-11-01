@@ -185,7 +185,7 @@ cd frontend && npm run build && npm run test
 - **OAuth / social login:** optional Google and Facebook. See [docs/oauth-configuration.md](docs/oauth-configuration.md) for provider console setup, redirect URIs, and troubleshooting. Env vars remain in the table above.
 - **Billing:** optional Lemon Squeezy demo (donations, spot purchases, credit top-ups). See [docs/billing-configuration.md](docs/billing-configuration.md) for dashboard setup, webhooks, test mode, and troubleshooting. Env vars remain in the table above.
 - **Logs:** written to `{PROJECT_FOLDER}/logs/app.log`.
-- **Health check:** `GET /api/health` verifies database connectivity (returns 503 when DB is down).
+- **Health check:** `GET /api/health` runs `SELECT 1` through the app database session. Returns 200 `{"status":"ok","db":"ok","version":"<APP_VERSION>"}` when the database is reachable, or 503 with a non-ok `status` when it is not. `version` is the image git SHA (`APP_VERSION` bake-time env), or `unknown` when unset.
 - **API docs:** Swagger UI at `/docs` in development; disabled in production unless `SWAGGER_ENABLED=true`.
 - **Migrations (production):**
 

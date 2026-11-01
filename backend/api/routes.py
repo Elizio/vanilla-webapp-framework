@@ -1,7 +1,12 @@
+"""Public and protected API routes."""
+import os
+
 from flask import Blueprint, jsonify
+from sqlalchemy import text
 
 from .auth import token_required
 from ..billing.entitlements import entitlement_required
+from ..db_repository.database import db_session
 
 api_bp = Blueprint('api', __name__)
 
@@ -15,9 +20,42 @@ def health():
       - Public
     responses:
       200:
-        description: Service is healthy
+        description: Service is healthy and the database is reachable
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+            db:
+              type: string
+            version:
+              type: string
+      503:
+        description: Database is unreachable
+        schema:
+          type: object
+          properties:
+            status:
+              type: string
+            db:
+              type: string
+            version:
+              type: string
     """
-    return jsonify({'status': 'ok'})
+    version = os.getenv('APP_VERSION') or 'unknown'
+    try:
+        db_session.execute(text('SELECT 1'))
+    except Exception:
+        return jsonify({
+            'status': 'error',
+            'db': 'error',
+            'version': version,
+        }), 503
+    return jsonify({
+        'status': 'ok',
+        'db': 'ok',
+        'version': version,
+    })
 
 
 @api_bp.route('/api/public', methods=['GET'])

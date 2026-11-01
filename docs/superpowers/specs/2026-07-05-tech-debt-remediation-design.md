@@ -97,7 +97,7 @@ sequenceDiagram
 
 ## Phase 5 — Backend reliability
 
-- Health check: DB `SELECT 1`, 503 on failure
+- Health check: DB `SELECT 1` via the app session; 200 with `status`/`db`/`version` (`APP_VERSION`) when OK; 503 with a non-ok status when the DB is down
 - Webhook: insert event first, catch `IntegrityError` for duplicates; 400 verify / 500 process
 - `spend_credits`: remove internal commit
 - `database.py`: prefer `AppConfig` URI when initialized

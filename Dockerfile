@@ -33,3 +33,7 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 5000
 
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "backend.app:app"]
+
+# Bake the git SHA last so earlier layers stay cached across commits.
+ARG GIT_SHA
+ENV APP_VERSION=$GIT_SHA
