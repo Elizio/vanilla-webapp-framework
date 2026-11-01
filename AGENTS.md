@@ -22,10 +22,14 @@ vanilla-webapp-framework/
 ├── frontend/          # Vite SPA (see frontend/AGENTS.md)
 ├── .cursor/rules/     # Cursor rules (.mdc)
 ├── .env               # Required secrets (not committed)
-├── requirements.txt   # Python deps
+├── requirements.txt   # Python runtime pins
+├── requirements-dev.txt # runtime + ruff, mypy, pytest, pre-commit
+├── pyproject.toml     # Ruff + mypy
+├── Makefile           # setup, lint, format, test, check, migrate
+├── .pre-commit-config.yaml
 ├── setup.py           # pip install -e .
-├── .github/workflows/ # CI (pytest + frontend build/test)
-├── scripts/           # check_pins.py, deploy-hostinger.sh
+├── .github/workflows/ # CI (backend, frontend, lint)
+├── scripts/           # check_pins.py, deploy-hostinger.sh, install-lint-tools.sh
 └── Dockerfile         # Multi-stage production image
 ```
 
@@ -34,8 +38,9 @@ vanilla-webapp-framework/
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements-dev.txt
-pip install -e . --no-deps
+make setup
+# same as CI: pip install -r requirements-dev.txt && pip install -e . --no-deps
+# plus frontend `npm ci` and pinned shellcheck/actionlint/gitleaks into .tools/
 ```
 
 Create `.env` in the project root:
@@ -78,11 +83,30 @@ cd frontend && npm install && npm run dev
 
 API-only work (no UI): `flask run` is sufficient. Swagger UI: `http://localhost:5000/docs`.
 
+## Developer commands (`make`)
+
+Canonical local loop (same tools CI runs, split across the `backend`, `frontend`, and `lint` jobs):
+
+| Target | What it runs |
+|--------|----------------|
+| `make setup` | `requirements-dev.txt` + `pip install -e . --no-deps` + `frontend` `npm ci` + pinned lint binaries |
+| `make lint` | Ruff, mypy, Biome, shellcheck, actionlint, gitleaks |
+| `make format` | Ruff + Biome autofixes |
+| `make test` | `pytest` + Vitest |
+| `make check` | `lint` + `test` |
+| `make migrate` | `alembic -c backend/alembic.ini upgrade head` |
+| `make typecheck` | `mypy backend` |
+| `make audit` | `pip-audit` + `npm audit --omit=dev` |
+
+Biome lints frontend JS and JSON only. It does **not** lint `.hbs` templates (Alpine HTML fragments). `frontend/src/styles/main.css` is excluded: Biome 2.6 ignores that file even with `css.parser.tailwindDirectives`, so Tailwind stays on Vite/PostCSS.
+
+New Python modules are type-checked under the strict mypy config in `pyproject.toml`. Existing modules that already fail are baselined with per-module `ignore_errors` (TODO to type them later).
+
 ## Verification checklist
 
 Run before claiming work is done:
 
-- [ ] `pytest` from project root (backend tests with coverage)
+- [ ] `make check` from project root (or `make lint` + `make test`)
 - [ ] `cd frontend && npm run build && npm run test`
 - [ ] `cd frontend && npm run dev` — app loads at `:5173`
 - [ ] Production smoke: `cd frontend && npm run build && make migrate && APP_PROFILE=production flask run` → `:5000` (`flask run` no longer migrates)
@@ -159,7 +183,7 @@ Canonical entry points: `backend/__init__.py` (`create_app`), `frontend/src/js/a
 
 - **Never push to `master`** (or any default branch). Never merge unless the user explicitly asks.
 - **One PR per change**, targeting `master`.
-- Branch protection requires the branch to be **up to date** with `master` and these checks green: `backend`, `frontend`, `build-and-push`, plus `lint` (shellcheck / actionlint).
+- Branch protection requires the branch to be **up to date** with `master` and these checks green: `backend`, `frontend`, `build-and-push`, plus `lint` (shellcheck / actionlint / gitleaks).
 - Every merge to `master` **auto-deploys**: CI → private GHCR image `ghcr.io/elizio/vanilla-webapp-framework:sha-<full>` → `scripts/deploy-hostinger.sh` (Hostinger VM `1136636` / Docker project `dsfor`).
 - The deploy asserts `GET /api/health` returns 200 with `status == "ok"` and `version ==` the merge SHA, then checks the home page. On failure it POSTs the previous environment (`VWF_IMAGE`) and re-checks health.
 - Say in the PR whether runtime behavior changes. Docs-only and test-only PRs still rebuild and deploy; they should be a no-op for the running app.

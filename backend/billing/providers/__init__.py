@@ -1,4 +1,5 @@
 """Billing provider registry and factory."""
+
 from typing import Dict, Optional
 
 from flask import current_app

@@ -1,4 +1,5 @@
 """Behaviour tests for the migrate-once container entrypoint."""
+
 import os
 import stat
 import subprocess
@@ -90,14 +91,8 @@ def test_entrypoint_errors_on_missing_database_uri(tmp_path):
 def test_entrypoint_logs_running_migrations_once_then_execs(tmp_path):
     """The entrypoint prints Running migrations exactly once, then execs gunicorn."""
     trace = tmp_path / 'trace.txt'
-    alembic = (
-        '#!/bin/sh\n'
-        f'echo alembic "$@" >> "{trace}"\n'
-    )
-    gunicorn = (
-        '#!/bin/sh\n'
-        f'echo gunicorn >> "{trace}"\n'
-    )
+    alembic = f'#!/bin/sh\necho alembic "$@" >> "{trace}"\n'
+    gunicorn = f'#!/bin/sh\necho gunicorn >> "{trace}"\n'
     result = _run(
         tmp_path,
         _required_env(),
@@ -131,10 +126,7 @@ def test_entrypoint_fails_fast_when_migration_fails(tmp_path):
 def test_entrypoint_gunicorn_has_no_access_logfile(tmp_path):
     """Access logs would record OAuth ?code= and token query strings in docker logs."""
     trace = tmp_path / 'gunicorn.args'
-    gunicorn = (
-        '#!/bin/sh\n'
-        f'printf "%s\\n" "$*" > "{trace}"\n'
-    )
+    gunicorn = f'#!/bin/sh\nprintf "%s\\n" "$*" > "{trace}"\n'
     result = _run(
         tmp_path,
         _required_env(),

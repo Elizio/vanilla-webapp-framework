@@ -13,6 +13,7 @@ Revision ID: 006
 Revises: 005
 Create Date: 2026-11-01
 """
+
 from typing import Sequence, Union
 
 from alembic import op

@@ -79,11 +79,15 @@ export const userRegistryController = {
                 this.success = this.appContext.t('register.success');
                 this.appContext.enterAuthenticatedApp();
             } else {
-                this.error = this.appContext.tError(data.code || 'REGISTRATION_FAILED');
+                this.error = this.appContext.tError(
+                    data.code || 'REGISTRATION_FAILED',
+                );
             }
         } catch (err) {
             console.error('Registration failed:', err);
-            this.error = this.appContext.tError(err.code || 'REGISTRATION_FAILED');
+            this.error = this.appContext.tError(
+                err.code || 'REGISTRATION_FAILED',
+            );
         } finally {
             this.isLoading = false;
         }

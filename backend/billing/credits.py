@@ -4,6 +4,7 @@ Balance is the sum of ledger deltas. Top-ups (positive) are keyed by the
 provider order id to prevent double-credit on webhook redelivery. Fork feature
 code spends credits via :func:`spend_credits`.
 """
+
 from typing import Optional
 
 from sqlalchemy import func

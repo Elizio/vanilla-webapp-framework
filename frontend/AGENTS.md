@@ -284,10 +284,14 @@ PostCSS runs Tailwind + Autoprefixer inline in `vite.config.js`.
 ```bash
 cd frontend
 npm install
-npm run dev      # Development — use :5173 in browser
-npm run build    # Production bundle → backend/static/
-npm run preview  # Preview production build
+npm run dev           # Development — use :5173 in browser
+npm run build         # Production bundle → backend/static/
+npm run preview       # Preview production build
+npm run lint          # Biome (JS + JSON)
+npm run format:check  # Biome formatter (check only)
 ```
+
+From the repo root, `make lint-frontend` / `make format` / `make test` wrap these. Biome does **not** lint `.hbs` templates (Alpine HTML fragments, not Handlebars). `frontend/src/styles/main.css` is excluded (Biome 2.6 ignores it even with Tailwind directive parsing; Vite/PostCSS still process it).
 
 Flask must be running on `:5000` for API calls during dev.
 

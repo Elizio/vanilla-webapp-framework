@@ -1,4 +1,5 @@
 """Logging must not crash on a missing or unwritable dir, and must not duplicate."""
+
 import logging
 from pathlib import Path
 

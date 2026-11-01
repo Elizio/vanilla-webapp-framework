@@ -4,6 +4,7 @@ Implements hosted checkout creation and webhook verification/parsing against
 the Lemon Squeezy API. Reads configuration from ``current_app.config`` at call
 time, so it operates within a Flask request context.
 """
+
 import hashlib
 import hmac
 import json
@@ -143,9 +144,7 @@ class LemonSqueezyProvider:
             raise WebhookVerificationError('Webhook secret not configured')
 
         signature = headers.get('X-Signature', '')
-        digest = hmac.new(
-            secret.encode('utf-8'), raw_body, hashlib.sha256
-        ).hexdigest()
+        digest = hmac.new(secret.encode('utf-8'), raw_body, hashlib.sha256).hexdigest()
         if not hmac.compare_digest(digest, signature):
             raise WebhookVerificationError('Invalid webhook signature')
 

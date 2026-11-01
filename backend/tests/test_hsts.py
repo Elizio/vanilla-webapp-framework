@@ -1,4 +1,5 @@
 """HSTS header must not include includeSubDomains or preload."""
+
 from backend import create_app
 from backend.config.app_config import reset_app_config_for_tests
 from backend.db_repository.database import db

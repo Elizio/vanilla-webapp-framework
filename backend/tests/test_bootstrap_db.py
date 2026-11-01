@@ -1,4 +1,5 @@
 """Tests for development database bootstrap."""
+
 import os
 from sqlalchemy import create_engine, inspect
 from alembic import command
@@ -32,8 +33,7 @@ def test_bootstrap_dev_database_upgrades_legacy_schema(tmp_path, monkeypatch):
     db_module.bootstrap_dev_database()
 
     columns = {
-        column['name']
-        for column in inspect(db_module.db.engine).get_columns('users')
+        column['name'] for column in inspect(db_module.db.engine).get_columns('users')
     }
     assert {'email', 'oauth_provider', 'oauth_id'}.issubset(columns)
 

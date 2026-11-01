@@ -1,4 +1,5 @@
 """Password login, registration, session status, and JWT gate."""
+
 from flask import Blueprint, jsonify, request, current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
@@ -70,6 +71,7 @@ def _read_username_password():
 
 def token_required(f):
     """Require a valid JWT and an active user; inject ``current_user``."""
+
     @wraps(f)
     def decorated(*args, **kwargs):
         token = get_token_from_request()
@@ -90,6 +92,7 @@ def token_required(f):
         except jwt.InvalidTokenError:
             return error_response(INVALID_TOKEN, 401)
         return f(current_user, *args, **kwargs)
+
     return decorated
 
 
@@ -160,8 +163,10 @@ def login():
     username, password = credentials
     user = User.query.filter_by(username=username).first()
 
-    if user and user.password_hash and check_password_hash(
-        user.password_hash, password
+    if (
+        user
+        and user.password_hash
+        and check_password_hash(user.password_hash, password)
     ):
         if not user_may_authenticate(user):
             return error_response(ACCOUNT_INACTIVE, 403)
@@ -243,10 +248,8 @@ def register():
         current_app.logger.error('Registration failed: %s', exc)
         return error_response(REGISTRATION_FAILED, 500)
 
-    response = jsonify({
-        'code': USER_CREATED,
-        'authenticated': True,
-        'username': username
-    })
+    response = jsonify(
+        {'code': USER_CREATED, 'authenticated': True, 'username': username}
+    )
     response.status_code = 201
     return set_auth_cookie(response, user.id)

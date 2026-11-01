@@ -1,4 +1,5 @@
 """Billing API: plans, checkout, status and provider webhooks."""
+
 import requests
 from flask import Blueprint, current_app, jsonify, request
 

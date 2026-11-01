@@ -1,4 +1,5 @@
 """Billing entitlement model: a user's feature-access grant per plan/provider."""
+
 from datetime import datetime
 
 from sqlalchemy import (
@@ -35,9 +36,7 @@ class BillingEntitlement(db.Base):
 
     __tablename__ = 'billing_entitlements'
     __table_args__ = (
-        UniqueConstraint(
-            'user_id', 'plan_key', 'provider', name='uq_entitlement'
-        ),
+        UniqueConstraint('user_id', 'plan_key', 'provider', name='uq_entitlement'),
     )
 
     id = Column(Integer, primary_key=True)

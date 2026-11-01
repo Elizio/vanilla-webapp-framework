@@ -20,7 +20,8 @@ export const landingPageController = {
 
     async fetchProtectedData() {
         if (!this.appContext?.isLoggedIn) {
-            this.error = this.appContext?.t('errors.NOT_LOGGED_IN') ?? 'Not logged in';
+            this.error =
+                this.appContext?.t('errors.NOT_LOGGED_IN') ?? 'Not logged in';
             this.appContext?.logout();
             return;
         }
@@ -34,13 +35,15 @@ export const landingPageController = {
                     this.error = this.appContext.t('errors.UNAUTHORIZED');
                     this.appContext.logout();
                 } else {
-                    this.error = this.appContext.t('errors.HTTP_ERROR', { status: response.status });
+                    this.error = this.appContext.t('errors.HTTP_ERROR', {
+                        status: response.status,
+                    });
                 }
                 this.response = null;
             } else {
                 this.response = await response.json();
             }
-        } catch (err) {
+        } catch (_err) {
             this.error = this.appContext.t('errors.FETCH_FAILED');
             this.appContext.logout();
         } finally {
@@ -54,12 +57,14 @@ export const landingPageController = {
         try {
             const response = await apiFetch('/api/public');
             if (!response.ok) {
-                this.error = this.appContext.t('errors.HTTP_ERROR', { status: response.status });
+                this.error = this.appContext.t('errors.HTTP_ERROR', {
+                    status: response.status,
+                });
                 this.response = null;
             } else {
                 this.response = await response.json();
             }
-        } catch (err) {
+        } catch (_err) {
             this.error = this.appContext.t('errors.FETCH_FAILED');
         } finally {
             this.isLoading = false;

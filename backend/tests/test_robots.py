@@ -1,4 +1,5 @@
 """Tests for SEO crawl directives."""
+
 import pytest
 
 from backend import create_app, db

@@ -1,4 +1,5 @@
 """Billing event model: webhook audit log and idempotency guard."""
+
 from datetime import datetime
 
 from sqlalchemy import (
@@ -30,9 +31,7 @@ class BillingEvent(db.Base):
 
     __tablename__ = 'billing_events'
     __table_args__ = (
-        UniqueConstraint(
-            'provider', 'provider_event_id', name='uq_billing_event'
-        ),
+        UniqueConstraint('provider', 'provider_event_id', name='uq_billing_event'),
     )
 
     id = Column(Integer, primary_key=True)

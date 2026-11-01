@@ -11,18 +11,43 @@ const CAROUSEL_INTERVAL_MS = 5000;
  * circular reference (controller → app → controller) causes a stack overflow.
  */
 export const welcomeController = {
-    cloneCommand: 'git clone https://github.com/you/vanilla-webapp-framework.git',
+    cloneCommand:
+        'git clone https://github.com/you/vanilla-webapp-framework.git',
     copyFeedback: '',
     carouselCurrent: 0,
     carouselTimer: null,
 
     slides: [
-        { tagKey: 'welcome.slide1Tag', titleKey: 'welcome.slide1Title', descKey: 'welcome.slide1Desc' },
-        { tagKey: 'welcome.slide2Tag', titleKey: 'welcome.slide2Title', descKey: 'welcome.slide2Desc' },
-        { tagKey: 'welcome.slide3Tag', titleKey: 'welcome.slide3Title', descKey: 'welcome.slide3Desc' },
-        { tagKey: 'welcome.slide4Tag', titleKey: 'welcome.slide4Title', descKey: 'welcome.slide4Desc' },
-        { tagKey: 'welcome.slide5Tag', titleKey: 'welcome.slide5Title', descKey: 'welcome.slide5Desc' },
-        { tagKey: 'welcome.slide6Tag', titleKey: 'welcome.slide6Title', descKey: 'welcome.slide6Desc' },
+        {
+            tagKey: 'welcome.slide1Tag',
+            titleKey: 'welcome.slide1Title',
+            descKey: 'welcome.slide1Desc',
+        },
+        {
+            tagKey: 'welcome.slide2Tag',
+            titleKey: 'welcome.slide2Title',
+            descKey: 'welcome.slide2Desc',
+        },
+        {
+            tagKey: 'welcome.slide3Tag',
+            titleKey: 'welcome.slide3Title',
+            descKey: 'welcome.slide3Desc',
+        },
+        {
+            tagKey: 'welcome.slide4Tag',
+            titleKey: 'welcome.slide4Title',
+            descKey: 'welcome.slide4Desc',
+        },
+        {
+            tagKey: 'welcome.slide5Tag',
+            titleKey: 'welcome.slide5Title',
+            descKey: 'welcome.slide5Desc',
+        },
+        {
+            tagKey: 'welcome.slide6Tag',
+            titleKey: 'welcome.slide6Title',
+            descKey: 'welcome.slide6Desc',
+        },
     ],
 
     /** Reset transient state. */
@@ -86,7 +111,8 @@ export const welcomeController = {
 
     /** Copy the git clone command to the clipboard. */
     async copyCloneCommand() {
-        const translate = window.spaApp?.t?.bind(window.spaApp) ?? ((key) => key);
+        const translate =
+            window.spaApp?.t?.bind(window.spaApp) ?? ((key) => key);
         try {
             if (navigator.clipboard?.writeText) {
                 await navigator.clipboard.writeText(this.cloneCommand);

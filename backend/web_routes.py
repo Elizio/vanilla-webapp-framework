@@ -1,4 +1,5 @@
 """SPA static serving and global error handlers."""
+
 import os
 from flask import Response, current_app, request, send_from_directory, abort
 from werkzeug.exceptions import HTTPException
@@ -51,21 +52,25 @@ def build_robots_txt(seo_mode: str) -> str:
         robots.txt file contents.
     """
     if seo_mode == 'public-first':
-        return '\n'.join([
-            'User-agent: *',
-            'Allow: /',
-            'Disallow: /api/',
-            'Disallow: /docs',
-            'Disallow: /apispec.json',
-            'Disallow: /flasgger_static/',
-            '',
-        ])
+        return '\n'.join(
+            [
+                'User-agent: *',
+                'Allow: /',
+                'Disallow: /api/',
+                'Disallow: /docs',
+                'Disallow: /apispec.json',
+                'Disallow: /flasgger_static/',
+                '',
+            ]
+        )
 
-    return '\n'.join([
-        'User-agent: *',
-        'Disallow: /',
-        '',
-    ])
+    return '\n'.join(
+        [
+            'User-agent: *',
+            'Disallow: /',
+            '',
+        ]
+    )
 
 
 def register_web_routes(app):
@@ -77,10 +82,9 @@ def register_web_routes(app):
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['X-Frame-Options'] = 'SAMEORIGIN'
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
-        if (
-            current_app.config.get('APP_PROFILE') == 'production'
-            and current_app.config.get('HSTS_ENABLED', True)
-        ):
+        if current_app.config.get(
+            'APP_PROFILE'
+        ) == 'production' and current_app.config.get('HSTS_ENABLED', True):
             # Plain max-age replaces a cached includeSubDomains policy
             # (RFC 6797 §8.1). Keep sending this for at least one max-age
             # before setting HSTS_ENABLED=0.
@@ -91,8 +95,7 @@ def register_web_routes(app):
     def robots_txt():
         """Serve crawl directives driven by SEO_MODE."""
         seo_mode = current_app.config.get(
-            'SEO_MODE',
-            os.getenv('SEO_MODE', 'auth-first')
+            'SEO_MODE', os.getenv('SEO_MODE', 'auth-first')
         )
         body = build_robots_txt(seo_mode)
         return Response(body, mimetype='text/plain')

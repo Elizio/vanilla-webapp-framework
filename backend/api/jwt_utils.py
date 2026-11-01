@@ -1,4 +1,5 @@
 """Shared JWT helpers for password and OAuth login."""
+
 import jwt
 from datetime import datetime, timedelta, timezone
 from flask import current_app
@@ -14,7 +15,11 @@ def _jwt_secret():
 
 def generate_token(user_id):
     """Return a signed JWT for the given user id."""
-    return jwt.encode({
-        'user_id': user_id,
-        'exp': datetime.now(timezone.utc) + timedelta(seconds=JWT_EXPIRATION),
-    }, _jwt_secret(), algorithm=JWT_ALGORITHM)
+    return jwt.encode(
+        {
+            'user_id': user_id,
+            'exp': datetime.now(timezone.utc) + timedelta(seconds=JWT_EXPIRATION),
+        },
+        _jwt_secret(),
+        algorithm=JWT_ALGORITHM,
+    )

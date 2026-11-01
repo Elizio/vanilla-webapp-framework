@@ -7,6 +7,7 @@ def test_proxy_fix_applied_when_trust_proxy_enabled(monkeypatch):
     monkeypatch.setenv('APP_PROFILE', 'testing')
 
     from ..config.app_config import reset_app_config_for_tests
+
     reset_app_config_for_tests()
 
     from .. import create_app
@@ -24,7 +25,7 @@ def test_proxy_fix_applied_when_trust_proxy_enabled(monkeypatch):
         headers={
             'X-Forwarded-Proto': 'https',
             'X-Forwarded-Host': 'example.com',
-        }
+        },
     )
     assert response.status_code == 200
 
@@ -35,6 +36,7 @@ def test_proxy_fix_not_applied_when_trust_proxy_disabled(monkeypatch):
     monkeypatch.setenv('APP_PROFILE', 'testing')
 
     from ..config.app_config import reset_app_config_for_tests
+
     reset_app_config_for_tests()
 
     from .. import create_app

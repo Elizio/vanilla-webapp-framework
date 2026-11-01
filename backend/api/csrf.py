@@ -1,4 +1,5 @@
 """Double-submit CSRF protection for cookie-authenticated SPA requests."""
+
 import secrets
 from functools import wraps
 

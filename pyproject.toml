@@ -1,0 +1,125 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+# Tooling lives here. Pytest still reads setup.cfg [tool:pytest] because this
+# file has no [tool.pytest.ini_options] (pytest would stop reading setup.cfg).
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+src = ["backend"]
+extend-exclude = [
+    ".git",
+    ".tools",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "backend/static",
+    "frontend/node_modules",
+    "*.md",
+]
+
+[tool.ruff.lint]
+# Conservative flake8-equivalent set (E/F/W). E203 kept ignored to match
+# the previous setup.cfg flake8 config.
+select = ["E", "F", "W"]
+ignore = ["E203"]
+
+[tool.ruff.lint.per-file-ignores]
+# Imports after env setup in the pytest session (was `# noqa: E402`).
+"backend/tests/conftest.py" = ["E402"]
+
+[tool.ruff.format]
+quote-style = "preserve"
+indent-style = "space"
+line-ending = "lf"
+
+[tool.mypy]
+# Strictness plan: new backend modules inherit this strict config.
+# Existing modules that already fail are listed below with ignore_errors
+# and a TODO to type them incrementally. Do not add a blanket ignore.
+python_version = "3.10"
+files = ["backend"]
+exclude = "(?x)(^backend/static/)"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+
+[[tool.mypy.overrides]]
+# Untyped third-party packages. New first-party modules stay checked.
+module = [
+    "alembic.*",
+    "authlib.*",
+    "dotenv",
+    "flasgger",
+    "flask_cors",
+    "gunicorn.*",
+    "jose.*",
+    "jwt",
+]
+ignore_missing_imports = true
+
+# TODO: type these modules incrementally. New backend modules must NOT be
+# added here — they inherit the strict [tool.mypy] config above.
+# Baseline on master 08f967c: 304 errors in these 46 modules (21 other
+# backend modules already pass). Count with `mypy backend`.
+[[tool.mypy.overrides]]
+module = [
+    "backend",
+    "backend.api.auth",
+    "backend.api.billing",
+    "backend.api.csrf",
+    "backend.api.error_codes",
+    "backend.api.jwt_utils",
+    "backend.api.oauth",
+    "backend.api.rate_limit",
+    "backend.api.routes",
+    "backend.api.session_auth",
+    "backend.billing.entitlements",
+    "backend.billing.providers",
+    "backend.billing.providers.base",
+    "backend.billing.providers.lemon_squeezy",
+    "backend.billing.providers.stripe",
+    "backend.billing.service",
+    "backend.config.user_config",
+    "backend.db_repository.database",
+    "backend.db_repository.migrations.env",
+    "backend.models.billing_credit_ledger",
+    "backend.models.billing_entitlement",
+    "backend.models.billing_event",
+    "backend.models.user",
+    "backend.tests.conftest",
+    "backend.tests.test_app_base_path",
+    "backend.tests.test_auth",
+    "backend.tests.test_billing",
+    "backend.tests.test_bootstrap_db",
+    "backend.tests.test_cookies",
+    "backend.tests.test_cors",
+    "backend.tests.test_create_app",
+    "backend.tests.test_dockerfile",
+    "backend.tests.test_docs_drift",
+    "backend.tests.test_entrypoint",
+    "backend.tests.test_error_codes",
+    "backend.tests.test_health",
+    "backend.tests.test_healthcheck_script",
+    "backend.tests.test_hsts",
+    "backend.tests.test_logging",
+    "backend.tests.test_migrations",
+    "backend.tests.test_oauth",
+    "backend.tests.test_proxy_fix",
+    "backend.tests.test_robots",
+    "backend.tests.test_routes",
+    "backend.tests.test_spa",
+    "backend.web_routes",
+]
+ignore_errors = true

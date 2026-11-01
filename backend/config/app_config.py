@@ -4,6 +4,7 @@ Application configuration management.
 Loads environment variables once from the project-root ``.env`` in non-production
 profiles, then exposes them through a singleton ``AppConfig``.
 """
+
 import os
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -138,12 +139,14 @@ class AppConfig:
 
         self.SWAGGER_CONFIG = {
             'headers': [],
-            'specs': [{
-                'endpoint': 'apispec',
-                'route': '/apispec.json',
-                'rule_filter': lambda rule: True,
-                'model_filter': lambda tag: True,
-            }],
+            'specs': [
+                {
+                    'endpoint': 'apispec',
+                    'route': '/apispec.json',
+                    'rule_filter': lambda rule: True,
+                    'model_filter': lambda tag: True,
+                }
+            ],
             'static_url_path': '/flasgger_static',
             'swagger_ui': True,
             'specs_route': '/docs',

@@ -15,14 +15,18 @@ describe('loadPage', () => {
         const container = document.getElementById('view-container');
         expect(container.innerHTML.length).toBeGreaterThan(0);
         expect(typeof app.currentPage.fetchProtectedData).toBe('function');
-        expect(window.Alpine.initTree).toHaveBeenCalledWith(container.firstElementChild);
+        expect(window.Alpine.initTree).toHaveBeenCalledWith(
+            container.firstElementChild,
+        );
     });
 
     it('logs error for unknown page key without throwing', () => {
         const app = createSpaApp();
         const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-        expect(() => app.loadPage('view-container', 'nonexistent')).not.toThrow();
+        expect(() =>
+            app.loadPage('view-container', 'nonexistent'),
+        ).not.toThrow();
         expect(spy).toHaveBeenCalled();
 
         spy.mockRestore();
@@ -47,11 +51,16 @@ describe('loadPage', () => {
 
         app.showLoginPage();
         expect(app.showLogin).toBe(true);
-        expect(document.getElementById('login-register-container').innerHTML.length).toBeGreaterThan(0);
+        expect(
+            document.getElementById('login-register-container').innerHTML
+                .length,
+        ).toBeGreaterThan(0);
 
         app.showWelcomePage();
         expect(app.showLogin).toBe(false);
-        expect(document.getElementById('public-container').innerHTML.length).toBeGreaterThan(0);
+        expect(
+            document.getElementById('public-container').innerHTML.length,
+        ).toBeGreaterThan(0);
     });
 
     it('enterAuthenticatedApp mounts app shell and routes to /app', async () => {
@@ -69,8 +78,12 @@ describe('loadPage', () => {
         expect(app.isLoggedIn).toBe(true);
         expect(app.showLogin).toBe(false);
         expect(app.activeViewPageKey).toBe('landingpage');
-        expect(document.getElementById('view-container').innerHTML.length).toBeGreaterThan(0);
-        expect(document.getElementById('menu-container').innerHTML.length).toBeGreaterThan(0);
+        expect(
+            document.getElementById('view-container').innerHTML.length,
+        ).toBeGreaterThan(0);
+        expect(
+            document.getElementById('menu-container').innerHTML.length,
+        ).toBeGreaterThan(0);
         expect(window.location.pathname).toBe('/app');
     });
 });

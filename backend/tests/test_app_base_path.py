@@ -1,4 +1,5 @@
 """APP_BASE_PATH normalization and rejection."""
+
 import pytest
 
 from backend.config.app_config import reset_app_config_for_tests
@@ -46,14 +47,10 @@ def test_app_base_path_unset_is_slash(monkeypatch):
 
 def test_app_base_path_adds_leading_slash_and_strips_trailing(monkeypatch):
     """A bare or trailing-slash value becomes a single leading-slash path."""
-    config = _reload_config(
-        monkeypatch, APP_BASE_PATH='vanilla-webapp-framework/'
-    )
+    config = _reload_config(monkeypatch, APP_BASE_PATH='vanilla-webapp-framework/')
     assert config.APP_BASE_PATH == '/vanilla-webapp-framework'
 
-    config = _reload_config(
-        monkeypatch, APP_BASE_PATH='/vanilla-webapp-framework/'
-    )
+    config = _reload_config(monkeypatch, APP_BASE_PATH='/vanilla-webapp-framework/')
     assert config.APP_BASE_PATH == '/vanilla-webapp-framework'
 
 
@@ -65,9 +62,7 @@ def test_app_base_path_root_stays_slash(monkeypatch):
 
 def test_app_base_path_sets_session_cookie_path(monkeypatch):
     """Flask session cookie path follows APP_BASE_PATH."""
-    config = _reload_config(
-        monkeypatch, APP_BASE_PATH='/vanilla-webapp-framework'
-    )
+    config = _reload_config(monkeypatch, APP_BASE_PATH='/vanilla-webapp-framework')
     assert config.SESSION_COOKIE_PATH == '/vanilla-webapp-framework'
 
     config = _reload_config(monkeypatch, APP_BASE_PATH=None)

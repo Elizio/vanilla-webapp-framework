@@ -17,7 +17,9 @@ export const BASE_PATH = (import.meta.env.BASE_URL || '/').replace(/\/$/, '');
  */
 export function withBase(path) {
     if (!path.startsWith('/')) {
-        console.warn(`withBase() expects absolute paths starting with '/', got: ${path}`);
+        console.warn(
+            `withBase() expects absolute paths starting with '/', got: ${path}`,
+        );
     }
     return BASE_PATH === '' ? path : BASE_PATH + path;
 }

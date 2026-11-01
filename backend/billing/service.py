@@ -4,6 +4,7 @@ The service is the single entry point used by the API layer. It validates
 plans/amounts, delegates provider specifics to the selected adapter, and
 applies webhook results to the app's own entitlement and credit tables.
 """
+
 import json
 from typing import Optional
 

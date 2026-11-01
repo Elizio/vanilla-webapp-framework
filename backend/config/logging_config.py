@@ -1,4 +1,5 @@
 """Logging configuration: stdout by default, optional rotating file."""
+
 from __future__ import annotations
 
 import logging

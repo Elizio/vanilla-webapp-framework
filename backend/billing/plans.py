@@ -4,6 +4,7 @@ Plans are defined here, not at the provider. Forking for a commercial product
 means adding entries below and wiring provider price/variant ids via env — the
 checkout flow, webhook pipeline and UI stay unchanged.
 """
+
 from typing import Dict, List, Optional
 
 PLAN_TYPE_ONE_TIME = 'one_time'

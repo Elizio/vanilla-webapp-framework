@@ -1,4 +1,5 @@
 """Factory tests: production no longer migrates; testing still uses create_all."""
+
 from backend.config.app_config import reset_app_config_for_tests
 
 

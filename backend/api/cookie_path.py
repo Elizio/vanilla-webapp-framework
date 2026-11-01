@@ -1,4 +1,5 @@
 """Shared cookie Path helpers for APP_BASE_PATH scoping."""
+
 from flask import current_app, Response
 
 ROOT_COOKIE_PATH = '/'
