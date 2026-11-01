@@ -83,6 +83,9 @@ vanilla-webapp-framework/
 ├── .env.example                # Environment variable template
 ├── Dockerfile
 ├── docker-entrypoint.sh        # migrate once, then gunicorn
+├── scripts/
+│   ├── check_pins.py           # CI pin verification
+│   └── deploy-hostinger.sh     # Hostinger VPS deploy (called from CI)
 ├── Makefile                    # make migrate
 ├── requirements.txt
 ├── setup.py
@@ -201,7 +204,8 @@ cd frontend && npm run build && npm run test
 - **Subpath cookies and HSTS:** behind a prefix-stripping proxy (Caddy), Flask still sees `/api/...`. Set `APP_BASE_PATH` to the public prefix (no trailing slash) so cookies are not host-wide. `Path` is not a security boundary between same-origin apps — a sibling `Path=/` cookie is still sent here; a dedicated subdomain (for example `vwf.dsfor.fun`) is the real isolation. Production HSTS is `max-age=31536000` without `includeSubDomains` so a later header replaces a cached includeSubDomains policy (RFC 6797 §8.1). Keep HSTS on for at least one max-age before `HSTS_ENABLED=0`. Prefer domain-wide HSTS on the reverse proxy if this host is shared.
 - **Logs:** stdout/stderr by default (`docker logs`). File logging is opt-in (`LOG_TO_FILE=1` or `LOG_FILE`).
 - **Migrations (local production / `flask run`):** `make migrate` or `alembic -c backend/alembic.ini upgrade head` (the container entrypoint does this once before gunicorn).
-- **Health check:** `GET /api/health` runs `SELECT 1` through the app database session. Returns 200 `{"status":"ok","db":"ok","version":"<APP_VERSION>"}` when the database is reachable, or 503 with a non-ok `status` when it is not. `version` is the image git SHA (`APP_VERSION` bake-time env), or `unknown` when unset.
+- **Health check:** `GET /api/health` runs `SELECT 1` through the app database session. Returns 200 `{"status":"ok","db":"ok","version":"<APP_VERSION>"}` when the database is reachable, or 503 with a non-ok `status` when it is not. `version` is the image git SHA (`APP_VERSION` bake-time env), or `unknown` when unset. Production deploy (`scripts/deploy-hostinger.sh`) requires this `version` to equal the merge commit SHA.
+- **Production deploy:** merges to `master` run `.github/workflows/docker-publish.yml`: CI, then a private GHCR image, then `scripts/deploy-hostinger.sh` against Hostinger VM `1136636` / Docker project `dsfor`. The script health-gates on `/api/health` and rolls back to the previous `VWF_IMAGE` on failure. The only secret it needs is `HOSTINGER_API_TOKEN`.
 - **API docs:** Swagger UI at `/docs` in development; disabled in production unless `SWAGGER_ENABLED=true`.
 - **Create a migration revision:**
 
@@ -247,7 +251,8 @@ cd frontend && npm run build && npm run test
 ## 📦 Deployment
 
 - Docker multi-stage build (see **Run — Docker** above)
-- GitHub Actions CI runs `pytest`, `flake8`, and frontend build/test
+- GitHub Actions CI runs `pytest`, `flake8`, frontend build/test, plus `shellcheck` / `actionlint`
+- Production auto-deploy is `scripts/deploy-hostinger.sh`, invoked by `.github/workflows/docker-publish.yml` after CI and the GHCR publish (private image). See **Configure & operate**
 - DigitalOcean deploy workflow stub at `.github/workflows/deploy.yml` (fork activates)
 
 ## 📚 Documentation
