@@ -17,6 +17,26 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _ENV_LOADED = False
 
 
+def _parse_bool_env(raw: str | None, default: bool) -> bool:
+    """Parse a tri-state env flag (``1/true/yes``) with empty meaning default."""
+    if raw is None or raw.strip() == '':
+        return default
+    return raw.strip().lower() in ('1', 'true', 'yes')
+
+
+def _parse_int_env(raw: str | None, name: str, default: int, minimum: int = 0) -> int:
+    """Parse an integer env value, raising ``ValueError`` when invalid."""
+    if raw is None or raw.strip() == '':
+        return default
+    try:
+        value = int(raw.strip())
+    except ValueError as exc:
+        raise ValueError(f'{name} must be an integer') from exc
+    if value < minimum:
+        raise ValueError(f'{name} must be >= {minimum}')
+    return value
+
+
 def load_env_file() -> None:
     """Load ``.env`` into ``os.environ`` once (skipped in production).
 
@@ -136,6 +156,41 @@ class AppConfig:
 
         trust_proxy = os.getenv('TRUST_PROXY', '').strip().lower()
         self.TRUST_PROXY = trust_proxy in ('1', 'true', 'yes')
+        self.TRUST_PROXY_HOPS = _parse_int_env(
+            os.getenv('TRUST_PROXY_HOPS'),
+            'TRUST_PROXY_HOPS',
+            default=1,
+            minimum=0,
+        )
+
+        self.RATELIMIT_ENABLED = _parse_bool_env(
+            os.getenv('RATELIMIT_ENABLED'),
+            default=self.APP_PROFILE != 'testing',
+        )
+        self.RATELIMIT_AUTH_IP_MAX = _parse_int_env(
+            os.getenv('RATELIMIT_AUTH_IP_MAX'),
+            'RATELIMIT_AUTH_IP_MAX',
+            default=10,
+            minimum=1,
+        )
+        self.RATELIMIT_AUTH_IP_WINDOW_SECONDS = _parse_int_env(
+            os.getenv('RATELIMIT_AUTH_IP_WINDOW_SECONDS'),
+            'RATELIMIT_AUTH_IP_WINDOW_SECONDS',
+            default=60,
+            minimum=1,
+        )
+        self.RATELIMIT_LOGIN_USER_MAX = _parse_int_env(
+            os.getenv('RATELIMIT_LOGIN_USER_MAX'),
+            'RATELIMIT_LOGIN_USER_MAX',
+            default=5,
+            minimum=1,
+        )
+        self.RATELIMIT_LOGIN_USER_WINDOW_SECONDS = _parse_int_env(
+            os.getenv('RATELIMIT_LOGIN_USER_WINDOW_SECONDS'),
+            'RATELIMIT_LOGIN_USER_WINDOW_SECONDS',
+            default=900,
+            minimum=1,
+        )
 
         self.SWAGGER_CONFIG = {
             'headers': [],

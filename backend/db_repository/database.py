@@ -2,10 +2,20 @@
 
 import os
 
-from sqlalchemy import create_engine, inspect
+from sqlalchemy import create_engine, event, inspect
 from sqlalchemy.orm import declarative_base, scoped_session, sessionmaker
 
 from ..config.app_config import AppConfig, load_env_file
+
+
+def _sqlite_on_connect(dbapi_conn, _connection_record):
+    """Enable WAL and a busy timeout so two gunicorn workers can share SQLite."""
+    cursor = dbapi_conn.cursor()
+    try:
+        cursor.execute('PRAGMA busy_timeout=30000')
+        cursor.execute('PRAGMA journal_mode=WAL')
+    finally:
+        cursor.close()
 
 
 class Database:
@@ -30,15 +40,16 @@ class Database:
         cfg = AppConfig.get_instance()
         database_url = cfg.SQLALCHEMY_DATABASE_URI
 
+        sqlite = database_url.startswith('sqlite')
         self._engine = create_engine(
             database_url,
             echo=cfg.APP_PROFILE == 'development',
             connect_args=(
-                {'check_same_thread': False}
-                if database_url.startswith('sqlite')
-                else {}
+                {'check_same_thread': False, 'timeout': 30} if sqlite else {}
             ),
         )
+        if sqlite:
+            event.listen(self._engine, 'connect', _sqlite_on_connect)
         self._session_factory = sessionmaker(bind=self._engine)
         self._Session = scoped_session(self._session_factory)
         self.Base = declarative_base()

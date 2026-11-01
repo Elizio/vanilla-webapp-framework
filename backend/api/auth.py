@@ -26,7 +26,12 @@ from .session_auth import (
     set_auth_cookie,
 )
 from .csrf import csrf_protect
-from .rate_limit import rate_limit_auth
+from .rate_limit import (
+    rate_limit_auth,
+    record_failed_login,
+    reset_failed_logins,
+    username_login_blocked,
+)
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -156,11 +161,16 @@ def login():
         description: Invalid credentials
       403:
         description: CSRF validation failed or account inactive
+      429:
+        description: Rate limit exceeded
     """
     credentials, error = _read_username_password()
     if error:
         return error
     username, password = credentials
+    blocked = username_login_blocked(username)
+    if blocked is not None:
+        return blocked
     user = User.query.filter_by(username=username).first()
 
     if (
@@ -170,9 +180,11 @@ def login():
     ):
         if not user_may_authenticate(user):
             return error_response(ACCOUNT_INACTIVE, 403)
+        reset_failed_logins(username)
         response = jsonify({'authenticated': True, 'username': user.username})
         return set_auth_cookie(response, user.id)
 
+    record_failed_login(username)
     return error_response(INVALID_CREDENTIALS, 401)
 
 
@@ -224,6 +236,8 @@ def register():
         description: Username already exists
       403:
         description: CSRF validation failed
+      429:
+        description: Rate limit exceeded
     """
     credentials, error = _read_username_password()
     if error:

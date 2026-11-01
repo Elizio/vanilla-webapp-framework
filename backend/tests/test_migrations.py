@@ -12,6 +12,8 @@ from backend.models.user import User
 
 REVISION_BEFORE_PASSWORD_HASH_WIDEN = '005'
 PASSWORD_HASH_WIDEN_REVISION = '006'
+HEAD_REVISION = '007'
+RATE_LIMIT_COUNTERS_REVISION = '007'
 PASSWORD_HASH_WIDENED_LENGTH = 255
 
 _USER_COLUMNS = (
@@ -107,8 +109,9 @@ def test_alembic_upgrade_head(tmp_path, monkeypatch):
 
     tables = inspect(engine).get_table_names()
     assert 'users' in tables
+    assert 'rate_limit_counters' in tables
     assert 'alembic_version' in tables
-    assert _current_revision(engine) == PASSWORD_HASH_WIDEN_REVISION
+    assert _current_revision(engine) == HEAD_REVISION
 
 
 def test_password_hash_column_fits_werkzeug_hash():
@@ -121,7 +124,7 @@ def test_password_hash_column_fits_werkzeug_hash():
 
 
 def test_migration_006_preserves_rows_and_password_hashes(tmp_path, monkeypatch):
-    """Upgrade 005 → head keeps every users value and hash verification."""
+    """Upgrade 005 → 006 keeps every users value and hash verification."""
     _db_path, alembic_cfg, engine = _configure_tmp_db(tmp_path, monkeypatch)
     command.upgrade(alembic_cfg, REVISION_BEFORE_PASSWORD_HASH_WIDEN)
     assert _current_revision(engine) == REVISION_BEFORE_PASSWORD_HASH_WIDEN
@@ -176,7 +179,7 @@ def test_migration_006_preserves_rows_and_password_hashes(tmp_path, monkeypatch)
     rows_before = _fetch_users(engine)
     assert len(rows_before) == 4
 
-    command.upgrade(alembic_cfg, 'head')
+    command.upgrade(alembic_cfg, PASSWORD_HASH_WIDEN_REVISION)
     assert _current_revision(engine) == PASSWORD_HASH_WIDEN_REVISION
 
     rows_after = _fetch_users(engine)
@@ -224,7 +227,7 @@ def test_upgrade_head_is_idempotent(tmp_path, monkeypatch):
     revision_first = _current_revision(engine)
 
     command.upgrade(alembic_cfg, 'head')
-    assert _current_revision(engine) == revision_first == PASSWORD_HASH_WIDEN_REVISION
+    assert _current_revision(engine) == revision_first == HEAD_REVISION
     assert _fetch_users(engine) == rows_first
     assert check_password_hash(rows_first[0]['password_hash'], password)
 
@@ -289,10 +292,50 @@ def test_downgrade_005_and_upgrade_again_on_short_hash_data(tmp_path, monkeypatc
     assert check_password_hash(rows_at_head[0]['password_hash'], password)
 
     command.upgrade(alembic_cfg, 'head')
-    assert _current_revision(engine) == PASSWORD_HASH_WIDEN_REVISION
+    assert _current_revision(engine) == HEAD_REVISION
     assert _users_schema(engine)['password_hash_length'] == PASSWORD_HASH_WIDENED_LENGTH
     assert _fetch_users(engine) == rows_at_head
     assert check_password_hash(rows_at_head[0]['password_hash'], password)
+
+
+def test_migration_007_rate_limit_counters_round_trip(tmp_path, monkeypatch):
+    """007 creates rate_limit_counters; downgrade drops it; upgrade is back."""
+    _db_path, alembic_cfg, engine = _configure_tmp_db(tmp_path, monkeypatch)
+    command.upgrade(alembic_cfg, PASSWORD_HASH_WIDEN_REVISION)
+    assert 'rate_limit_counters' not in inspect(engine).get_table_names()
+
+    command.upgrade(alembic_cfg, RATE_LIMIT_COUNTERS_REVISION)
+    inspector = inspect(engine)
+    assert 'rate_limit_counters' in inspector.get_table_names()
+    columns = {
+        column['name'] for column in inspector.get_columns('rate_limit_counters')
+    }
+    assert columns == {'scope', 'key', 'window_start', 'hit_count', 'expires_at'}
+    pk = inspector.get_pk_constraint('rate_limit_counters')['constrained_columns']
+    assert pk == ['scope', 'key', 'window_start']
+
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                'INSERT INTO rate_limit_counters '
+                '(scope, key, window_start, hit_count, expires_at) '
+                "VALUES ('auth_ip', '192.0.2.1', 100, 3, 160)"
+            )
+        )
+
+    command.downgrade(alembic_cfg, PASSWORD_HASH_WIDEN_REVISION)
+    assert _current_revision(engine) == PASSWORD_HASH_WIDEN_REVISION
+    assert 'rate_limit_counters' not in inspect(engine).get_table_names()
+    assert 'users' in inspect(engine).get_table_names()
+
+    command.upgrade(alembic_cfg, 'head')
+    assert _current_revision(engine) == HEAD_REVISION
+    assert 'rate_limit_counters' in inspect(engine).get_table_names()
+    with engine.connect() as conn:
+        remaining = conn.execute(
+            text('SELECT COUNT(*) FROM rate_limit_counters')
+        ).scalar()
+    assert remaining == 0
 
 
 def test_alembic_check_reports_no_model_drift(tmp_path, monkeypatch):
@@ -300,4 +343,4 @@ def test_alembic_check_reports_no_model_drift(tmp_path, monkeypatch):
     _db_path, alembic_cfg, engine = _configure_tmp_db(tmp_path, monkeypatch)
     command.upgrade(alembic_cfg, 'head')
     command.check(alembic_cfg)
-    assert _current_revision(engine) == PASSWORD_HASH_WIDEN_REVISION
+    assert _current_revision(engine) == HEAD_REVISION

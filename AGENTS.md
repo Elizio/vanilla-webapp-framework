@@ -8,7 +8,7 @@ Flask REST API + vanilla JavaScript SPA (Alpine.js, Tailwind, Vite). Human onboa
 |-----|-------|
 | **This file** | Setup, `make` loop, verification, follow-ups |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Layers, request flow, feature recipes, README sync triggers |
-| [docs/adr/](docs/adr/) | Why Flask, Vite, GHCR, Hostinger, Phase 1 tools |
+| [docs/adr/](docs/adr/) | Why Flask, Vite, GHCR, Hostinger, Phase 1 tools, shared-DB auth rate limits |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | PR/issue templates and review expectations |
 | [docs/oauth-configuration.md](docs/oauth-configuration.md) | OAuth (human): Google, Facebook |
 | [docs/billing-configuration.md](docs/billing-configuration.md) | Billing (human): Lemon Squeezy, webhooks |

@@ -31,14 +31,19 @@ WEBHOOK_INVALID = 'WEBHOOK_INVALID'
 ENTITLEMENT_REQUIRED = 'ENTITLEMENT_REQUIRED'
 
 
-def error_response(code: str, status: int):
+def error_response(code: str, status: int, headers: dict | None = None):
     """Build a JSON error response with a stable code.
 
     Args:
         code: Machine-readable error code (e.g. ``INVALID_CREDENTIALS``).
         status: HTTP status code.
+        headers: Optional extra response headers (e.g. ``Retry-After``).
 
     Returns:
         Tuple of (Flask response, status code).
     """
-    return jsonify({'code': code}), status
+    response = jsonify({'code': code})
+    if headers:
+        for key, value in headers.items():
+            response.headers[key] = str(value)
+    return response, status

@@ -90,6 +90,8 @@ Contract: `backend/billing/providers/base.py`. Working adapter: `lemon_squeezy.p
 
 Cookie session (`auth_token`) + CSRF (`GET /api/csrf` then `X-CSRF-Token`). Inactive users get **403** `ACCOUNT_INACTIVE`. Google links by email only when `email_verified`; Facebook never links by email. `users.password_hash` is `String(255)`.
 
+Auth rate limits (login + register) use fixed windows in `rate_limit_counters`, not an in-process dict: per client IP (IPv6 /64) and failed logins per normalized username. `RATELIMIT_ENABLED` is on in production/development and off in testing. `TRUST_PROXY=1` plus `TRUST_PROXY_HOPS` (default 1) select `request.remote_addr`; the reverse proxy must overwrite `X-Forwarded-For`, not trust a client-sent value. Decision: [docs/adr/0006-auth-rate-limit-store.md](docs/adr/0006-auth-rate-limit-store.md).
+
 Database: `from backend.db_repository.database import db, db_session`. New reads use `db_session.get(Model, id)`. Wrap writes in try/commit/rollback.
 
 ## Add a SPA page

@@ -18,6 +18,7 @@ from backend.models.billing_event import BillingEvent  # noqa: E402, F401
 from backend.models.billing_credit_ledger import (  # noqa: E402, F401
     BillingCreditLedger,
 )
+from backend.models.rate_limit_counter import RateLimitCounter  # noqa: E402, F401
 
 config = context.config
 

@@ -10,9 +10,9 @@ backend/
 ├── app.py               # Dev entrypoint
 ├── web_routes.py        # SPA fallback + error handlers
 ├── alembic.ini
-├── api/                 # auth, billing, oauth, routes
+├── api/                 # auth, rate_limit, billing, oauth, routes
 ├── billing/             # plans, service, entitlements, providers/
-├── models/              # data-only SQLAlchemy
+├── models/              # data-only SQLAlchemy (users, billing, rate_limit_counters)
 ├── db_repository/       # engine/session + migrations/
 ├── config/              # AppConfig, UserConfig, logging
 └── tests/
@@ -45,7 +45,9 @@ Provider-agnostic layer. To add an adapter: [ARCHITECTURE.md](../ARCHITECTURE.md
 
 Cookie session + CSRF. Inactive users: **403** `ACCOUNT_INACTIVE`. Google links by email only when `email_verified`; Facebook never links by email. `users.password_hash` is `String(255)`.
 
-**Canonical:** `@backend/api/auth.py`, `@backend/api/oauth.py`, `@backend/api/session_auth.py`, `@backend/api/csrf.py`
+Login/register rate limits live in `rate_limit_counters` (Alembic 007), shared across gunicorn workers. Per-IP (10 / 60 s, IPv6 /64) plus failed-login-per-username (5 / 15 min). `RATELIMIT_ENABLED` defaults off only in the testing profile — tests that assert 429 must turn it on. Store errors fail open. See [ADR 0006](../docs/adr/0006-auth-rate-limit-store.md).
+
+**Canonical:** `@backend/api/auth.py`, `@backend/api/rate_limit.py`, `@backend/api/oauth.py`, `@backend/api/session_auth.py`, `@backend/api/csrf.py`
 
 Read settings from `AppConfig.get_instance()` or `current_app.config`. Call `load_env_file()` only before Flask starts (`database.py`).
 
