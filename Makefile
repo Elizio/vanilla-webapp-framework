@@ -2,7 +2,7 @@
 # `make setup && make check` is the local equivalent of CI.
 .PHONY: setup dev test lint format typecheck check migrate audit \
 	lint-python lint-frontend lint-shell lint-tools \
-	test-backend test-frontend \
+	test-backend test-frontend init \
 	check-pins audit-python audit-frontend build-frontend \
 	migrations-check smoke \
 	prove-ruff-fail prove-mypy-fail prove-biome-fail prove-gitleaks-fail \
@@ -115,3 +115,7 @@ dev:
 
 migrate:
 	alembic -c backend/alembic.ini upgrade head
+
+init:
+	@test -n "$(NAME)" || (echo "Usage: make init NAME=my-app" >&2; exit 1)
+	$(PYTHON) scripts/init-project --name "$(NAME)"

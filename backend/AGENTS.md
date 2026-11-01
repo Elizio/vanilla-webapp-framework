@@ -20,7 +20,7 @@ backend/
 
 ## App initialization
 
-`create_app()` in `backend/__init__.py`: CORS → `AppConfig` → `UserConfig` → `setup_logging` → Flasgger → blueprints (`auth`, `api`, `oauth`, `billing`, `csrf`) → `register_web_routes` → `init_db()` (test) or `bootstrap_dev_database()` (development). Production migrations run once in `docker-entrypoint.sh`, not in the factory.
+`create_app()` in `backend/__init__.py`: CORS → `AppConfig` → `UserConfig` → `setup_logging` → Flasgger → blueprints (`auth`, `api`, `oauth`, `billing`, `csrf`) → `register_web_routes` → `bootstrap_dev_database()` (development). Schema changes go through Alembic (`make migrate` / `alembic -c backend/alembic.ini upgrade head`). Production migrations run once in `docker-entrypoint.sh`, not in the factory.
 
 A module-level `app = create_app()` runs at import time. Tests call `create_app()` via `tests/conftest.py`.
 
@@ -54,7 +54,7 @@ Read settings from `AppConfig.get_instance()` or `current_app.config`. Call `loa
 Custom SQLAlchemy singleton — not Flask-SQLAlchemy.
 
 ```python
-from backend.db_repository.database import db, db_session, init_db
+from backend.db_repository.database import db, db_session
 ```
 
 | Pattern | Usage |
@@ -77,7 +77,7 @@ make migrations-check   # alembic upgrade / check / downgrade / upgrade
 # full local CI loop: make check
 ```
 
-Fixtures in `tests/conftest.py`: `test_app`, `test_client`, `test_db` (`drop_all` → `init_db`). Register + login for auth tests (`@backend/tests/test_auth.py`). Coverage: `fail_under` in `pyproject.toml` (omits `backend/tests`).
+Fixtures in `tests/conftest.py`: `test_app`, `test_client`, `test_db`. Register + login for auth tests (`@backend/tests/test_auth.py`). Coverage: `fail_under` in `pyproject.toml` (omits `backend/tests`). Operator schema: `make migrate` / `alembic -c backend/alembic.ini upgrade head`.
 
 ## Swagger and Alembic
 

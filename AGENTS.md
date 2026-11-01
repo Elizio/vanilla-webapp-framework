@@ -12,6 +12,7 @@ Flask REST API + vanilla JavaScript SPA (Alpine.js, Tailwind, Vite). Human onboa
 | [CONTRIBUTING.md](CONTRIBUTING.md) | PR/issue templates and review expectations |
 | [docs/oauth-configuration.md](docs/oauth-configuration.md) | OAuth (human): Google, Facebook |
 | [docs/billing-configuration.md](docs/billing-configuration.md) | Billing (human): Lemon Squeezy, webhooks |
+| [docs/template-placeholders.md](docs/template-placeholders.md) | Names rewritten by `make init` |
 | [backend/AGENTS.md](backend/AGENTS.md) | Flask / DB / JWT / pytest map |
 | [frontend/AGENTS.md](frontend/AGENTS.md) | Vite / Alpine / controllers map |
 | [.cursor/rules/documentation.mdc](.cursor/rules/documentation.mdc) | README how-to + in-code docs |
@@ -29,11 +30,11 @@ vanilla-webapp-framework/
 ├── requirements.txt      # Python runtime pins
 ├── requirements-dev.txt  # runtime + ruff, mypy, pytest, pre-commit
 ├── pyproject.toml        # Ruff, mypy, coverage floor
-├── Makefile              # setup, lint, format, test, check, migrate, migrations-check, smoke
+├── Makefile              # setup, lint, format, test, check, migrate, migrations-check, smoke, init
 ├── .pre-commit-config.yaml
 ├── setup.py              # pip install -e .
 ├── .github/workflows/    # CI (backend, frontend, lint) + image smoke in build-and-push
-├── scripts/              # pins, deploy, lint-tool install, migrations-check.sh, smoke-image.sh
+├── scripts/              # pins, deploy, lint-tool install, migrations-check.sh, smoke-image.sh, init-project
 └── Dockerfile            # Multi-stage production image
 ```
 
@@ -69,6 +70,7 @@ Two terminals from the repo root: `flask run` (`:5000`) and `cd frontend && npm 
 | `make smoke` | Built image, dummy secrets, SQLite, curl `/api/health` + `/` (`IMAGE=`, Docker; `build-and-push` before push) |
 | `make format` | Ruff + Biome autofixes |
 | `make migrate` | `alembic -c backend/alembic.ini upgrade head` |
+| `make init` | Rewrite template names (`NAME=my-app`), reset plans, run `make check`. See [docs/template-placeholders.md](docs/template-placeholders.md) |
 | `make typecheck` | `mypy backend` |
 
 Biome lints JS and JSON only — not `.hbs` templates. `frontend/src/styles/main.css` is excluded (Tailwind stays on Vite/PostCSS). New Python modules inherit strict mypy in `pyproject.toml`; do not add them to the ignore list.

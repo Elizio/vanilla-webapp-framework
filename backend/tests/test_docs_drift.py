@@ -35,6 +35,8 @@ MAKEFILE_TARGET_RE = re.compile(r'^([A-Za-z][A-Za-z0-9_-]*):')
 # Concatenated so a repo-wide search for the retired PaaS name stays clean.
 RETIRED_PAAS_RE = re.compile("digital" + "ocean", re.IGNORECASE)
 DATA_LOGS_RE = re.compile(r'/data/logs')
+# Split so the needle is not a contiguous token in this file's own docs.
+STALE_CREATE_ALL_RE = re.compile("init" + "_db")
 
 DOC_PATHS_FOR_RETIRED_PAAS = [
     README,
@@ -281,6 +283,21 @@ def test_no_retired_paas_deploy_claims_in_agent_docs():
                 rel = path.relative_to(REPO_ROOT).as_posix()
                 hits.append(f'{rel}:{lineno}: {line.strip()}')
     assert not hits, 'Retired PaaS deploy claim:\n' + '\n'.join(hits)
+
+
+def test_no_stale_create_all_init_in_agent_docs():
+    """Operator/agent docs must not tell people to initialize the DB with create_all.
+
+    Schema changes go through Alembic (``make migrate`` / ``upgrade head``).
+    Test fixtures may still call the helper in code; that is out of scope here.
+    """
+    hits = []
+    for path in DOC_PATHS_FOR_RETIRED_PAAS:
+        for lineno, line in _iter_lines(path):
+            if STALE_CREATE_ALL_RE.search(line):
+                rel = path.relative_to(REPO_ROOT).as_posix()
+                hits.append(f'{rel}:{lineno}: {line.strip()}')
+    assert not hits, 'Stale create_all init in docs:\n' + '\n'.join(hits)
 
 
 def test_no_data_logs_paths_in_docs():
