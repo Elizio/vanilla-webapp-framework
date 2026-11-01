@@ -183,7 +183,7 @@ def test_init_rewrites_copy_and_clears_template_names(tmp_path: Path) -> None:
     assert "APP_SUBPATH=/demoapp" in new_placeholders
     setup = (dest / "setup.py").read_text(encoding="utf-8")
     assert "demoapp" in setup
-    assert 'author="YOUR_NAME"' in setup
+    assert 'name="demoapp"' in setup
     assert not (dest / "vibe-prompts-examples" / "temp.txt").exists()
     assert (dest / "docs" / "superpowers" / "README.md").is_file()
     assert not (dest / "docs" / "superpowers" / "plans").exists()

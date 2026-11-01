@@ -249,11 +249,14 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     target = new_values(args.name)
-    mapping = sorted(
-        ((current[key], target[key]) for key in current if key in target),
-        key=lambda pair: len(pair[0]),
-        reverse=True,
-    )
+    pairs: list[tuple[str, str]] = []
+    seen_old: set[str] = set()
+    for key, old in current.items():
+        if key not in target or old in seen_old:
+            continue
+        seen_old.add(old)
+        pairs.append((old, target[key]))
+    mapping = sorted(pairs, key=lambda pair: len(pair[0]), reverse=True)
     changed = replace_in_tree(root, mapping)
     reset_project_docs(root)
     placeholders_path.write_text(

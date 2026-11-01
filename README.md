@@ -163,7 +163,7 @@ Copy `.env.example` to `.env` and adjust values before running.
 3. **Database**
 
    - **Development:** `bootstrap_dev_database()` creates or upgrades the schema when Flask starts (`APP_PROFILE=development`).
-   - **Testing:** tables are created via `init_db()` (`create_all`) when `APP_PROFILE=testing`.
+   - **Testing:** `APP_PROFILE=testing` uses in-memory SQLite (pytest fixtures). Schema changes still go through Alembic.
    - **Production:** the container entrypoint runs `alembic -c backend/alembic.ini upgrade head` once, then gunicorn. Local `flask run` does **not** migrate:
 
      ```bash

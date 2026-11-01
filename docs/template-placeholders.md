@@ -12,9 +12,9 @@ APP_SUBPATH=/vanilla-webapp-framework
 HOSTINGER_VM=1136636
 HOSTINGER_PROJECT=dsfor
 GITHUB_OWNER=Elizio
-SETUP_AUTHOR=Your Name
-SETUP_EMAIL=your.email@example.com
-SETUP_URL=https://github.com/yourusername/vanilla-webapp-framework
+SETUP_AUTHOR=Elizio
+SETUP_EMAIL=Elizio@users.noreply.github.com
+SETUP_URL=https://github.com/Elizio/vanilla-webapp-framework
 ```
 
 | Key | Meaning |
