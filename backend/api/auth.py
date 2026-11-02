@@ -25,9 +25,17 @@ from .jwt_utils import (
     token_version_matches,
 )
 from .session_auth import (
-    clear_auth_cookie,
+    apply_rotated_refresh,
+    clear_session_cookies,
+    get_refresh_token_from_request,
     get_token_from_request,
-    set_auth_cookie,
+    set_session_cookies,
+)
+from .refresh_tokens import (
+    RotatedRefresh,
+    revoke_all_families,
+    revoke_presented_token,
+    rotate_refresh_token,
 )
 from .csrf import csrf_protect
 from .rate_limit import (
@@ -91,8 +99,8 @@ def _read_username_password():
 def bump_token_version(user: User) -> int:
     """Increment ``users.token_version`` so existing JWTs fail ``tv`` checks.
 
-    Call this on logout and on any later password-change or reset path
-    (#59) or logout-all (#60). There is no password-change route today.
+    Call this on logout-all and on any later password-change or reset
+    path (#59). Regular logout revokes one refresh family instead.
 
     Args:
         user: Persisted user row whose tokens should be revoked.
@@ -197,6 +205,8 @@ def login():
               type: string
             password:
               type: string
+            remember_me:
+              type: boolean
           required:
             - username
             - password
@@ -216,6 +226,7 @@ def login():
     if error:
         return error
     username, password = credentials
+    remember_me = (request.get_json(silent=True) or {}).get('remember_me') is True
     blocked = username_login_blocked(username)
     if blocked is not None:
         return blocked
@@ -229,41 +240,118 @@ def login():
             return error_response(ACCOUNT_INACTIVE, 403)
         reset_failed_logins(username)
         response = jsonify({'authenticated': True, 'username': user.username})
-        set_auth_cookie(response, user.id, user.token_version)
+        set_session_cookies(response, user, remember_me=remember_me)
         return issue_device_cookie(response, username)
 
     return error_response(INVALID_CREDENTIALS, 401)
 
 
-@auth_bp.route('/api/logout', methods=['POST'])
+@auth_bp.route('/api/auth/refresh', methods=['POST'])
 @csrf_protect
-def logout():
+def refresh():
     """
-    Revoke this user's JWTs and clear the session cookie.
-
-    Increments ``users.token_version`` so every access token for the
-    account fails ``tv`` checks (cookie or ``Authorization: Bearer``).
-    A stale or missing token is ignored; the cookie is still cleared.
+    Rotate the refresh cookie and issue a new access token.
     ---
     tags:
       - Authentication
     responses:
       200:
-        description: Logged out; existing JWTs for this user are revoked
+        description: New access and refresh cookies set
+      401:
+        description: Refresh token missing, reused, expired, or revoked
+      403:
+        description: CSRF validation failed or account inactive
+    """
+    raw = get_refresh_token_from_request()
+    if not raw:
+        return error_response(INVALID_TOKEN, 401)
+    result = rotate_refresh_token(
+        raw,
+        user_agent=request.headers.get('User-Agent'),
+    )
+    if result == 'inactive':
+        return error_response(ACCOUNT_INACTIVE, 403)
+    if not isinstance(result, RotatedRefresh):
+        return error_response(INVALID_TOKEN, 401)
+    response = jsonify({'authenticated': True, 'username': result.user.username})
+    return apply_rotated_refresh(
+        response,
+        result.user,
+        result.raw_token,
+        result.cookie_max_age,
+    )
+
+
+@auth_bp.route('/api/auth/logout', methods=['POST'])
+@csrf_protect
+def logout():
+    """
+    Revoke this browser's refresh family and clear session cookies.
+
+    Does not bump ``token_version`` (other devices stay signed in).
+    Access JWTs already issued remain valid until they expire.
+    ---
+    tags:
+      - Authentication
+    responses:
+      200:
+        description: Logged out; this refresh family is revoked
       403:
         description: CSRF validation failed
     """
-    token = get_token_from_request()
-    if token:
-        try:
-            data = jwt.decode(token, _jwt_secret(), algorithms=[JWT_ALGORITHM])
-            user = _authenticate_token_payload(data)
-            if user is not None:
-                bump_token_version(user)
-        except jwt.InvalidTokenError:
-            pass
+    raw = get_refresh_token_from_request()
+    if raw:
+        revoke_presented_token(raw)
     response = jsonify({'authenticated': False})
-    return clear_auth_cookie(response)
+    return clear_session_cookies(response)
+
+
+@auth_bp.route('/api/logout', methods=['POST'])
+@csrf_protect
+def logout_legacy():
+    """
+    Deprecated alias for logout. Clears cookies; revokes a family only
+    if a refresh cookie happens to be sent (browsers will not send the
+    ``Path=/api/auth`` cookie here). Prefer ``POST /api/auth/logout``.
+    ---
+    tags:
+      - Authentication
+    responses:
+      200:
+        description: Cookies cleared
+      403:
+        description: CSRF validation failed
+    """
+    raw = get_refresh_token_from_request()
+    if raw:
+        revoke_presented_token(raw)
+    response = jsonify({'authenticated': False})
+    return clear_session_cookies(response)
+
+
+@auth_bp.route('/api/auth/logout-all', methods=['POST'])
+@csrf_protect
+@token_required
+def logout_all(current_user):
+    """
+    Revoke every refresh family and bump ``token_version``.
+    ---
+    tags:
+      - Authentication
+    security:
+      - Bearer: []
+    responses:
+      200:
+        description: All sessions revoked
+      401:
+        description: Missing or invalid access token
+      403:
+        description: CSRF validation failed or account inactive
+    """
+    bump_token_version(current_user)
+    revoke_all_families(current_user.id)
+    response = jsonify({'authenticated': False})
+    return clear_session_cookies(response)
 
 
 @auth_bp.route('/api/register', methods=['POST'])
@@ -326,5 +414,5 @@ def register():
         {'code': USER_CREATED, 'authenticated': True, 'username': username}
     )
     response.status_code = 201
-    set_auth_cookie(response, user.id, user.token_version)
+    set_session_cookies(response, user, remember_me=False)
     return issue_device_cookie(response, username)

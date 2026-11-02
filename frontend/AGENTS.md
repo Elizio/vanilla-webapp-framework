@@ -38,7 +38,7 @@ Add a page: [ARCHITECTURE.md](../ARCHITECTURE.md#add-a-spa-page). Classify `seo.
 
 Root `x-data="spaApp"`: `isLoggedIn`, `loadPage`, `logout`, `currentPage`. Dark mode: `class="dark"` on `<html>`, initialized in `menu.js`.
 
-Fetch `/api/*` with credentials. 401 → `this.appContext.logout()`. Session cookie is httpOnly; CSRF token comes from `GET /api/csrf` via `api.js` (not `document.cookie`).
+Fetch `/api/*` with credentials via `api.js`. A 401 on a non-auth route triggers one shared `POST /api/auth/refresh` (in-tab promise, `navigator.locks` across tabs) and retries the request once. A failed refresh dispatches `auth:expired`; `app.js` shows login. `fetchSession()` tries refresh once when the access cookie has expired. Logout calls `POST /api/auth/logout`. Session cookies are httpOnly; CSRF token comes from `GET /api/csrf` (not `document.cookie`).
 
 **Canonical:** `@frontend/src/js/controllers/landingpage.js`, `@frontend/src/js/api.js`
 

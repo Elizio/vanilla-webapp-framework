@@ -15,7 +15,13 @@ import {
     t as translate,
     tError as translateError,
 } from './i18n.js';
-import { apiFetch, fetchSession, initCsrf, resetCsrf } from './api.js';
+import {
+    AUTH_EXPIRED_EVENT,
+    apiFetch,
+    fetchSession,
+    initCsrf,
+    resetCsrf,
+} from './api.js';
 
 /**
  * Resolve a page key from the current pathname.
@@ -354,21 +360,29 @@ export const createSpaApp = () => {
             this.applyInitialSeo();
         },
 
-        async logout() {
-            try {
-                await apiFetch('/api/logout', { method: 'POST' });
-            } catch (err) {
-                console.error('Logout failed:', err);
-            }
+        /**
+         * Clear local auth UI without calling the logout API.
+         * @param {{ showLogin?: boolean }} [options]
+         */
+        async clearLocalSession({ showLogin = false } = {}) {
             resetCsrf();
             this.isLoggedIn = false;
-            this.showLogin = false;
+            this.showLogin = showLogin;
             await initCsrf();
             const strippedPath = stripBase(window.location.pathname);
             if (strippedPath !== '/') {
                 window.history.replaceState(null, '', withBase('/'));
             }
             this.refreshMountedPages();
+        },
+
+        async logout() {
+            try {
+                await apiFetch('/api/auth/logout', { method: 'POST' });
+            } catch (err) {
+                console.error('Logout failed:', err);
+            }
+            await this.clearLocalSession({ showLogin: false });
         },
     };
 
@@ -379,5 +393,12 @@ export const createSpaApp = () => {
     window.menuController = app.menuController;
     window.loginController = app.loginController;
     window.welcomeController = app.welcomeController;
+
+    if (typeof window.addEventListener === 'function') {
+        window.addEventListener(AUTH_EXPIRED_EVENT, () => {
+            app.clearLocalSession({ showLogin: true });
+        });
+    }
+
     return app;
 };
