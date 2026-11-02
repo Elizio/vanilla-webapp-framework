@@ -300,6 +300,24 @@ def test_no_stale_create_all_init_in_agent_docs():
     assert not hits, 'Stale create_all init in docs:\n' + '\n'.join(hits)
 
 
+STALE_OAUTH_JWT_FRAGMENT_RE = re.compile(r'#token|localStorage|URL fragment')
+OAUTH_JWT_FRAGMENT_DOC_PATHS = [
+    REPO_ROOT / 'docs' / 'oauth-configuration.md',
+    REPO_ROOT / 'backend' / 'api' / 'oauth.py',
+]
+
+
+def test_oauth_docs_do_not_claim_jwt_in_url_fragment():
+    """OAuth how-to and callback docs must describe the cookie redirect."""
+    hits = []
+    for path in OAUTH_JWT_FRAGMENT_DOC_PATHS:
+        for lineno, line in _iter_lines(path):
+            if STALE_OAUTH_JWT_FRAGMENT_RE.search(line):
+                rel = path.relative_to(REPO_ROOT).as_posix()
+                hits.append(f'{rel}:{lineno}: {line.strip()}')
+    assert not hits, 'Stale JWT-in-fragment OAuth claim:\n' + '\n'.join(hits)
+
+
 def test_no_data_logs_paths_in_docs():
     """Operator docs must not mention the retired ``/data/logs`` log directory."""
     hits = []

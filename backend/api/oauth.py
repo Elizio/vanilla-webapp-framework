@@ -4,7 +4,7 @@ import re
 from urllib.parse import quote
 
 from authlib.integrations.flask_client import OAuth
-from flask import Blueprint, current_app, jsonify, redirect
+from flask import Blueprint, Flask, current_app, jsonify, redirect
 
 from ..db_repository.database import db_session
 from ..models.user import User
@@ -15,12 +15,21 @@ from .session_auth import set_auth_cookie
 oauth = OAuth()
 oauth_bp = Blueprint('oauth', __name__)
 
+# Pin authorize, token, and /me to one currently supported Graph API version.
+FACEBOOK_GRAPH_API_VERSION = 'v26.0'
+
 _ENABLED_PROVIDERS = set()
 _oauth_app = None
 
 
-def register_oauth_clients(app):
-    """Register OAuth provider clients for configured credentials."""
+def register_oauth_clients(app: Flask) -> None:
+    """Register OAuth provider clients for configured credentials.
+
+    A provider is enabled only when both its client id and secret are set.
+    Missing credentials leave that provider off (login/callback 404). In the
+    production profile, an enabled provider with an empty
+    ``OAUTH_REDIRECT_BASE`` logs a warning and does not crash.
+    """
     global _ENABLED_PROVIDERS, _oauth_app
     if _oauth_app is not app:
         oauth.init_app(app)
@@ -42,21 +51,44 @@ def register_oauth_clients(app):
         _ENABLED_PROVIDERS.add('google')
 
     if cfg.get('FACEBOOK_CLIENT_ID') and cfg.get('FACEBOOK_CLIENT_SECRET'):
+        version = FACEBOOK_GRAPH_API_VERSION
         oauth.register(
             name='facebook',
             overwrite=True,
             client_id=cfg['FACEBOOK_CLIENT_ID'],
             client_secret=cfg['FACEBOOK_CLIENT_SECRET'],
-            authorize_url='https://www.facebook.com/v19.0/dialog/oauth',
-            access_token_url='https://graph.facebook.com/v19.0/oauth/access_token',
+            authorize_url=f'https://www.facebook.com/{version}/dialog/oauth',
+            access_token_url=(
+                f'https://graph.facebook.com/{version}/oauth/access_token'
+            ),
             api_base_url='https://graph.facebook.com/',
             client_kwargs={'scope': 'email'},
         )
         _ENABLED_PROVIDERS.add('facebook')
 
+    _warn_if_missing_production_redirect_base(app)
 
-def enabled_providers():
+
+def enabled_providers() -> list[str]:
+    """Return enabled provider keys in sorted order."""
     return sorted(_ENABLED_PROVIDERS)
+
+
+def _warn_if_missing_production_redirect_base(app: Flask) -> None:
+    """Warn when production OAuth is on but ``OAUTH_REDIRECT_BASE`` is empty."""
+    if app.config.get('APP_PROFILE') != 'production':
+        return
+    if not _ENABLED_PROVIDERS:
+        return
+    base = (app.config.get('OAUTH_REDIRECT_BASE') or '').strip()
+    if base:
+        return
+    app.logger.warning(
+        'OAUTH_REDIRECT_BASE is empty while OAuth providers are enabled '
+        'in production; callback URLs will be relative. Set it to the '
+        'public app URL including any subpath '
+        '(for example https://dsfor.fun/vanilla-webapp-framework).'
+    )
 
 
 def _redirect_uri(provider):
@@ -174,7 +206,10 @@ def _fetch_userinfo(client, provider, token):
 
     if provider == 'facebook':
         # Graph has no email-verified flag on me?fields=id,name,email.
-        resp = client.get('me?fields=id,name,email', token=token)
+        resp = client.get(
+            f'{FACEBOOK_GRAPH_API_VERSION}/me?fields=id,name,email',
+            token=token,
+        )
         data = resp.json()
         return {
             'oauth_id': data['id'],
@@ -229,7 +264,7 @@ def oauth_login(provider):
 @oauth_bp.route('/api/auth/<provider>/callback', methods=['GET'])
 def oauth_callback(provider):
     """
-    OAuth callback — exchange code, create or find user, issue JWT.
+    OAuth callback — exchange code, create or find user, set auth cookie.
     ---
     tags:
       - Authentication
@@ -241,7 +276,9 @@ def oauth_callback(provider):
         enum: [google, facebook]
     responses:
       302:
-        description: Redirect to SPA with JWT in URL fragment
+        description: >-
+          Redirect to FRONTEND_URL with an httpOnly auth cookie
+          (`?auth=success` or `?auth_error=CODE`)
       404:
         description: Provider not configured
     """
