@@ -960,6 +960,98 @@ def test_rotating_ip_brute_force_password_checks_stay_bounded(
     assert len(calls) >= 5
 
 
+def _exhaust_untrusted_alice_backoff(test_app) -> None:
+    """Drive Alice's global untrusted backoff into a frozen-clock 429."""
+    for index in range(20):
+        attacker = test_app.test_client()
+        response = _login(
+            attacker,
+            'alice',
+            'wrong-password',
+            remote_addr=f'203.0.{index}.20',
+        )
+        assert response.status_code in (401, 429), index
+
+
+def test_missing_device_cookie_does_not_bypass_backoff(
+    test_app, test_db, test_client, monkeypatch
+):
+    """No ``auth_device`` cookie stays on the untrusted global backoff.
+
+    A 200 here means leftover counters (or fail-open) skipped the limiter,
+    not that a cookie was trusted.
+    """
+    from backend.api.rate_limit import DEVICE_COOKIE_NAME
+
+    _enable_rate_limit(test_app)
+    test_app.config['RATELIMIT_AUTH_IP_MAX'] = 100
+    _freeze_now(monkeypatch, 1_699_999_200.0)
+    register_user(test_client, username='alice', password='testpass8')
+    _exhaust_untrusted_alice_backoff(test_app)
+
+    control = test_app.test_client()
+    assert control.get_cookie(DEVICE_COOKIE_NAME) is None
+    blocked = _login(control, 'alice', 'testpass8', remote_addr='198.51.100.99')
+    assert blocked.status_code == 429, (
+        'no-cookie login succeeded; backoff/counters were not active: '
+        f'{blocked.get_data(as_text=True)}'
+    )
+    _assert_rate_limited(blocked)
+
+
+def test_device_cookie_is_bound_to_exact_username(test_app, test_db, test_client):
+    """Bob's signed device cookie is never a trusted device for Alice.
+
+    Calls ``trusted_device_id`` directly so a cross-user leak cannot hide
+    behind a 429 from the login limiter.
+    """
+    from backend.api.rate_limit import DEVICE_COOKIE_NAME, trusted_device_id
+
+    register_user(test_client, username='alice', password='testpass8')
+    alice_device = _device_cookie_value(test_client)
+    bob = test_app.test_client()
+    register_user(bob, username='bob', password='testpass8')
+    bob_device = _device_cookie_value(bob)
+
+    with test_app.test_request_context(
+        '/', headers={'Cookie': f'{DEVICE_COOKIE_NAME}={bob_device}'}
+    ):
+        assert trusted_device_id('alice') is None, (
+            'foreign/bob device cookie was trusted for alice'
+        )
+        assert trusted_device_id('bob') is not None
+
+    with test_app.test_request_context(
+        '/', headers={'Cookie': f'{DEVICE_COOKIE_NAME}={alice_device}'}
+    ):
+        assert trusted_device_id('alice') is not None
+        assert trusted_device_id('bob') is None, (
+            'alice device cookie was trusted for bob'
+        )
+
+
+@pytest.mark.parametrize(
+    'cookie_kind',
+    ('forged_signature', 'tampered_payload', 'truncated_signature'),
+)
+def test_tampered_device_cookie_is_not_a_trusted_device(
+    test_app, test_db, test_client, cookie_kind: str
+):
+    """Payload/signature tampers must not verify as Alice's device cookie."""
+    from backend.api.rate_limit import DEVICE_COOKIE_NAME, trusted_device_id
+
+    register_user(test_client, username='alice', password='testpass8')
+    real_device = _device_cookie_value(test_client)
+    bad_value = _untrusted_device_cookie(cookie_kind, real_device, '')
+    assert bad_value != real_device
+    with test_app.test_request_context(
+        '/', headers={'Cookie': f'{DEVICE_COOKIE_NAME}={bad_value}'}
+    ):
+        assert trusted_device_id('alice') is None, (
+            f'{cookie_kind} device cookie was trusted for alice'
+        )
+
+
 @pytest.mark.parametrize(
     'cookie_kind',
     ('forged_signature', 'tampered_payload', 'truncated_signature', 'foreign'),
@@ -970,9 +1062,10 @@ def test_forged_and_foreign_device_cookies_are_untrusted(
     """Tampered or other-user device cookies do not bypass global backoff.
 
     A last-character signature tweak is not a forgery: trailing base64
-    alphabet neighbors can decode to the same bytes (~5% still verify).
+    alphabet neighbors can decode to the same bytes (~5.7% still verify).
+    Each ``cookie_kind`` is its own test so CI names the trusted cookie.
     """
-    from backend.api.rate_limit import DEVICE_COOKIE_NAME
+    from backend.api.rate_limit import DEVICE_COOKIE_NAME, trusted_device_id
 
     _enable_rate_limit(test_app)
     test_app.config['RATELIMIT_AUTH_IP_MAX'] = 100
@@ -985,18 +1078,27 @@ def test_forged_and_foreign_device_cookies_are_untrusted(
     bob_device = _device_cookie_value(bob)
     bad_value = _untrusted_device_cookie(cookie_kind, real_device, bob_device)
 
-    for index in range(20):
-        attacker = test_app.test_client()
-        response = _login(
-            attacker,
-            'alice',
-            'wrong-password',
-            remote_addr=f'203.0.{index}.20',
-        )
-        assert response.status_code in (401, 429), index
+    _exhaust_untrusted_alice_backoff(test_app)
+
+    control = test_app.test_client()
+    assert control.get_cookie(DEVICE_COOKIE_NAME) is None
+    control_blocked = _login(control, 'alice', 'testpass8', remote_addr='198.51.100.99')
+    assert control_blocked.status_code == 429, (
+        f'backoff inactive before {cookie_kind} cookie '
+        f'(leftover/missing counters): {control_blocked.get_data(as_text=True)}'
+    )
 
     impostor = test_app.test_client()
     impostor.set_cookie(DEVICE_COOKIE_NAME, bad_value)
+    assert _device_cookie_value(impostor) == bad_value
+    assert _device_cookie_value(impostor) != real_device
+    with test_app.test_request_context(
+        '/', headers={'Cookie': f'{DEVICE_COOKIE_NAME}={bad_value}'}
+    ):
+        assert trusted_device_id('alice') is None, (
+            f'{cookie_kind} cookie was a trusted device for alice before login'
+        )
+
     blocked = _login(impostor, 'alice', 'testpass8', remote_addr='198.51.100.40')
     assert blocked.status_code == 429, (
         f'{cookie_kind} device cookie was trusted for alice: '
