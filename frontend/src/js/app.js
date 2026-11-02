@@ -82,9 +82,19 @@ function afterAlpineUpdate(callback) {
 }
 
 /**
+ * Set the login-form error on Alpine's reactive controller copy.
+ * Writes to ``app.loginController`` (not the imported module object) so ``x-show`` updates.
+ * @param {object} app - Root spaApp instance (Alpine reactive proxy).
+ * @param {string} message - User-facing error text.
+ */
+function setLoginError(app, message) {
+    app.loginController.error = message;
+}
+
+/**
  * @param {object} app - Root spaApp instance.
  */
-function handleOAuthQuery(app) {
+export function handleOAuthQuery(app) {
     const params = new URLSearchParams(window.location.search);
     const authSuccess = params.get('auth');
     const authError = params.get('auth_error');
@@ -99,7 +109,7 @@ function handleOAuthQuery(app) {
         app.isLoggedIn = true;
         app.showLogin = false;
     } else if (authError) {
-        loginController.error = app.tError(authError);
+        setLoginError(app, app.tError(authError));
         app.showLogin = true;
         applySeo(pages.login.seo, SEO_MODE);
     }
@@ -225,10 +235,15 @@ export const createSpaApp = () => {
             if (!this.isOAuthEnabled(provider)) {
                 const label =
                     provider.charAt(0).toUpperCase() + provider.slice(1);
-                loginController.error = this.t('errors.OAUTH_NOT_CONFIGURED', {
-                    provider: label,
-                    envPrefix: provider.toUpperCase(),
-                });
+                console.warn(
+                    `${label} login is not configured. Add ${provider.toUpperCase()}_CLIENT_ID and ${provider.toUpperCase()}_CLIENT_SECRET to .env, then restart Flask.`,
+                );
+                setLoginError(
+                    this,
+                    this.t('errors.OAUTH_NOT_CONFIGURED', {
+                        provider: label,
+                    }),
+                );
                 return;
             }
             window.location.href = withBase(`/api/auth/${provider}/login`);

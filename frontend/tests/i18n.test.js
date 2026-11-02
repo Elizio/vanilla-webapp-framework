@@ -33,9 +33,20 @@ describe('t', () => {
     });
 
     it('interpolates params', () => {
+        expect(t('errors.OAUTH_NOT_CONFIGURED', { provider: 'Google' })).toBe(
+            "Google sign-in isn't available right now.",
+        );
+    });
+
+    it('keeps OAUTH_NOT_CONFIGURED generic in en and pt-BR', () => {
+        const leak = /\.env|CLIENT_ID|CLIENT_SECRET|Flask/i;
         expect(
             t('errors.OAUTH_NOT_CONFIGURED', { provider: 'Google' }),
-        ).toContain('Google');
+        ).not.toMatch(leak);
+        setLocale('pt-BR');
+        const pt = t('errors.OAUTH_NOT_CONFIGURED', { provider: 'Google' });
+        expect(pt).toContain('Google');
+        expect(pt).not.toMatch(leak);
     });
 
     it('falls back to en for missing pt-BR key', () => {

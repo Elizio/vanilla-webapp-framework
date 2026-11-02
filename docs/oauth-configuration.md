@@ -4,7 +4,7 @@ This guide explains how to enable optional social login for **Google** and **Fac
 
 ## Overview
 
-Social login is optional. Each provider is enabled only when **both** its `*_CLIENT_ID` and `*_CLIENT_SECRET` are set in `.env`. Providers are implemented in [`backend/api/oauth.py`](../backend/api/oauth.py):
+Social login is optional. Each provider is enabled only when **both** its `*_CLIENT_ID` and `*_CLIENT_SECRET` are set in `.env`. Providers are implemented in [`backend/api/oauth.py`](../backend/api/oauth.py). The login page shows a generic "sign-in isn't available" message if a user clicks a provider that is not enabled; env var names and the Flask restart stay in this guide (and a `console.warn` for developers).
 
 | Provider key | UI label | Env vars |
 |--------------|----------|----------|
@@ -204,7 +204,7 @@ Before switching the app to **Live**:
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| Social button grayed out or "not configured" | Missing env vars or Flask not restarted | Set both `*_CLIENT_ID` and `*_CLIENT_SECRET`; restart Flask |
+| Social button grayed out or generic "sign-in isn't available" | Missing env vars or Flask not restarted | Set both `*_CLIENT_ID` and `*_CLIENT_SECRET`; restart Flask. The UI stays generic; check the browser console for the env-var hint. |
 | `redirect_uri_mismatch` from provider | Redirect URI in provider console does not match | Register exactly `{OAUTH_REDIRECT_BASE}/api/auth/<provider>/callback` |
 | Facebook **Invalid Scopes: email** | `email` permission not added to the use case | Use cases → Customize → Permissions → add **email** |
 | Facebook localhost URI warning | `localhost` is auto-allowed when the app is Unpublished | Remove the manual entry or ignore; no action needed in dev |

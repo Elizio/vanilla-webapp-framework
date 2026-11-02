@@ -17,10 +17,10 @@ export default defineConfig({
             include: ['src/js/**/*.js'],
             reporter: ['text', 'text-summary'],
             thresholds: {
-                // Measured 2026-11-01 over src/js: 64.60 / 79.69 / 45.95 / 64.60.
-                lines: 63,
-                statements: 63,
-                functions: 44,
+                // Measured 2026-11-02 over src/js: 66.86 / 78.98 / 53.33 / 66.86.
+                lines: 65,
+                statements: 65,
+                functions: 52,
                 branches: 78,
             },
         },
