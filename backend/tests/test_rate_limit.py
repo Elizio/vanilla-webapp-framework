@@ -801,6 +801,47 @@ def _device_cookie_value(client) -> str:
     return cookie.value
 
 
+def _itsdangerous_parts(token: str) -> tuple[str, str, str]:
+    """Split an itsdangerous token into payload, timestamp, and signature.
+
+    Compressed payloads are prefixed with ``.``, so this uses ``rsplit``.
+    """
+    payload, timestamp, signature = token.rsplit('.', 2)
+    assert payload and timestamp and signature, token
+    return payload, timestamp, signature
+
+
+def _flip_middle_char(text: str) -> str:
+    """Return ``text`` with the middle character changed deterministically."""
+    assert text
+    mid = len(text) // 2
+    flip = 'A' if text[mid] != 'A' else 'B'
+    return f'{text[:mid]}{flip}{text[mid + 1 :]}'
+
+
+def _untrusted_device_cookie(kind: str, real_device: str, bob_device: str) -> str:
+    """Return a cookie that must not authenticate as Alice's device.
+
+    Args:
+        kind: ``forged_signature``, ``tampered_payload``,
+            ``truncated_signature``, or ``foreign``.
+        real_device: Alice's signed cookie.
+        bob_device: Bob's signed cookie.
+    """
+    if kind == 'foreign':
+        return bob_device
+    payload, timestamp, signature = _itsdangerous_parts(real_device)
+    if kind == 'forged_signature':
+        signature = _flip_middle_char(signature)
+    elif kind == 'tampered_payload':
+        payload = _flip_middle_char(payload)
+    elif kind == 'truncated_signature':
+        signature = signature[: max(1, len(signature) // 2)]
+    else:
+        raise AssertionError(f'unknown cookie kind {kind}')
+    return f'{payload}.{timestamp}.{signature}'
+
+
 def test_device_cookie_allows_login_after_rotating_ip_attack(
     test_app, test_db, test_client, monkeypatch
 ):
@@ -919,10 +960,18 @@ def test_rotating_ip_brute_force_password_checks_stay_bounded(
     assert len(calls) >= 5
 
 
+@pytest.mark.parametrize(
+    'cookie_kind',
+    ('forged_signature', 'tampered_payload', 'truncated_signature', 'foreign'),
+)
 def test_forged_and_foreign_device_cookies_are_untrusted(
-    test_app, test_db, test_client, monkeypatch
+    test_app, test_db, test_client, monkeypatch, cookie_kind: str
 ):
-    """Tampered or other-user device cookies do not bypass global backoff."""
+    """Tampered or other-user device cookies do not bypass global backoff.
+
+    A last-character signature tweak is not a forgery: trailing base64
+    alphabet neighbors can decode to the same bytes (~5% still verify).
+    """
     from backend.api.rate_limit import DEVICE_COOKIE_NAME
 
     _enable_rate_limit(test_app)
@@ -930,13 +979,11 @@ def test_forged_and_foreign_device_cookies_are_untrusted(
     _freeze_now(monkeypatch, 1_699_999_200.0)
     register_user(test_client, username='alice', password='testpass8')
     real_device = _device_cookie_value(test_client)
-    # Flip an interior character. Trailing base64 alphabet neighbors can decode
-    # to the same signature bytes, so a last-char tweak is not always a tamper.
-    forged = real_device[:-3] + ('xxx' if real_device[-3:] != 'xxx' else 'yyy')
 
     bob = test_app.test_client()
     register_user(bob, username='bob', password='testpass8')
     bob_device = _device_cookie_value(bob)
+    bad_value = _untrusted_device_cookie(cookie_kind, real_device, bob_device)
 
     for index in range(20):
         attacker = test_app.test_client()
@@ -948,11 +995,14 @@ def test_forged_and_foreign_device_cookies_are_untrusted(
         )
         assert response.status_code in (401, 429), index
 
-    for bad_value in (forged, bob_device):
-        impostor = test_app.test_client()
-        impostor.set_cookie(DEVICE_COOKIE_NAME, bad_value)
-        blocked = _login(impostor, 'alice', 'testpass8', remote_addr='198.51.100.40')
-        _assert_rate_limited(blocked)
+    impostor = test_app.test_client()
+    impostor.set_cookie(DEVICE_COOKIE_NAME, bad_value)
+    blocked = _login(impostor, 'alice', 'testpass8', remote_addr='198.51.100.40')
+    assert blocked.status_code == 429, (
+        f'{cookie_kind} device cookie was trusted for alice: '
+        f'{blocked.get_data(as_text=True)}'
+    )
+    _assert_rate_limited(blocked)
 
     alice = test_app.test_client()
     alice.set_cookie(DEVICE_COOKIE_NAME, real_device)
