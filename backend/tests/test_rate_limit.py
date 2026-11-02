@@ -85,9 +85,19 @@ def _freeze_now(monkeypatch, now: float) -> None:
     monkeypatch.setattr(rate_limit_mod, '_now', lambda: now)
 
 
-def test_eleventh_login_from_one_ip_is_429(test_app, test_db, test_client):
+@pytest.fixture(autouse=True)
+def _pin_limiter_clock(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep every test off the wall-clock 60s/900s epoch windows.
+
+    Tests that need a moving clock replace ``_now`` in the body.
+    """
+    _freeze_now(monkeypatch, _FROZEN_IP)
+
+
+def test_eleventh_login_from_one_ip_is_429(test_app, test_db, test_client, monkeypatch):
     """The 11th auth request from one IP is 429 with Retry-After."""
     _enable_rate_limit(test_app, username_max=100)
+    _freeze_now(monkeypatch, _FROZEN_IP)
     register_user(test_client, username='ipuser', password='testpass8')
     for attempt in range(9):
         response = _login(test_client, 'ipuser', 'wrong-password')
@@ -96,9 +106,12 @@ def test_eleventh_login_from_one_ip_is_429(test_app, test_db, test_client):
     _assert_rate_limited(eleventh)
 
 
-def test_eleventh_register_from_one_ip_is_429(test_app, test_db, test_client):
+def test_eleventh_register_from_one_ip_is_429(
+    test_app, test_db, test_client, monkeypatch
+):
     """Register shares the per-IP auth bucket with login."""
     _enable_rate_limit(test_app)
+    _freeze_now(monkeypatch, _FROZEN_IP)
     for index in range(10):
         response = _register(test_client, f'reg{index}')
         assert response.status_code == 201, index
@@ -106,9 +119,12 @@ def test_eleventh_register_from_one_ip_is_429(test_app, test_db, test_client):
     _assert_rate_limited(eleventh)
 
 
-def test_rotating_ip_hits_per_username_limit(test_app, test_db, test_client):
+def test_rotating_ip_hits_per_username_limit(
+    test_app, test_db, test_client, monkeypatch
+):
     """Wrong passwords on one exact username trip 429 when REMOTE_ADDR rotates."""
     _enable_rate_limit(test_app)
+    _freeze_now(monkeypatch, _FROZEN_USER)
     register_user(test_client, username='target', password='testpass8')
     for index in range(5):
         response = _login(
@@ -129,7 +145,7 @@ def test_rotating_ip_hits_per_username_limit(test_app, test_db, test_client):
 
 
 def test_username_case_variant_success_does_not_reset_or_clear_lockout(
-    test_app, test_db, test_client
+    test_app, test_db, test_client, monkeypatch
 ):
     """Lowercase failures stay counted after a case-variant success.
 
@@ -138,6 +154,7 @@ def test_username_case_variant_success_does_not_reset_or_clear_lockout(
     store key would have been reset by the ``Victim`` success.
     """
     _enable_rate_limit(test_app)
+    _freeze_now(monkeypatch, _FROZEN_USER)
     register_user(test_client, username='Victim', password='testpass8')
     for index in range(4):
         response = _login(
@@ -187,9 +204,12 @@ def test_username_case_variant_success_does_not_reset_or_clear_lockout(
     _assert_rate_limited(still_blocked)
 
 
-def test_username_limit_does_not_reveal_missing_user(test_app, test_db, test_client):
+def test_username_limit_does_not_reveal_missing_user(
+    test_app, test_db, test_client, monkeypatch
+):
     """Unknown usernames use the same 429 as existing ones after five failures."""
     _enable_rate_limit(test_app)
+    _freeze_now(monkeypatch, _FROZEN_USER)
     for index in range(5):
         response = _login(
             test_client,
@@ -229,6 +249,7 @@ def test_blocked_username_skips_password_check(
 ):
     """A locked-out username is rejected without hashing the password."""
     _enable_rate_limit(test_app)
+    _freeze_now(monkeypatch, _FROZEN_USER)
     register_user(test_client, username='locked', password='testpass8')
     for index in range(5):
         response = _login(
@@ -256,9 +277,12 @@ def test_blocked_username_skips_password_check(
     assert called == []
 
 
-def test_successful_login_resets_username_counter(test_app, test_db, test_client):
+def test_successful_login_resets_username_counter(
+    test_app, test_db, test_client, monkeypatch
+):
     """A successful login clears the per-username failure count."""
     _enable_rate_limit(test_app)
+    _freeze_now(monkeypatch, _FROZEN_USER)
     register_user(test_client, username='resetme', password='testpass8')
     for index in range(4):
         response = _login(
@@ -369,10 +393,11 @@ def shared_sqlite_file(tmp_path) -> Iterator[str]:
         _restore_original_db(old_engine, new_engine)
 
 
-def test_two_apps_sharing_sqlite_file_trip_limit(shared_sqlite_file):
+def test_two_apps_sharing_sqlite_file_trip_limit(shared_sqlite_file, monkeypatch):
     """Two create_app() objects sharing one SQLite file share the IP counter."""
     from backend import create_app
 
+    _freeze_now(monkeypatch, _FROZEN_IP)
     app1 = create_app()
     app2 = create_app()
     _enable_rate_limit(app1, username_max=100)
@@ -396,10 +421,12 @@ def test_two_apps_sharing_sqlite_file_trip_limit(shared_sqlite_file):
     assert 429 in statuses, statuses
 
 
-def test_sqlite_concurrent_increments_lose_no_counts(tmp_path):
+def test_sqlite_concurrent_increments_lose_no_counts(tmp_path, monkeypatch):
     """Threads hammering one key on two SQLite engines must not drop hits."""
     from backend.api.rate_limit import hashed_counter_key, increment_counter
     from backend.models.rate_limit_counter import RateLimitCounter
+
+    _freeze_now(monkeypatch, _FROZEN_IP)
 
     db_path = tmp_path / 'concurrent.db'
     url = f'sqlite:///{db_path}'
@@ -456,6 +483,7 @@ def test_concurrent_logins_cap_password_checks(shared_sqlite_file, monkeypatch):
     """Atomic increment-before-password lets at most 5 concurrent checks run."""
     from backend import create_app
 
+    _freeze_now(monkeypatch, _FROZEN_USER)
     app = create_app()
     _enable_rate_limit(app)
     app.config['RATELIMIT_AUTH_IP_MAX'] = 100
@@ -586,6 +614,7 @@ def test_trust_proxy_keys_on_rightmost_forwarded_for(test_db, monkeypatch):
         app = create_app()
         _enable_rate_limit(app, username_max=100)
         client = app.test_client()
+        _freeze_now(monkeypatch, _FROZEN_IP)
         register_user(client, username='xffuser', password='testpass8')
 
         real_headers = {'X-Forwarded-For': '203.0.113.1, 198.51.100.20'}
@@ -772,14 +801,56 @@ def _device_cookie_value(client) -> str:
     return cookie.value
 
 
+def _itsdangerous_parts(token: str) -> tuple[str, str, str]:
+    """Split an itsdangerous token into payload, timestamp, and signature.
+
+    Compressed payloads are prefixed with ``.``, so this uses ``rsplit``.
+    """
+    payload, timestamp, signature = token.rsplit('.', 2)
+    assert payload and timestamp and signature, token
+    return payload, timestamp, signature
+
+
+def _flip_middle_char(text: str) -> str:
+    """Return ``text`` with the middle character changed deterministically."""
+    assert text
+    mid = len(text) // 2
+    flip = 'A' if text[mid] != 'A' else 'B'
+    return f'{text[:mid]}{flip}{text[mid + 1 :]}'
+
+
+def _untrusted_device_cookie(kind: str, real_device: str, bob_device: str) -> str:
+    """Return a cookie that must not authenticate as Alice's device.
+
+    Args:
+        kind: ``forged_signature``, ``tampered_payload``,
+            ``truncated_signature``, or ``foreign``.
+        real_device: Alice's signed cookie.
+        bob_device: Bob's signed cookie.
+    """
+    if kind == 'foreign':
+        return bob_device
+    payload, timestamp, signature = _itsdangerous_parts(real_device)
+    if kind == 'forged_signature':
+        signature = _flip_middle_char(signature)
+    elif kind == 'tampered_payload':
+        payload = _flip_middle_char(payload)
+    elif kind == 'truncated_signature':
+        signature = signature[: max(1, len(signature) // 2)]
+    else:
+        raise AssertionError(f'unknown cookie kind {kind}')
+    return f'{payload}.{timestamp}.{signature}'
+
+
 def test_device_cookie_allows_login_after_rotating_ip_attack(
-    test_app, test_db, test_client
+    test_app, test_db, test_client, monkeypatch
 ):
     """Alice with her device cookie logs in after untrusted IPs exhaust limits."""
     from backend.api.rate_limit import DEVICE_COOKIE_NAME
 
     _enable_rate_limit(test_app)
     test_app.config['RATELIMIT_AUTH_IP_MAX'] = 100
+    _freeze_now(monkeypatch, 1_699_999_200.0)
     register_user(test_client, username='alice', password='testpass8')
     device_value = _device_cookie_value(test_client)
 
@@ -889,23 +960,8 @@ def test_rotating_ip_brute_force_password_checks_stay_bounded(
     assert len(calls) >= 5
 
 
-def test_forged_and_foreign_device_cookies_are_untrusted(
-    test_app, test_db, test_client, monkeypatch
-):
-    """Tampered or other-user device cookies do not bypass global backoff."""
-    from backend.api.rate_limit import DEVICE_COOKIE_NAME
-
-    _enable_rate_limit(test_app)
-    test_app.config['RATELIMIT_AUTH_IP_MAX'] = 100
-    _freeze_now(monkeypatch, 1_699_999_200.0)
-    register_user(test_client, username='alice', password='testpass8')
-    real_device = _device_cookie_value(test_client)
-    forged = real_device[:-1] + ('A' if real_device[-1] != 'A' else 'B')
-
-    bob = test_app.test_client()
-    register_user(bob, username='bob', password='testpass8')
-    bob_device = _device_cookie_value(bob)
-
+def _exhaust_untrusted_alice_backoff(test_app) -> None:
+    """Drive Alice's global untrusted backoff into a frozen-clock 429."""
     for index in range(20):
         attacker = test_app.test_client()
         response = _login(
@@ -916,11 +972,139 @@ def test_forged_and_foreign_device_cookies_are_untrusted(
         )
         assert response.status_code in (401, 429), index
 
-    for bad_value in (forged, bob_device):
-        impostor = test_app.test_client()
-        impostor.set_cookie(DEVICE_COOKIE_NAME, bad_value)
-        blocked = _login(impostor, 'alice', 'testpass8', remote_addr='198.51.100.40')
-        _assert_rate_limited(blocked)
+
+def test_missing_device_cookie_does_not_bypass_backoff(
+    test_app, test_db, test_client, monkeypatch
+):
+    """No ``auth_device`` cookie stays on the untrusted global backoff.
+
+    A 200 here means leftover counters (or fail-open) skipped the limiter,
+    not that a cookie was trusted.
+    """
+    from backend.api.rate_limit import DEVICE_COOKIE_NAME
+
+    _enable_rate_limit(test_app)
+    test_app.config['RATELIMIT_AUTH_IP_MAX'] = 100
+    _freeze_now(monkeypatch, 1_699_999_200.0)
+    register_user(test_client, username='alice', password='testpass8')
+    _exhaust_untrusted_alice_backoff(test_app)
+
+    control = test_app.test_client()
+    assert control.get_cookie(DEVICE_COOKIE_NAME) is None
+    blocked = _login(control, 'alice', 'testpass8', remote_addr='198.51.100.99')
+    assert blocked.status_code == 429, (
+        'no-cookie login succeeded; backoff/counters were not active: '
+        f'{blocked.get_data(as_text=True)}'
+    )
+    _assert_rate_limited(blocked)
+
+
+def test_device_cookie_is_bound_to_exact_username(test_app, test_db, test_client):
+    """Bob's signed device cookie is never a trusted device for Alice.
+
+    Calls ``trusted_device_id`` directly so a cross-user leak cannot hide
+    behind a 429 from the login limiter.
+    """
+    from backend.api.rate_limit import DEVICE_COOKIE_NAME, trusted_device_id
+
+    register_user(test_client, username='alice', password='testpass8')
+    alice_device = _device_cookie_value(test_client)
+    bob = test_app.test_client()
+    register_user(bob, username='bob', password='testpass8')
+    bob_device = _device_cookie_value(bob)
+
+    with test_app.test_request_context(
+        '/', headers={'Cookie': f'{DEVICE_COOKIE_NAME}={bob_device}'}
+    ):
+        assert trusted_device_id('alice') is None, (
+            'foreign/bob device cookie was trusted for alice'
+        )
+        assert trusted_device_id('bob') is not None
+
+    with test_app.test_request_context(
+        '/', headers={'Cookie': f'{DEVICE_COOKIE_NAME}={alice_device}'}
+    ):
+        assert trusted_device_id('alice') is not None
+        assert trusted_device_id('bob') is None, (
+            'alice device cookie was trusted for bob'
+        )
+
+
+@pytest.mark.parametrize(
+    'cookie_kind',
+    ('forged_signature', 'tampered_payload', 'truncated_signature'),
+)
+def test_tampered_device_cookie_is_not_a_trusted_device(
+    test_app, test_db, test_client, cookie_kind: str
+):
+    """Payload/signature tampers must not verify as Alice's device cookie."""
+    from backend.api.rate_limit import DEVICE_COOKIE_NAME, trusted_device_id
+
+    register_user(test_client, username='alice', password='testpass8')
+    real_device = _device_cookie_value(test_client)
+    bad_value = _untrusted_device_cookie(cookie_kind, real_device, '')
+    assert bad_value != real_device
+    with test_app.test_request_context(
+        '/', headers={'Cookie': f'{DEVICE_COOKIE_NAME}={bad_value}'}
+    ):
+        assert trusted_device_id('alice') is None, (
+            f'{cookie_kind} device cookie was trusted for alice'
+        )
+
+
+@pytest.mark.parametrize(
+    'cookie_kind',
+    ('forged_signature', 'tampered_payload', 'truncated_signature', 'foreign'),
+)
+def test_forged_and_foreign_device_cookies_are_untrusted(
+    test_app, test_db, test_client, monkeypatch, cookie_kind: str
+):
+    """Tampered or other-user device cookies do not bypass global backoff.
+
+    A last-character signature tweak is not a forgery: trailing base64
+    alphabet neighbors can decode to the same bytes (~5.7% still verify).
+    Each ``cookie_kind`` is its own test so CI names the trusted cookie.
+    """
+    from backend.api.rate_limit import DEVICE_COOKIE_NAME, trusted_device_id
+
+    _enable_rate_limit(test_app)
+    test_app.config['RATELIMIT_AUTH_IP_MAX'] = 100
+    _freeze_now(monkeypatch, 1_699_999_200.0)
+    register_user(test_client, username='alice', password='testpass8')
+    real_device = _device_cookie_value(test_client)
+
+    bob = test_app.test_client()
+    register_user(bob, username='bob', password='testpass8')
+    bob_device = _device_cookie_value(bob)
+    bad_value = _untrusted_device_cookie(cookie_kind, real_device, bob_device)
+
+    _exhaust_untrusted_alice_backoff(test_app)
+
+    control = test_app.test_client()
+    assert control.get_cookie(DEVICE_COOKIE_NAME) is None
+    control_blocked = _login(control, 'alice', 'testpass8', remote_addr='198.51.100.99')
+    assert control_blocked.status_code == 429, (
+        f'backoff inactive before {cookie_kind} cookie '
+        f'(leftover/missing counters): {control_blocked.get_data(as_text=True)}'
+    )
+
+    impostor = test_app.test_client()
+    impostor.set_cookie(DEVICE_COOKIE_NAME, bad_value)
+    assert _device_cookie_value(impostor) == bad_value
+    assert _device_cookie_value(impostor) != real_device
+    with test_app.test_request_context(
+        '/', headers={'Cookie': f'{DEVICE_COOKIE_NAME}={bad_value}'}
+    ):
+        assert trusted_device_id('alice') is None, (
+            f'{cookie_kind} cookie was a trusted device for alice before login'
+        )
+
+    blocked = _login(impostor, 'alice', 'testpass8', remote_addr='198.51.100.40')
+    assert blocked.status_code == 429, (
+        f'{cookie_kind} device cookie was trusted for alice: '
+        f'{blocked.get_data(as_text=True)}'
+    )
+    _assert_rate_limited(blocked)
 
     alice = test_app.test_client()
     alice.set_cookie(DEVICE_COOKIE_NAME, real_device)
