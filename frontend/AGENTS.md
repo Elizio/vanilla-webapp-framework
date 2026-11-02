@@ -26,7 +26,7 @@ frontend/
 
 Controllers and templates are statically imported in `frontend/src/js/pages.js` (`?raw`). `loadPage(elementIdTarget, pageKey)` looks up the registry, sets `innerHTML`, copies the controller to `this.currentPage`, calls `init`, then `Alpine.initTree`.
 
-Persistent partials (`loginController`, `menuController`) bind directly. Page controllers bind as `currentPage.*`.
+Persistent partials (`loginController`, `menuController`) bind directly. Page controllers bind as `currentPage.*`. Email verification and password reset reuse the login-register container (`check_email`, `forgot_password`, `reset_password`). `GET /api/auth/capabilities` drives whether the email field and “Forgot password?” link are shown; unconfigured SMTP hides reset.
 
 Add a page: [ARCHITECTURE.md](../ARCHITECTURE.md#add-a-spa-page). Classify `seo.visibility` (`public` | `app` | `auth`) before finishing.
 

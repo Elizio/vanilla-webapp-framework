@@ -10,7 +10,9 @@ from ..db_repository.database import db_session
 from ..models.user import User
 from .auth import user_may_authenticate
 from .error_codes import ACCOUNT_INACTIVE, PROVIDER_NOT_CONFIGURED
+from .refresh_tokens import utc_now
 from .session_auth import set_session_cookies
+from ..email.service import normalize_email
 
 oauth = OAuth()
 oauth_bp = Blueprint('oauth', __name__)
@@ -131,13 +133,11 @@ def find_or_create_oauth_user(
 
     Email linking attaches the provider identity to a local (password)
     account with the same email. That happens only when the provider
-    asserts the address is verified.
-
-    Google userinfo includes ``email_verified``. Facebook Graph
-    ``me?fields=id,name,email`` has no verified flag, so Facebook never
-    links by email: it always creates or reuses its own provider account
-    (the same fallback used for an unverified Google email). ``users.email``
-    is not unique.
+    asserts the address is verified **and** the local account is already
+    verified. An unverified local claim is cleared so the Google user
+    keeps the address (blocks pre-account takeover). Facebook never
+    links by email; a Facebook address that is already taken is stored
+    as ``NULL`` instead of failing. Emails are lowercased.
 
     Args:
         provider: OAuth provider key (``google`` or ``facebook``).
@@ -149,6 +149,7 @@ def find_or_create_oauth_user(
     Returns:
         The matched or newly created User.
     """
+    email = normalize_email(email) if email else None
     user = (
         db_session.query(User)
         .filter_by(
@@ -158,21 +159,39 @@ def find_or_create_oauth_user(
         .first()
     )
     if user:
+        if provider == 'google' and email_verified:
+            _mark_email_verified(user, email)
         return user
 
-    # Google: link only when userinfo.email_verified is True.
+    # Google: link only when userinfo.email_verified is True and the
+    # matching local account is already verified.
     # Facebook: never link by email (no verified signal).
     if provider == 'google' and email and email_verified:
         existing = db_session.query(User).filter_by(email=email).first()
         if existing and existing.oauth_provider is None:
-            existing.oauth_provider = provider
-            existing.oauth_id = oauth_id
+            if existing.email_verified:
+                existing.oauth_provider = provider
+                existing.oauth_id = oauth_id
+                _mark_email_verified(existing, email)
+                return existing
+            existing.email = None
+            existing.email_verified = False
+            existing.email_verified_at = None
             try:
                 db_session.commit()
             except Exception:
                 db_session.rollback()
                 raise
-            return existing
+
+    if email and provider == 'facebook':
+        taken = db_session.query(User).filter_by(email=email).first()
+        if taken is not None:
+            email = None
+
+    if email:
+        taken = db_session.query(User).filter_by(email=email).first()
+        if taken is not None:
+            email = None
 
     user = User(
         username=_generate_username(email, name, provider, oauth_id),
@@ -180,6 +199,10 @@ def find_or_create_oauth_user(
         oauth_provider=provider,
         oauth_id=oauth_id,
         password_hash=None,
+        email_verified=bool(provider == 'google' and email_verified and email),
+        email_verified_at=(
+            utc_now() if provider == 'google' and email_verified and email else None
+        ),
     )
     try:
         db_session.add(user)
@@ -188,6 +211,25 @@ def find_or_create_oauth_user(
         db_session.rollback()
         raise
     return user
+
+
+def _mark_email_verified(user: User, email: str | None) -> None:
+    """Persist Google-verified state on ``user`` and commit.
+
+    Args:
+        user: Existing row to update.
+        email: Normalized address to store when the row has none.
+    """
+    if email and not user.email:
+        user.email = email
+    user.email_verified = True
+    if user.email_verified_at is None:
+        user.email_verified_at = utc_now()
+    try:
+        db_session.commit()
+    except Exception:
+        db_session.rollback()
+        raise
 
 
 def _fetch_userinfo(client, provider, token):

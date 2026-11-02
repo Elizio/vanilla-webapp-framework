@@ -17,11 +17,11 @@ export default defineConfig({
             include: ['src/js/**/*.js'],
             reporter: ['text', 'text-summary'],
             thresholds: {
-                // Measured 2026-11-02 over src/js after refresh tokens + #68:
-                // 71.16 / 82.18 / 62.19 / 71.16. Floors are floor(measured) minus ~1.
-                lines: 70,
-                statements: 70,
-                functions: 61,
+                // Measured 2026-11-02 over src/js after email verification:
+                // 77.31 / 81.46 / 69.79 / 77.31. Floors are floor(measured) minus ~1.
+                lines: 76,
+                statements: 76,
+                functions: 68,
                 branches: 81,
             },
         },

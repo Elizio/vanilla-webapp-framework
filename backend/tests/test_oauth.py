@@ -206,6 +206,7 @@ def test_google_verified_email_links_existing_password_account(
         email='same@test.com',
         password_hash='hashed',
         oauth_provider=None,
+        email_verified=True,
     )
     db_session.add(existing)
     db_session.commit()
@@ -229,7 +230,47 @@ def test_google_verified_email_links_existing_password_account(
     ).first()
     assert linked is not None
     assert linked.id == existing_id
+    assert linked.email_verified is True
     assert User.query.filter_by(email='same@test.com').count() == 1
+
+
+def test_google_verified_does_not_link_unverified_local(
+    oauth_client, test_db, monkeypatch
+):
+    """A verified Google identity beats an unverified local email claim."""
+    existing = User(
+        username='localunverified',
+        email='claimed@test.com',
+        password_hash='hashed',
+        oauth_provider=None,
+        email_verified=False,
+    )
+    db_session.add(existing)
+    db_session.commit()
+    existing_id = existing.id
+    db_session.expunge_all()
+
+    _patch_oauth_callback(
+        monkeypatch,
+        {
+            'oauth_id': 'google-sub-takeover',
+            'email': 'claimed@test.com',
+            'name': 'Google User',
+            'email_verified': True,
+        },
+    )
+    response = oauth_client.get('/api/auth/google/callback?code=fake')
+    assert response.status_code == 302
+    created = User.query.filter_by(
+        oauth_provider='google', oauth_id='google-sub-takeover'
+    ).first()
+    local = User.query.get(existing_id)
+    assert created is not None
+    assert created.id != existing_id
+    assert created.email == 'claimed@test.com'
+    assert created.email_verified is True
+    assert local.email is None
+    assert User.query.filter_by(email='claimed@test.com').count() == 1
 
 
 def test_google_unverified_email_does_not_link(oauth_client, test_db, monkeypatch):
@@ -261,7 +302,10 @@ def test_google_unverified_email_does_not_link(oauth_client, test_db, monkeypatc
     ).first()
     assert created is not None
     assert created.id != existing_id
-    assert User.query.filter_by(email='unverified@test.com').count() == 2
+    local = User.query.get(existing_id)
+    assert local.email == 'unverified@test.com'
+    assert created.email is None
+    assert User.query.filter_by(email='unverified@test.com').count() == 1
 
 
 @pytest.fixture
@@ -304,7 +348,10 @@ def test_facebook_never_links_by_email(facebook_oauth_client, test_db, monkeypat
     ).first()
     assert created is not None
     assert created.id != existing_id
-    assert User.query.filter_by(email='fb@test.com').count() == 2
+    assert created.email is None
+    local = User.query.get(existing_id)
+    assert local.email == 'fb@test.com'
+    assert User.query.filter_by(email='fb@test.com').count() == 1
 
 
 def test_google_fetch_userinfo_requires_email_verified_true():

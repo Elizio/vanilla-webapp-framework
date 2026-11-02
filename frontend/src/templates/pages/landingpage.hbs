@@ -1,6 +1,20 @@
 <div class="space-y-4 max-w-md mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
 
     <h1 class="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-white" x-text="t('landing.title')"></h1>
+    <div x-show="needsEmail && emailCapabilities.email_configured"
+         class="p-4 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 rounded-md space-y-2">
+        <p x-text="t('landing.addEmailBanner')"></p>
+        <input type="email"
+               x-model="currentPage.newEmail"
+               class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm">
+        <button type="button"
+                @click="currentPage.submitEmail()"
+                class="w-full bg-amber-600 text-white py-2 px-4 rounded-md hover:bg-amber-700 transition-colors duration-200 disabled:opacity-50"
+                :disabled="currentPage.isLoading"
+                x-text="t('landing.addEmailSubmit')">
+        </button>
+        <p x-show="currentPage.emailSuccess" class="text-sm" x-text="currentPage.emailSuccess"></p>
+    </div>
     <button @click="logout" 
             class="w-full bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700 transition-colors duration-200"
             x-text="t('common.logout')">

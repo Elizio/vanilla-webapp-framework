@@ -20,6 +20,7 @@ from backend.models.billing_credit_ledger import (  # noqa: E402, F401
 )
 from backend.models.rate_limit_counter import RateLimitCounter  # noqa: E402, F401
 from backend.models.refresh_token import RefreshToken  # noqa: E402, F401
+from backend.models.auth_token import AuthToken  # noqa: E402, F401
 
 config = context.config
 

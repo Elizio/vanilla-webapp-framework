@@ -28,7 +28,28 @@
     "password": "Senha",
     "rememberMe": "Lembrar de mim",
     "noAccount": "Não tem conta? Cadastre-se",
+    "forgotPassword": "Esqueceu a senha?",
     "oauthHint": "Login social requer chaves de provedor no .env. Reinicie o Flask após adicioná-las."
+  },
+  "forgot": {
+    "title": "Redefinir sua senha",
+    "email": "E-mail",
+    "submit": "Enviar link de redefinição",
+    "checkEmail": "Se existir uma conta nesse endereço, enviamos um link de redefinição.",
+    "unavailable": "A redefinição de senha não está disponível enquanto o envio de e-mail não for configurado.",
+    "backToLogin": "Voltar ao login"
+  },
+  "reset": {
+    "title": "Escolha uma nova senha",
+    "password": "Nova senha",
+    "submit": "Atualizar senha",
+    "success": "Sua senha foi atualizada. Agora você pode entrar."
+  },
+  "verify": {
+    "title": "Confira seu e-mail",
+    "instructions": "Enviamos um link de confirmação. Abra-o para concluir o cadastro.",
+    "resend": "Reenviar e-mail de confirmação",
+    "resent": "Se esse endereço estiver cadastrado e ainda não confirmado, enviamos outro link."
   },
   "settings": {
     "placeholder": "Configurações estarão disponíveis em uma versão futura."
@@ -39,6 +60,7 @@
   "register": {
     "title": "Criar uma conta",
     "username": "Usuário",
+    "email": "E-mail",
     "password": "Senha",
     "confirmPassword": "Confirmar senha",
     "hasAccount": "Já tem conta? Entrar",
@@ -48,6 +70,9 @@
     "title": "Demo Vanilla WebApp 2",
     "fetchProtected": "Buscar dados protegidos",
     "fetchPublic": "Buscar dados públicos",
+    "addEmailBanner": "Adicione um e-mail para recuperar esta conta.",
+    "addEmailSubmit": "Salvar e-mail",
+    "addEmailSent": "Confira sua caixa de entrada para o link de confirmação.",
     "loadTestPage": "Carregar página de teste"
   },
   "testpage": {
@@ -205,13 +230,26 @@
     "METHOD_NOT_ALLOWED": "Método não permitido",
     "BAD_REQUEST": "Requisição inválida",
     "FORBIDDEN": "Acesso negado",
-    "UNKNOWN_ERROR": "Ocorreu um erro inesperado"
+    "UNKNOWN_ERROR": "Ocorreu um erro inesperado",
+    "EMAIL_REQUIRED": "E-mail é obrigatório",
+    "EMAIL_INVALID": "Informe um e-mail válido",
+    "EMAIL_EXISTS": "Esse e-mail já está cadastrado",
+    "EMAIL_NOT_VERIFIED": "Confirme seu e-mail antes de entrar.",
+    "EMAIL_NOT_CONFIGURED": "O envio de e-mail não está configurado, então a redefinição de senha não está disponível.",
+    "EMAIL_ALREADY_SET": "Esta conta já tem um e-mail",
+    "EMAIL_ACCEPTED": "Se a conta existir, enviamos um e-mail.",
+    "EMAIL_VERIFIED": "E-mail confirmado",
+    "PASSWORD_RESET": "Senha atualizada",
+    "TOKEN_INVALID_OR_EXPIRED": "Este link é inválido ou expirou"
   },
   "seo": {
     "frameworkDescription": "Vanilla WebApp Framework — starter leve Flask e Alpine.js para soluções empreendedoras.",
     "menu": { "title": "Menu — Demo Vanilla WebApp" },
     "login": { "title": "Entrar — Demo Vanilla WebApp" },
     "register": { "title": "Cadastro — Demo Vanilla WebApp" },
+    "forgot": { "title": "Esqueci a senha — Demo Vanilla WebApp" },
+    "reset": { "title": "Redefinir senha — Demo Vanilla WebApp" },
+    "verify": { "title": "Confira seu e-mail — Demo Vanilla WebApp" },
     "welcome": {
       "title": "Vanilla WebApp Framework — Lance seu SaaS mais rápido",
       "description": "Vanilla WebApp Framework — starter leve Flask e Alpine.js para soluções empreendedoras."

@@ -30,6 +30,12 @@
                    :disabled="loginController.isLoading">
             <span x-text="t('login.rememberMe')"></span>
         </label>
+        <div x-show="emailCapabilities.password_reset" class="text-right">
+            <a href="#" @click.prevent="loadPage('login-register-container', 'forgot_password');"
+               class="text-sm text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
+               x-text="t('login.forgotPassword')">
+            </a>
+        </div>
         <button @click="loginController.login()" 
                 class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors duration-200 disabled:opacity-50"
                 :disabled="loginController.isLoading">
@@ -90,6 +96,18 @@
         <div x-show="loginController.error" 
             class="mt-4 p-4 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-md" 
             x-text="loginController.error">
+        </div>
+        <div x-show="loginController.showResend" class="mt-4 space-y-2">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300" x-text="t('forgot.email')"></label>
+            <input type="email"
+                   x-model="loginController.resendEmail"
+                   class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:focus:ring-indigo-400">
+            <button type="button"
+                    @click="loginController.resendVerification()"
+                    class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors duration-200 disabled:opacity-50"
+                    :disabled="loginController.isLoading"
+                    x-text="t('verify.resend')">
+            </button>
         </div>
         
         <div x-show="loginController.response" class="mt-4">
