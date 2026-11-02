@@ -30,9 +30,9 @@ from backend.api.auth_tokens import (
 from backend.api.jwt_utils import JWT_ALGORITHM
 from backend.api.refresh_tokens import utc_now
 from backend.db_repository.database import db_session
-from backend.email.backend import OutboundEmail
-from backend.email.console import clear_outbox, get_outbox
-from backend.email.service import is_email_configured, wait_for_auth_emails
+from backend.mailer.backend import OutboundEmail
+from backend.mailer.console import clear_outbox, get_outbox
+from backend.mailer.service import is_email_configured, wait_for_auth_emails
 from backend.models.auth_token import AuthToken
 from backend.models.refresh_token import RefreshToken
 from backend.models.user import User
@@ -577,13 +577,13 @@ def test_smtp_backend_uses_starttls_or_ssl(
     monkeypatch: MonkeyPatch,
 ) -> None:
     """stdlib smtplib is used; secrets are not logged."""
-    from backend.email.smtp import SmtpEmailBackend
-    from backend.email.backend import OutboundEmail
+    from backend.mailer.smtp import SmtpEmailBackend
+    from backend.mailer.backend import OutboundEmail
 
     smtp_ssl = MagicMock()
     instance = MagicMock()
     smtp_ssl.return_value = instance
-    monkeypatch.setattr('backend.email.smtp.smtplib.SMTP_SSL', smtp_ssl)
+    monkeypatch.setattr('backend.mailer.smtp.smtplib.SMTP_SSL', smtp_ssl)
 
     test_app.config['EMAIL_BACKEND'] = 'smtp'
     test_app.config['SMTP_HOST'] = 'smtp.resend.com'
@@ -616,7 +616,7 @@ def test_smtp_backend_uses_starttls_or_ssl(
     smtp_plain = MagicMock()
     starttls_client = MagicMock()
     smtp_plain.return_value = starttls_client
-    monkeypatch.setattr('backend.email.smtp.smtplib.SMTP', smtp_plain)
+    monkeypatch.setattr('backend.mailer.smtp.smtplib.SMTP', smtp_plain)
     test_app.config['SMTP_SECURITY'] = 'starttls'
     test_app.config['SMTP_PORT'] = 587
     with test_app.app_context():
@@ -643,9 +643,9 @@ def test_console_does_not_log_body_in_production(
     test_app: Flask,
     monkeypatch: MonkeyPatch,
 ) -> None:
-    from backend.email.console import ConsoleEmailBackend
-    from backend.email.backend import OutboundEmail
-    from backend.email import console as console_mod
+    from backend.mailer.console import ConsoleEmailBackend
+    from backend.mailer.backend import OutboundEmail
+    from backend.mailer import console as console_mod
 
     recorded: list[str] = []
 
@@ -676,7 +676,7 @@ def test_forgot_and_resend_do_not_send_on_the_request_thread(
     monkeypatch: MonkeyPatch,
 ) -> None:
     """Known and unknown addresses must not SMTP-send on the request thread."""
-    from backend.email.console import ConsoleEmailBackend
+    from backend.mailer.console import ConsoleEmailBackend
 
     _enable_console_email(test_app)
     test_client.post(
@@ -799,7 +799,7 @@ def test_worker_send_failure_logs_purpose_only(
     monkeypatch: MonkeyPatch,
 ) -> None:
     """Worker send errors are logged without the address or token."""
-    from backend.email.console import ConsoleEmailBackend
+    from backend.mailer.console import ConsoleEmailBackend
 
     _enable_console_email(test_app)
     test_client.post(
@@ -822,7 +822,7 @@ def test_worker_send_failure_logs_purpose_only(
     def _exception(msg: str, *args: object, **_kwargs: object) -> None:
         recorded.append((msg % args) if args else msg)
 
-    monkeypatch.setattr('backend.email.service.logger.exception', _exception)
+    monkeypatch.setattr('backend.mailer.service.logger.exception', _exception)
     response = test_client.post(
         '/api/auth/password/forgot',
         json={'email': 'logfail@example.com'},
@@ -870,7 +870,7 @@ def test_worker_lookup_failure_logs_purpose_only(
         recorded.append((msg % args) if args else msg)
 
     monkeypatch.setattr(Query, 'filter_by', _boom)
-    monkeypatch.setattr('backend.email.service.logger.exception', _exception)
+    monkeypatch.setattr('backend.mailer.service.logger.exception', _exception)
     response = test_client.post(
         '/api/auth/password/forgot',
         json={'email': 'lookupfail@example.com'},

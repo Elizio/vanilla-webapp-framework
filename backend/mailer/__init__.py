@@ -1,4 +1,8 @@
-"""Pluggable outbound email: console (dev/tests) and SMTP (Resend)."""
+"""Pluggable outbound email: console (dev/tests) and SMTP (Resend).
+
+Named ``mailer`` so this package cannot shadow stdlib ``email`` when
+Docker runs ``python /app/backend/container_healthcheck.py``.
+"""
 
 from .backend import EmailBackend, OutboundEmail
 from .service import (

@@ -34,7 +34,7 @@ from .auth_tokens import (
     PURPOSE_VERIFY,
     consume_auth_token,
 )
-from ..email.service import (
+from ..mailer.service import (
     is_email_configured,
     login_blocked_unverified,
     normalize_email,
