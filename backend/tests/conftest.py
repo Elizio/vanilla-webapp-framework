@@ -15,6 +15,16 @@ import pytest  # noqa: E402
 from .. import create_app, db  # noqa: E402
 
 
+def live_cookie_name(client, key='AUTH_COOKIE_NAME'):
+    """Return a configured cookie name from the client's app.
+
+    Args:
+        client: Flask test client.
+        key: Config key such as ``AUTH_COOKIE_NAME``.
+    """
+    return client.application.config[key]
+
+
 def csrf_headers(client):
     """Return CSRF header after priming the double-submit cookie."""
     response = client.get('/api/csrf')

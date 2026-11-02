@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { apiFetch, initCsrf } from '../src/js/api.js';
 import { createSpaApp } from '../src/js/app.js';
 
 describe('loadPage', () => {
@@ -169,5 +170,46 @@ describe('loadPage', () => {
 
         expect(app.isLoggedIn).toBe(false);
         expect(app.showLogin).toBe(true);
+    });
+
+    it('destroy removes the auth:expired listener', async () => {
+        const app = createSpaApp();
+        app.destroy();
+        app.isLoggedIn = true;
+        app.showLogin = false;
+        window.dispatchEvent(new Event('auth:expired'));
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(app.isLoggedIn).toBe(true);
+        expect(app.showLogin).toBe(false);
+    });
+
+    it('destroy removes the pageshow listener', async () => {
+        fetch.mockImplementation(async (input) => {
+            const url = typeof input === 'string' ? input : input.url;
+            if (url.endsWith('/api/csrf')) {
+                return {
+                    ok: true,
+                    json: async () => ({ csrf_token: 'csrf-1' }),
+                };
+            }
+            if (url.endsWith('/api/data')) {
+                return { ok: true, json: async () => ({ message: 'ok' }) };
+            }
+            throw new Error(`Unmocked fetch in tests: ${url}`);
+        });
+        const app = createSpaApp();
+        await initCsrf();
+        app.destroy();
+        const event = new Event('pageshow');
+        Object.defineProperty(event, 'persisted', { value: true });
+        window.dispatchEvent(event);
+        fetch.mockClear();
+        await apiFetch('/api/data', { method: 'POST' });
+        const urls = fetch.mock.calls.map(([input]) =>
+            typeof input === 'string' ? input : input.url,
+        );
+        expect(urls.filter((url) => url.endsWith('/api/csrf'))).toHaveLength(0);
+        expect(fetch.mock.calls[0][1].headers['X-CSRF-Token']).toBe('csrf-1');
     });
 });

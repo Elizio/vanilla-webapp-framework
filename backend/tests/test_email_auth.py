@@ -102,7 +102,10 @@ def test_unconfigured_register_and_login_match_today(
     assert response.status_code == 201
     assert response.json['code'] == 'USER_CREATED'
     assert response.json['authenticated'] is True
-    assert test_client.get_cookie('auth_token') is not None
+    assert (
+        test_client.get_cookie(test_client.application.config['AUTH_COOKIE_NAME'])
+        is not None
+    )
     logout = test_client.post('/api/auth/logout', headers=csrf_headers(test_client))
     assert logout.status_code == 200
     login = login_user(test_client, username='plain', password='testpass8')
@@ -202,7 +205,10 @@ def test_register_requires_email_and_does_not_set_cookie(
     assert response.status_code == 201
     assert _json(response)['code'] == 'USER_CREATED'
     assert _json(response)['authenticated'] is False
-    assert test_client.get_cookie('auth_token') is None
+    assert (
+        test_client.get_cookie(test_client.application.config['AUTH_COOKIE_NAME'])
+        is None
+    )
     user = User.query.filter_by(username='newbie').first()
     assert user.email == 'new@example.com'
     assert user.email_verified is False
@@ -438,7 +444,7 @@ def test_password_reset_revokes_sessions_and_other_tokens(
     db_session.expire_all()
     login = login_user(test_client, username='resetme', password='oldpass88')
     assert login.status_code == 200
-    access = test_client.get_cookie('auth_token')
+    access = test_client.get_cookie(test_client.application.config['AUTH_COOKIE_NAME'])
     assert access is not None
     old_jwt = access.value
     test_client.post(

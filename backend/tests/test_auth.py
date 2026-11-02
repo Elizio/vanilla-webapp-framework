@@ -364,9 +364,19 @@ def test_put_login_returns_method_not_allowed(test_client, test_db):
     assert 'POST' in allow
 
 
+def _auth_cookie_name(client) -> str:
+    """Return the live access-token cookie name."""
+    return client.application.config['AUTH_COOKIE_NAME']
+
+
+def _refresh_cookie_name(client) -> str:
+    """Return the live refresh-token cookie name."""
+    return client.application.config['REFRESH_COOKIE_NAME']
+
+
 def _copy_auth_token(client) -> str:
-    """Return the current ``auth_token`` cookie value."""
-    cookie = client.get_cookie('auth_token')
+    """Return the current access-token cookie value."""
+    cookie = client.get_cookie(_auth_cookie_name(client))
     assert cookie is not None
     assert cookie.value
     return cookie.value
@@ -382,7 +392,7 @@ def test_logout_all_revokes_copied_cookie_token(test_client, test_db):
     logout = test_client.post('/api/auth/logout-all', headers=csrf_headers(test_client))
     assert logout.status_code == 200
 
-    test_client.set_cookie('auth_token', token)
+    test_client.set_cookie(_auth_cookie_name(test_client), token)
     revoked = test_client.get('/api/data')
     assert revoked.status_code == 401
     assert revoked.json['code'] == 'INVALID_TOKEN'
@@ -446,7 +456,7 @@ def test_logout_revokes_this_device_access_immediately(test_client, test_db, tes
 
     assert logout_session(test_client).status_code == 200
 
-    test_client.set_cookie('auth_token', token)
+    test_client.set_cookie(_auth_cookie_name(test_client), token)
     cookie_revoked = test_client.get('/api/data')
     assert cookie_revoked.status_code == 401
     assert cookie_revoked.json['code'] == 'INVALID_TOKEN'
@@ -694,17 +704,17 @@ def test_stale_logout_does_not_revoke_new_session(test_client, test_db, test_app
 
 def test_logout_preserves_auth_device_cookie(test_client, test_db):
     """Logout must not drop the trusted ``auth_device`` cookie."""
-    from ..api.rate_limit import DEVICE_COOKIE_NAME
+    device_name = test_client.application.config['AUTH_DEVICE_COOKIE_NAME']
 
     register_user(test_client, username='keepdevice', password='testpass8')
     login_user(test_client, username='keepdevice', password='testpass8')
-    device = test_client.get_cookie(DEVICE_COOKIE_NAME)
+    device = test_client.get_cookie(device_name)
     assert device is not None
     assert device.value
 
     logout = logout_session(test_client)
     assert logout.status_code == 200
-    after = test_client.get_cookie(DEVICE_COOKIE_NAME)
+    after = test_client.get_cookie(device_name)
     assert after is not None
     assert after.value == device.value
 
@@ -755,8 +765,8 @@ def test_non_int_tv_claim_returns_401(test_client, test_db, test_app):
 
 
 def _copy_refresh_token(client) -> str:
-    """Return the current ``refresh_token`` cookie value."""
-    cookie = client.get_cookie('refresh_token', path='/api/auth')
+    """Return the current refresh-token cookie value."""
+    cookie = client.get_cookie(_refresh_cookie_name(client), path='/api/auth')
     assert cookie is not None
     assert cookie.value
     return cookie.value
@@ -824,13 +834,13 @@ def test_refresh_reuse_within_grace_issues_sibling(test_client, test_db):
     assert refresh_session(test_client).status_code == 200
     second = _copy_refresh_token(test_client)
 
-    test_client.set_cookie('refresh_token', first, path='/api/auth')
+    test_client.set_cookie(_refresh_cookie_name(test_client), first, path='/api/auth')
     sibling = refresh_session(test_client)
     assert sibling.status_code == 200
     third = _copy_refresh_token(test_client)
     assert third not in {first, second}
 
-    test_client.set_cookie('refresh_token', second, path='/api/auth')
+    test_client.set_cookie(_refresh_cookie_name(test_client), second, path='/api/auth')
     assert refresh_session(test_client).status_code == 200
 
 
@@ -860,12 +870,12 @@ def test_refresh_reuse_after_grace_revokes_family(test_client, test_db, monkeypa
     current = _copy_refresh_token(test_client)
 
     clock.advance(31)
-    test_client.set_cookie('refresh_token', first, path='/api/auth')
+    test_client.set_cookie(_refresh_cookie_name(test_client), first, path='/api/auth')
     reused = refresh_session(test_client)
     assert reused.status_code == 401
     assert reused.json['code'] == 'INVALID_TOKEN'
 
-    test_client.set_cookie('refresh_token', current, path='/api/auth')
+    test_client.set_cookie(_refresh_cookie_name(test_client), current, path='/api/auth')
     assert refresh_session(test_client).status_code == 401
 
 
@@ -895,7 +905,7 @@ def test_refresh_reuse_after_grace_revokes_access(
     assert refresh_session(test_client).status_code == 200
 
     clock.advance(31)
-    test_client.set_cookie('refresh_token', first, path='/api/auth')
+    test_client.set_cookie(_refresh_cookie_name(test_client), first, path='/api/auth')
     reused = refresh_session(test_client)
     assert reused.status_code == 401
     assert reused.json['code'] == 'INVALID_TOKEN'
@@ -927,7 +937,7 @@ def test_expired_family_sid_returns_401(test_client, test_db, test_app):
     db_session.commit()
     db_session.expire_all()
 
-    test_client.set_cookie('refresh_token', refresh, path='/api/auth')
+    test_client.set_cookie(_refresh_cookie_name(test_client), refresh, path='/api/auth')
     expired_refresh = refresh_session(test_client)
     assert expired_refresh.status_code == 401
     assert expired_refresh.json['code'] == 'INVALID_TOKEN'
@@ -948,7 +958,7 @@ def test_logout_revokes_refresh_family(test_client, test_db):
     refresh = _copy_refresh_token(test_client)
     assert logout_session(test_client).status_code == 200
 
-    test_client.set_cookie('refresh_token', refresh, path='/api/auth')
+    test_client.set_cookie(_refresh_cookie_name(test_client), refresh, path='/api/auth')
     response = refresh_session(test_client)
     assert response.status_code == 401
     assert response.json['code'] == 'INVALID_TOKEN'
@@ -967,7 +977,7 @@ def test_logout_all_rejects_refresh(test_client, test_db):
         == 200
     )
 
-    test_client.set_cookie('refresh_token', refresh, path='/api/auth')
+    test_client.set_cookie(_refresh_cookie_name(test_client), refresh, path='/api/auth')
     assert refresh_session(test_client).status_code == 401
     revoked = test_client.get(
         '/api/data', headers={'Authorization': f'Bearer {access}'}

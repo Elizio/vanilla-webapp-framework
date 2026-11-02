@@ -11,6 +11,7 @@ from typing import Any, Dict, Optional
 
 from dotenv import load_dotenv
 
+from .cookie_names import resolve_cookie_name, resolve_cookie_prefix
 from .url_settings import normalize_app_base_path, parse_cors_origins
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -227,6 +228,25 @@ class AppConfig:
         app_name_raw = os.getenv('APP_NAME', 'vanilla-webapp-framework')
         app_name = app_name_raw.strip().strip("'\"")
         self.APP_NAME = app_name or 'vanilla-webapp-framework'
+        self.COOKIE_PREFIX = resolve_cookie_prefix(
+            os.getenv('COOKIE_PREFIX'), self.APP_NAME
+        )
+        self.CSRF_COOKIE_NAME = resolve_cookie_name(
+            os.getenv('CSRF_COOKIE_NAME'), self.COOKIE_PREFIX, 'csrf_token'
+        )
+        self.AUTH_COOKIE_NAME = resolve_cookie_name(
+            os.getenv('AUTH_COOKIE_NAME'), self.COOKIE_PREFIX, 'auth_token'
+        )
+        self.REFRESH_COOKIE_NAME = resolve_cookie_name(
+            os.getenv('REFRESH_COOKIE_NAME'),
+            self.COOKIE_PREFIX,
+            'refresh_token',
+        )
+        self.AUTH_DEVICE_COOKIE_NAME = resolve_cookie_name(
+            os.getenv('AUTH_DEVICE_COOKIE_NAME'),
+            self.COOKIE_PREFIX,
+            'auth_device',
+        )
         self.REQUIRE_EMAIL_VERIFIED = _parse_bool_env(
             os.getenv('REQUIRE_EMAIL_VERIFIED'),
             default=True,

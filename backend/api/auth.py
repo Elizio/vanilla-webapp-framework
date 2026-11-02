@@ -280,8 +280,9 @@ def session_status():
 
 
 @auth_bp.route('/api/login', methods=['POST'])
-@rate_limit_auth
+# CSRF before the limiter so a stale-token retry does not burn a slot.
 @csrf_protect
+@rate_limit_auth
 def login():
     """
     Authenticate a user and set a session cookie.
@@ -528,8 +529,9 @@ def email_capabilities():
 
 
 @auth_bp.route('/api/register', methods=['POST'])
-@rate_limit_auth
+# CSRF before the limiter so a stale-token retry does not burn a slot.
 @csrf_protect
+@rate_limit_auth
 def register():
     """
     Register a new user. Logs in immediately when email sending is off.

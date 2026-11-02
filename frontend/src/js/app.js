@@ -18,9 +18,11 @@ import {
 import {
     AUTH_EXPIRED_EVENT,
     apiFetch,
+    bindCsrfPageShow,
     fetchSession,
     initCsrf,
     resetCsrf,
+    unbindCsrfPageShow,
 } from './api.js';
 
 /**
@@ -454,6 +456,20 @@ export const createSpaApp = () => {
             }
             await this.clearLocalSession({ showLogin: false });
         },
+
+        /**
+         * Alpine / test teardown: drop global listeners this instance added.
+         */
+        destroy() {
+            if (this._onAuthExpired) {
+                window.removeEventListener(
+                    AUTH_EXPIRED_EVENT,
+                    this._onAuthExpired,
+                );
+                this._onAuthExpired = null;
+            }
+            unbindCsrfPageShow();
+        },
     };
 
     app.menuController.init();
@@ -474,6 +490,7 @@ export const createSpaApp = () => {
             });
         };
         window.addEventListener(AUTH_EXPIRED_EVENT, app._onAuthExpired);
+        bindCsrfPageShow();
     }
 
     return app;

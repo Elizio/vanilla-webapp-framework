@@ -7,13 +7,13 @@ build-backend = "setuptools.build_meta"
 # Coverage lives here ([tool.coverage.*]). setup.cfg has no [coverage:*]
 # section, so coverage.py / pytest-cov fall through to this file.
 
-# Measured 2026-11-01 on Python 3.10.22 (CI): 1321 statements, 141 missed,
-# 89.33% excluding backend/tests. Floor is floor(89.33) minus ~1 point.
+# Measured 2026-11-02 on Python 3.12.3: 2687 statements, 252 missed,
+# 90.62% excluding backend/tests. Floor is floor(90.62) minus ~1 point.
 [tool.coverage.run]
 omit = ["backend/tests/*"]
 
 [tool.coverage.report]
-fail_under = 88
+fail_under = 89
 
 [tool.ruff]
 line-length = 88

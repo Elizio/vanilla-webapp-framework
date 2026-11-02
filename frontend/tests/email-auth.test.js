@@ -2,7 +2,6 @@
  * Email verification and password-reset SPA behaviour.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AUTH_EXPIRED_EVENT } from '../src/js/api.js';
 import { createSpaApp, handleEmailQuery } from '../src/js/app.js';
 import { pages } from '../src/js/pages.js';
 import { userRegistryController } from '../src/js/controllers/user_registry.js';
@@ -28,12 +27,7 @@ describe('email auth UI', () => {
     afterEach(() => {
         while (spaApps.length) {
             const app = spaApps.pop();
-            if (app._onAuthExpired) {
-                window.removeEventListener(
-                    AUTH_EXPIRED_EVENT,
-                    app._onAuthExpired,
-                );
-            }
+            app.destroy();
         }
     });
 
@@ -140,9 +134,21 @@ describe('email auth UI', () => {
         userRegistryController.username = 'ada';
         userRegistryController.password = 'testpass8';
         userRegistryController.confirmPassword = 'testpass8';
-        fetch.mockResolvedValueOnce({
-            ok: true,
-            json: async () => ({ authenticated: true, code: 'USER_CREATED' }),
+        fetch.mockImplementation(async (input) => {
+            const url = typeof input === 'string' ? input : input.url;
+            if (url.endsWith('/api/csrf')) {
+                return { ok: true, json: async () => ({ csrf_token: 'csrf' }) };
+            }
+            if (url.endsWith('/api/register')) {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        authenticated: true,
+                        code: 'USER_CREATED',
+                    }),
+                };
+            }
+            throw new Error(`Unmocked fetch in tests: ${url}`);
         });
         await userRegistryController.register();
         expect(app.enterAuthenticatedApp).toHaveBeenCalled();

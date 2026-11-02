@@ -155,11 +155,16 @@ Copy `.env.example` to `.env` and adjust values before running.
    | `SMTP_PASSWORD` | SMTP password / API key (secret; never commit). |
    | `SMTP_SECURITY` | `ssl` (default, SMTP_SSL) or `starttls`. |
    | `EMAIL_FROM` | From address, e.g. `no-reply@dsfor.fun`. Required for `smtp`. |
-   | `APP_NAME` | Display name in From, subject, and body (default `vanilla-webapp-framework`). |
+   | `APP_NAME` | Display name in From, subject, and body (default `vanilla-webapp-framework`). Also the default source for `COOKIE_PREFIX` when that env var is unset. |
    | `REQUIRE_EMAIL_VERIFIED` | When sending is on, block password login until confirm (default `1`). `0` is non-blocking. |
    | `OAUTH_REDIRECT_BASE` | OAuth callback base URL (default `http://localhost:5173` in dev) |
    | `CORS_ORIGINS` | Comma-separated browser origins only (`scheme://host[:port]`, no paths). A path is stripped at startup with a warning. A malformed entry (no scheme/host) raises `ValueError` and stops startup. Defaults to the origin of `FRONTEND_URL`. |
-   | `APP_BASE_PATH` | Public subpath prefix used as cookie `Path` for `auth_token`, `csrf_token`, `auth_device`, and the Flask session (default `/`). The `refresh_token` cookie is scoped to `{APP_BASE_PATH}/api/auth`. Use `/vanilla-webapp-framework` on the dsfor.fun subpath deploy. Empty/unset keeps access cookies at `Path=/`. |
+   | `APP_BASE_PATH` | Public subpath prefix used as cookie `Path` for the namespaced auth, CSRF, and device cookies and the Flask session (default `/`). The refresh cookie is scoped to `{APP_BASE_PATH}/api/auth`. Use `/vanilla-webapp-framework` on the dsfor.fun subpath deploy. Empty/unset keeps access cookies at `Path=/`. |
+   | `COOKIE_PREFIX` | Prefix for session cookie names. Default: slug of `APP_NAME` (or `vanilla-webapp-framework` when that is unset). Two apps on one host must use distinct prefixes so `csrf_token` / `auth_token` do not collide. **Changing `COOKIE_PREFIX` (or `APP_NAME` when `COOKIE_PREFIX` is unset) logs everyone out** because the browser will not send the old cookie names. |
+   | `CSRF_COOKIE_NAME` | HttpOnly CSRF cookie name. Default `{COOKIE_PREFIX}_csrf_token`. |
+   | `AUTH_COOKIE_NAME` | HttpOnly access JWT cookie name. Default `{COOKIE_PREFIX}_auth_token`. |
+   | `REFRESH_COOKIE_NAME` | HttpOnly refresh cookie name. Default `{COOKIE_PREFIX}_refresh_token`. |
+   | `AUTH_DEVICE_COOKIE_NAME` | HttpOnly trusted-device cookie name. Default `{COOKIE_PREFIX}_auth_device`. |
    | `VITE_BASE_PATH` | Vite `base` at **image build time** (default `/`). Production CI sets `/vanilla-webapp-framework/`. Changing it requires a rebuild; it is not a runtime compose key. Must match `APP_BASE_PATH` plus a trailing slash. |
    | `TRUST_PROXY` | Set `1` behind Caddy/nginx so Flask honors `X-Forwarded-*` (default off). |
    | `TRUST_PROXY_HOPS` | How many `X-Forwarded-*` hops Flask peels when `TRUST_PROXY=1`. **Default `1`** (prod: `TRUST_PROXY=1`, Caddy, ProxyFix `x_for=1` — no prod env change). Must equal the number of trusted proxies. Appending the connecting client to `X-Forwarded-For` is fine with `x_for=1`. |
@@ -168,7 +173,7 @@ Copy `.env.example` to `.env` and adjust values before running.
    | `RATELIMIT_AUTH_IP_WINDOW_SECONDS` | Per-IP window length (default `60`). |
    | `RATELIMIT_LOGIN_USER_MAX` | Hard limit per exact username+subnet (untrusted) or username+device (trusted), and free untrusted attempts before backoff (default `5`). |
    | `RATELIMIT_LOGIN_USER_WINDOW_SECONDS` | Per-username / pair / device window (default `900`). Success resets only that client's pair or device counter, not the global backoff. |
-   | `ACCESS_TOKEN_TTL_SECONDS` | Access JWT lifetime (default `900`). Cookie `auth_token` uses the same Max-Age. |
+   | `ACCESS_TOKEN_TTL_SECONDS` | Access JWT lifetime (default `900`). The namespaced access cookie uses the same Max-Age. |
    | `REFRESH_TOKEN_TTL_DAYS` | Refresh family absolute cap and remember-me cookie lifetime (default `30`). |
    | `REFRESH_SESSION_TTL_HOURS` | Server TTL for a refresh token when remember-me is off (default `24`). The cookie is a browser-session cookie. |
    | `HSTS_ENABLED` | Production HSTS on/off (default on). Sends `max-age=31536000` without `includeSubDomains`. Keep on for at least one max-age before setting `0`. |
@@ -308,8 +313,8 @@ Coverage floors: backend `fail_under` in `pyproject.toml` (omits `backend/tests`
 
 ## 🔒 Security
 
-- Session auth via a short-lived httpOnly `auth_token` JWT (`user_id`, `iat`, `exp`, `tv`, `sid`) plus a rotating httpOnly `refresh_token` cookie (`Path={APP_BASE_PATH}/api/auth`, `SameSite=Strict`, `Secure` in production). `POST /api/auth/logout` revokes that family so this device's access JWT is 401 on the next request; other devices stay signed in. A pre-deploy token with no `sid` is still accepted until that user logs out, which bumps `token_version`. `POST /api/auth/logout-all` bumps `users.token_version` and revokes every family. Deprecated `POST /api/logout` uses the same revoke path. Bearer is for access tokens only.
-- CSRF double-submit protection on mutating API routes (`GET /api/csrf` JSON token + HttpOnly `csrf_token` cookie + `X-CSRF-Token` header)
+- Session auth via a short-lived httpOnly access JWT (`user_id`, `iat`, `exp`, `tv`, `sid`) plus a rotating httpOnly refresh cookie (`Path={APP_BASE_PATH}/api/auth`, `SameSite=Strict`, `Secure` in production). Cookie names are `{COOKIE_PREFIX}_auth_token` and `{COOKIE_PREFIX}_refresh_token` (overridable). `POST /api/auth/logout` revokes that family so this device's access JWT is 401 on the next request; other devices stay signed in. A pre-deploy token with no `sid` is still accepted until that user logs out, which bumps `token_version`. `POST /api/auth/logout-all` bumps `users.token_version` and revokes every family. Deprecated `POST /api/logout` uses the same revoke path. Bearer is for access tokens only. Legacy `auth_token` / `refresh_token` cookies are still read for one deploy.
+- CSRF double-submit protection on mutating API routes (`GET /api/csrf` JSON token + HttpOnly `{COOKIE_PREFIX}_csrf_token` cookie + `X-CSRF-Token` header). Validation accepts any cookie value under the live name or legacy `csrf_token` that matches the header, so a foreign leftover sent first cannot 403 the SPA.
 - CORS restricted to configured origins (`scheme://host[:port]` only) with credentials support
 - Production HSTS `max-age=31536000` without `includeSubDomains`
 - Rate limiting on login and registration (fixed windows: 10 / 60 s per IP; trusted device 5 / 15 min; untrusted 5 / 15 min per username+subnet plus global backoff, **15 password checks / 15 min** per username; approximate — bursts up to ~2× across a window edge), shared in the app database
