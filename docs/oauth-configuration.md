@@ -17,7 +17,7 @@ API endpoints:
 |----------|---------|
 | `GET /api/auth/providers` | List enabled providers |
 | `GET /api/auth/<provider>/login` | Start OAuth (redirects to provider) |
-| `GET /api/auth/<provider>/callback` | Provider callback; issues JWT |
+| `GET /api/auth/<provider>/callback` | Provider callback; sets the httpOnly auth cookie and redirects to the SPA |
 
 ### Provider consoles
 
@@ -32,10 +32,10 @@ Configure these once in `.env` (see [`.env.example`](../.env.example)):
 
 | Topic | Development | Production |
 |-------|-------------|------------|
-| `OAUTH_REDIRECT_BASE` | `http://localhost:5173` | Public app URL (e.g. `https://example.com`) |
-| `FRONTEND_URL` | `http://localhost:5173` | Same public URL |
+| `OAUTH_REDIRECT_BASE` | `http://localhost:5173` | Public app URL, **including any subpath** (see [Deploying under a subpath](#deploying-under-a-subpath)) |
+| `FRONTEND_URL` | `http://localhost:5173` | Same public URL, including any subpath |
 | Redirect URI pattern | `{OAUTH_REDIRECT_BASE}/api/auth/{provider}/callback` | Same |
-| Browser origin | `http://localhost:5173` (Vite proxies `/api` to Flask) | Single Flask origin on `:5000` |
+| Browser origin | `http://localhost:5173` (Vite proxies `/api` to Flask) | Single Flask origin (CORS uses the origin only, not the path) |
 
 **Steps:**
 
@@ -74,10 +74,10 @@ sequenceDiagram
     Provider->>Vite: Redirect to /api/auth/provider/callback
     Vite->>Flask: Proxied callback
     Flask->>Provider: Exchange code for token
-    Flask->>Browser: Redirect to FRONTEND_URL with JWT in URL fragment
+    Flask->>Browser: Set httpOnly auth_token cookie; redirect to FRONTEND_URL/?auth=success
 ```
 
-After a successful login, the SPA reads `#token=...` from the URL fragment (see [`frontend/src/js/app.js`](../frontend/src/js/app.js)), stores the JWT in `localStorage`, and sets `isLoggedIn`.
+After a successful login, the callback sets the httpOnly `auth_token` cookie and redirects to `FRONTEND_URL/?auth=success`. The SPA (`handleOAuthQuery` in [`frontend/src/js/app.js`](../frontend/src/js/app.js)) reads that query, sets `isLoggedIn`, and later API calls use the cookie. Denied or cancelled consent redirects to `FRONTEND_URL/?auth_error=AUTH_FAILED` (shown as the generic authentication-failed message). Unconfigured providers never start this flow: `GET /api/auth/providers` returns `[]`, login and callback return 404 `PROVIDER_NOT_CONFIGURED`, and the Google/Facebook buttons stay disabled.
 
 ### Account linking
 
@@ -107,7 +107,8 @@ Uses OpenID Connect via Authlib with scopes `openid email profile`.
    - Application type: **Web application**.
 4. Under **Authorized redirect URIs**, add:
    - Development: `http://localhost:5173/api/auth/google/callback`
-   - Production: `https://<your-domain>/api/auth/google/callback`
+   - Production (this deploy): `https://dsfor.fun/vanilla-webapp-framework/api/auth/google/callback`
+   - Production (other hosts): `{OAUTH_REDIRECT_BASE}/api/auth/google/callback`
 5. Copy **Client ID** and **Client secret** into `.env`:
 
    ```env
@@ -162,7 +163,7 @@ If `email` is missing, Facebook shows **Invalid Scopes: email** and blocks login
 1. In the same use case, open **Settings**.
 2. Under **Client OAuth Settings**, ensure **Client OAuth Login** and **Web OAuth Login** are **On**.
 3. **Redirect URIs (development):** while the app is **Unpublished**, Meta allows `http://localhost` automatically. You do **not** need to add `http://localhost:5173/api/auth/facebook/callback` manually. If you do, Meta may show a warning — that is fine; remove the entry or ignore it.
-4. **Redirect URIs (production):** add `https://<your-domain>/api/auth/facebook/callback` and click **Save changes**.
+4. **Redirect URIs (production):** add `https://dsfor.fun/vanilla-webapp-framework/api/auth/facebook/callback` (or `{OAUTH_REDIRECT_BASE}/api/auth/facebook/callback` on other hosts) and click **Save changes**.
 
 #### 4. Configure `.env` and restart
 
@@ -194,9 +195,58 @@ An orange banner such as *Submit for login review* is **normal in development**.
 
 Before switching the app to **Live**:
 
-1. Register `https://<your-domain>/api/auth/facebook/callback` in Facebook Login settings.
+1. Register `https://dsfor.fun/vanilla-webapp-framework/api/auth/facebook/callback` in Facebook Login settings.
 2. Complete [App Review](https://developers.facebook.com/docs/development/build-and-test/) for Advanced Access to `email` and `public_profile`.
-3. Set `FRONTEND_URL` and `OAUTH_REDIRECT_BASE` to your public HTTPS origin.
+3. Set `FRONTEND_URL` and `OAUTH_REDIRECT_BASE` as in [Deploying under a subpath](#deploying-under-a-subpath).
+
+---
+
+## Deploying under a subpath
+
+Production for this repository is `https://dsfor.fun/vanilla-webapp-framework`. Keep that subpath on both URL env vars. Leaving them empty or `/` sends the post-login redirect to the domain root (`https://dsfor.fun/?auth=success`) and builds a relative OAuth callback URI.
+
+If a provider's ID or secret is unset (today's live default), that provider stays off: `GET /api/auth/providers` returns `[]`, login and callback return 404 `PROVIDER_NOT_CONFIGURED`, and the login buttons stay disabled. Enabling login is an ops step on the VPS, not a code change.
+
+### (a) Production env vars
+
+Set these on the VPS (never commit values). Example values for this subpath deploy:
+
+| Variable | Example value for `https://dsfor.fun/vanilla-webapp-framework` |
+|----------|---------------------------------------------------------------|
+| `FRONTEND_URL` | `https://dsfor.fun/vanilla-webapp-framework` |
+| `OAUTH_REDIRECT_BASE` | `https://dsfor.fun/vanilla-webapp-framework` |
+| `GOOGLE_CLIENT_ID` | from Google Cloud Console (OAuth 2.0 Client ID) |
+| `GOOGLE_CLIENT_SECRET` | from Google Cloud Console (OAuth 2.0 Client secret) |
+| `FACEBOOK_CLIENT_ID` | from Meta for Developers (App ID) |
+| `FACEBOOK_CLIENT_SECRET` | from Meta for Developers (App Secret) |
+
+Restart the app after changing env vars so `register_oauth_clients` picks them up. In production, an enabled provider with an empty `OAUTH_REDIRECT_BASE` logs a warning and does not crash.
+
+### (b) Redirect URIs to register
+
+Redirect base: `https://dsfor.fun/vanilla-webapp-framework`.
+
+| Provider | Authorized redirect URI |
+|----------|-------------------------|
+| Google | `https://dsfor.fun/vanilla-webapp-framework/api/auth/google/callback` |
+| Facebook | `https://dsfor.fun/vanilla-webapp-framework/api/auth/facebook/callback` |
+
+### (c) Other provider-console settings
+
+**Google Cloud Console** (APIs & Services → Credentials → OAuth client ID, application type **Web application**):
+
+- Authorized JavaScript origins: `https://dsfor.fun`
+- Authorized redirect URIs: the Google URI in (b)
+- OAuth consent screen: External (or Internal for Workspace); while in Testing, only listed test users can sign in
+
+**Meta for Developers** (App settings → Basic, plus Facebook Login → Settings):
+
+- App Domains: `dsfor.fun`
+- Site URL: `https://dsfor.fun/vanilla-webapp-framework/`
+- Valid OAuth Redirect URIs: the Facebook URI in (b)
+- Client OAuth Login: On
+- Web OAuth Login: On
+- Permissions: `email` and `public_profile` (App Review for Advanced Access before switching the app to Live)
 
 ---
 
@@ -211,8 +261,10 @@ Before switching the app to **Live**:
 | Facebook **Submit for login review** banner | App not reviewed yet — expected in dev | Click **Continue** if you are an app Admin/Developer/Tester |
 | Facebook login blocked for a user | App is Unpublished and user has no app role | Add the user under App settings → Roles, or invite a consumer tester |
 | OAuth works on `:5000` but not `:5173` | `OAUTH_REDIRECT_BASE` points to `:5000` in dev | Use `http://localhost:5173` for both `FRONTEND_URL` and `OAUTH_REDIRECT_BASE` |
-| `Provider not configured` (404) | Only one of the two env vars is set | Both ID and secret are required per provider |
-| `Authentication failed` after provider redirect | Token exchange or profile fetch failed | Check Flask / `docker logs` (stdout); file logging is opt-in |
+| `Provider not configured` (404) | Only one of the two env vars is set, or both are unset | Both ID and secret are required per provider; unconfigured is the safe default |
+| Startup warning about empty `OAUTH_REDIRECT_BASE` | A provider is enabled in production without a public redirect base | Set `OAUTH_REDIRECT_BASE` to the public app URL including any subpath |
+| After login, the browser lands on the domain root | `FRONTEND_URL` is `/` or missing the subpath | Set `FRONTEND_URL` (and `OAUTH_REDIRECT_BASE`) to `https://dsfor.fun/vanilla-webapp-framework` |
+| `Authentication failed` after provider redirect | Token exchange or profile fetch failed, or the user denied consent | Lands on the app login page with `auth_error=AUTH_FAILED`, not a 500. Check Flask / `docker logs` (stdout); file logging is opt-in |
 | Facebook user has no email after login | User denied email or app lacks Advanced Access in Live mode | Request App Review for `email` before going Live |
 
 ---
@@ -232,15 +284,12 @@ Before switching the app to **Live**:
    APP_PROFILE=production flask run
    ```
 
-3. Set `FRONTEND_URL` and `OAUTH_REDIRECT_BASE` to the same public origin (e.g. `https://example.com`).
+3. Set `FRONTEND_URL` and `OAUTH_REDIRECT_BASE` to the same public app URL, **including any subpath**. For this deploy see [Deploying under a subpath](#deploying-under-a-subpath) (a)(b)(c).
 
-4. Register production redirect URIs in each provider console:
-
-   - `https://<your-domain>/api/auth/google/callback`
-   - `https://<your-domain>/api/auth/facebook/callback`
+4. Register the exact production redirect URIs from (b) in each provider console, plus the other console settings in (c).
 
 5. For Google: publish the OAuth consent screen or keep test users if still in Testing.
 
 6. For Facebook: complete [App Review](https://developers.facebook.com/docs/development/build-and-test/) for Advanced Access to `email` and `public_profile`, then switch the app to **Live**. A verified business portfolio may be required.
 
-7. Verify: `curl https://<your-domain>/api/auth/providers` lists your configured providers.
+7. Verify: `curl https://dsfor.fun/vanilla-webapp-framework/api/auth/providers` lists your configured providers. Until the VPS env vars in (a) are set, this returns `[]` and the buttons stay disabled.
