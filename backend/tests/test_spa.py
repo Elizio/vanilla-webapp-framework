@@ -36,7 +36,17 @@ def test_api_unknown_not_swallowed_by_spa(production_client):
     assert response.json == {'code': 'NOT_FOUND'}
 
 
-@pytest.mark.parametrize('path', ['/api/login', '/api/register', '/api/logout'])
+@pytest.mark.parametrize(
+    'path',
+    [
+        '/api/login',
+        '/api/register',
+        '/api/logout',
+        '/api/auth/refresh',
+        '/api/auth/logout',
+        '/api/auth/logout-all',
+    ],
+)
 def test_get_on_post_only_api_route_returns_405(test_client, path):
     response = test_client.get(path)
     assert response.status_code == 405

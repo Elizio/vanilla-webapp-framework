@@ -26,6 +26,7 @@
     "title": "Demo Vanilla WebApp",
     "username": "Usuário",
     "password": "Senha",
+    "rememberMe": "Lembrar de mim",
     "noAccount": "Não tem conta? Cadastre-se",
     "oauthHint": "Login social requer chaves de provedor no .env. Reinicie o Flask após adicioná-las."
   },

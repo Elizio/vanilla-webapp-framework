@@ -30,13 +30,27 @@ def register_user(client, username='testuser', password='testpass8'):
     )
 
 
-def login_user(client, username='testuser', password='testpass8'):
+def login_user(client, username='testuser', password='testpass8', remember_me=False):
     """Log in and return the response (session cookie stored on client)."""
     return client.post(
         '/api/login',
-        json={'username': username, 'password': password},
+        json={
+            'username': username,
+            'password': password,
+            'remember_me': remember_me,
+        },
         headers=csrf_headers(client),
     )
+
+
+def refresh_session(client):
+    """Rotate the refresh cookie and return the response."""
+    return client.post('/api/auth/refresh', headers=csrf_headers(client))
+
+
+def logout_session(client):
+    """Log out via the canonical refresh-cookie path."""
+    return client.post('/api/auth/logout', headers=csrf_headers(client))
 
 
 @pytest.fixture(scope="session", autouse=True)

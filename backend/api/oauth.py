@@ -10,7 +10,7 @@ from ..db_repository.database import db_session
 from ..models.user import User
 from .auth import user_may_authenticate
 from .error_codes import ACCOUNT_INACTIVE, PROVIDER_NOT_CONFIGURED
-from .session_auth import set_auth_cookie
+from .session_auth import set_session_cookies
 
 oauth = OAuth()
 oauth_bp = Blueprint('oauth', __name__)
@@ -264,7 +264,7 @@ def oauth_login(provider):
 @oauth_bp.route('/api/auth/<provider>/callback', methods=['GET'])
 def oauth_callback(provider):
     """
-    OAuth callback — exchange code, create or find user, set auth cookie.
+    OAuth callback — exchange code, create or find user, set session cookies.
     ---
     tags:
       - Authentication
@@ -277,7 +277,7 @@ def oauth_callback(provider):
     responses:
       302:
         description: >-
-          Redirect to FRONTEND_URL with an httpOnly auth cookie
+          Redirect to FRONTEND_URL with httpOnly auth and refresh cookies
           (`?auth=success` or `?auth_error=CODE`)
       404:
         description: Provider not configured
@@ -299,7 +299,7 @@ def oauth_callback(provider):
         if not user_may_authenticate(user):
             return _frontend_redirect(auth_error=ACCOUNT_INACTIVE)
         response = _frontend_redirect(auth='success')
-        set_auth_cookie(response, user.id, user.token_version)
+        set_session_cookies(response, user, remember_me=True)
         return response
     except Exception as exc:
         current_app.logger.error('OAuth callback failed for %s: %s', provider, exc)

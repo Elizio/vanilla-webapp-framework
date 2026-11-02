@@ -6,12 +6,26 @@ import jwt
 from flask import current_app
 
 JWT_ALGORITHM = 'HS256'
-JWT_EXPIRATION = 3600
+DEFAULT_ACCESS_TOKEN_TTL_SECONDS = 900
+# Backward-compatible alias used by session cookie max_age.
+JWT_EXPIRATION = DEFAULT_ACCESS_TOKEN_TTL_SECONDS
 
 
 def _jwt_secret():
     key = current_app.config.get('JWT_SECRET_KEY')
     return key or current_app.config.get('JWT_SECRET')
+
+
+def access_token_ttl_seconds() -> int:
+    """Return the access-token lifetime in seconds.
+
+    Returns:
+        ``ACCESS_TOKEN_TTL_SECONDS`` from config, default 900.
+    """
+    raw = current_app.config.get('ACCESS_TOKEN_TTL_SECONDS')
+    if raw is None or raw == '':
+        return DEFAULT_ACCESS_TOKEN_TTL_SECONDS
+    return int(raw)
 
 
 def token_version_from_payload(payload: dict) -> int | None:
@@ -59,13 +73,15 @@ def generate_token(user_id: int, token_version: int = 0) -> str:
         token_version: Current ``users.token_version`` (claim ``tv``).
 
     Returns:
-        Encoded HS256 JWT.
+        Encoded HS256 JWT with ``iat``, ``exp``, ``user_id``, and ``tv``.
     """
+    now = datetime.now(timezone.utc)
     return jwt.encode(
         {
             'user_id': user_id,
             'tv': int(token_version),
-            'exp': datetime.now(timezone.utc) + timedelta(seconds=JWT_EXPIRATION),
+            'iat': now,
+            'exp': now + timedelta(seconds=access_token_ttl_seconds()),
         },
         _jwt_secret(),
         algorithm=JWT_ALGORITHM,

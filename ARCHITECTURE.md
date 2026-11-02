@@ -14,7 +14,7 @@ HTTP (Flask blueprints)
 | Layer | Lives in | Rule |
 |-------|----------|------|
 | Routes | `backend/api/*.py`, `backend/web_routes.py` | Blueprints + Flasgger YAML. SPA `/` and error handlers in `web_routes.py`. |
-| Services | `backend/billing/`, `backend/api/session_auth.py` | Orchestration, no HTML. |
+| Services | `backend/billing/`, `backend/api/session_auth.py`, `backend/api/refresh_tokens.py` | Orchestration, no HTML. |
 | Models | `backend/models/` | Columns and relationships only. |
 | Config | `backend/config/` | `AppConfig` / `UserConfig` from env. |
 | SPA | `frontend/src/js/` + `frontend/src/templates/` | Alpine controllers + `?raw` HTML fragments. |
@@ -88,7 +88,7 @@ Contract: `backend/billing/providers/base.py`. Working adapter: `lemon_squeezy.p
 
 ## Auth notes
 
-Cookie session (`auth_token`) + CSRF (`GET /api/csrf` then `X-CSRF-Token`). Each JWT includes `tv` matching `users.token_version` (Alembic 008, default 0). Logout bumps that version so a copied cookie or Bearer token is **401** `INVALID_TOKEN` on `@token_required` routes; every session for that user is revoked. A JWT without `tv` is accepted as version 0. `auth_device` survives logout. Inactive users get **403** `ACCOUNT_INACTIVE`. Google links by email only when `email_verified`; Facebook never links by email. `users.password_hash` is `String(255)`.
+Cookie session + CSRF (`GET /api/csrf` then `X-CSRF-Token`). Short-lived access JWT in `auth_token` (`user_id`, `iat`, `exp`, `tv`; default 900 s) plus a rotating opaque `refresh_token` cookie (`Path={APP_BASE_PATH}/api/auth`, `SameSite=Strict`, `Secure` in production). Refresh rows live in `refresh_tokens` (Alembic **009**). `tv` must match `users.token_version` (Alembic **008**, default 0); a missing `tv` counts as 0. `POST /api/auth/refresh` rotates the cookie (reuse after a 30 s grace window revokes the family). `POST /api/auth/logout` revokes that family and clears both cookies. `POST /api/auth/logout-all` bumps `token_version` and revokes every family. Deprecated `POST /api/logout` still clears cookies. Remember-me (login checkbox) persists the refresh cookie for 30 days; unchecked is a browser-session cookie with 24 h server TTL. OAuth counts as remember-me. `auth_device` survives logout. Inactive users get **403** `ACCOUNT_INACTIVE` (including refresh). Bearer is for access tokens only. Google links by email only when `email_verified`; Facebook never links by email. `users.password_hash` is `String(255)`.
 
 Auth rate limits (login + register) use **fixed windows** in `rate_limit_counters` (approximate; a window-edge burst can admit ~2×): per client IP (IPv6 /64); trusted `auth_device` cookie (5 / 15 min per username+device); untrusted username+subnet (IPv4 /24, IPv6 /64) plus global per-username backoff (**15 password checks / 900 s**). Keys are stored as SHA-256 hex. `RATELIMIT_ENABLED` is on in production/development and off in testing. `TRUST_PROXY=1` plus `TRUST_PROXY_HOPS` (**default 1**, matching prod Caddy) select `request.remote_addr`. Appending the client to `X-Forwarded-For` is fine with `x_for=1`. Decision: [docs/adr/0006-auth-rate-limit-store.md](docs/adr/0006-auth-rate-limit-store.md).
 

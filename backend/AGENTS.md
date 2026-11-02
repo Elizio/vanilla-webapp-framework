@@ -12,7 +12,7 @@ backend/
 ├── alembic.ini
 ├── api/                 # auth, rate_limit, billing, oauth, routes
 ├── billing/             # plans, service, entitlements, providers/
-├── models/              # data-only SQLAlchemy (users, billing, rate_limit_counters)
+├── models/              # data-only SQLAlchemy (users, billing, rate_limit_counters, refresh_tokens)
 ├── db_repository/       # engine/session + migrations/
 ├── config/              # AppConfig, UserConfig, logging
 └── tests/
@@ -30,7 +30,7 @@ A module-level `app = create_app()` runs at import time. Tests call `create_app(
 
 | Blueprint | File | Routes |
 |-----------|------|--------|
-| `auth_bp` | `api/auth.py` | `POST /api/login`, `POST /api/register`, `POST /api/logout`, `GET /api/auth/session` |
+| `auth_bp` | `api/auth.py` | `POST /api/login`, `POST /api/register`, `GET /api/auth/session`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `POST /api/auth/logout-all`, deprecated `POST /api/logout` |
 | `oauth_bp` | `api/oauth.py` | `/api/auth/<provider>/login`, `/callback`, `/providers` |
 | `billing_bp` | `api/billing.py` | plans, status, checkout, Lemon Squeezy webhook |
 | `api_bp` | `api/routes.py` | `/api/health`, `/api/public`, `/api/data`, `/api/supporter-badge` |
@@ -43,11 +43,11 @@ Provider-agnostic layer. To add an adapter: [ARCHITECTURE.md](../ARCHITECTURE.md
 
 ## Auth
 
-Cookie session + CSRF. JWTs carry `user_id`, `exp`, and `tv` (`users.token_version`). `token_required` and `GET /api/auth/session` reject a token whose `tv` does not match; a missing `tv` counts as `0` so the deploy does not log anyone out. `POST /api/logout` increments `token_version` for the authenticated user (all of that user's sessions, cookie or `Authorization: Bearer`) and clears `auth_token`. The `auth_device` cookie is left in place. There is no password-change route today; when #59 / #60 add reset or logout-all they should call `bump_token_version()` in `api/auth.py`. Inactive users: **403** `ACCOUNT_INACTIVE`. Google links by email only when `email_verified`; Facebook never links by email. `users.password_hash` is `String(255)`.
+Cookie session + CSRF. Access JWTs carry `user_id`, `iat`, `exp`, and `tv` (`users.token_version`, Alembic 008). Default access TTL is 900 s (`ACCESS_TOKEN_TTL_SECONDS`). `token_required` and `GET /api/auth/session` reject a token whose `tv` does not match; a missing `tv` counts as `0` so the deploy does not log anyone out. Rotating opaque refresh tokens live in `refresh_tokens` (Alembic 009), hashed SHA-256, cookie `refresh_token` at `{APP_BASE_PATH}/api/auth`. `POST /api/auth/refresh` (`@csrf_protect`) rotates; reuse after a 30 s grace window revokes the family. `POST /api/auth/logout` revokes that family and clears both cookies. `POST /api/auth/logout-all` (`@token_required`) calls `bump_token_version()` and revokes every family. Deprecated `POST /api/logout` clears cookies (and revokes a family only if the refresh cookie is sent). `auth_device` is left in place. There is no password-change route today; #59 should call `bump_token_version()`. Inactive users: **403** `ACCOUNT_INACTIVE` (login, session, OAuth, refresh). Google links by email only when `email_verified`; Facebook never links by email. `users.password_hash` is `String(255)`.
 
 Login/register rate limits live in `rate_limit_counters` (Alembic 007), shared across gunicorn workers. Fixed windows (approximate; ~2× at a window edge): per-IP (10 / 60 s, IPv6 /64); trusted `auth_device` cookie (5 / 15 min per username+device); untrusted username+subnet plus global backoff (**15 password checks / 900 s**). Increment before the password check. Store keys are SHA-256 hex. `TRUST_PROXY_HOPS` defaults to 1. `RATELIMIT_ENABLED` defaults off only in the testing profile — tests that assert 429 must turn it on. Store errors fail open. See [ADR 0006](../docs/adr/0006-auth-rate-limit-store.md).
 
-**Canonical:** `@backend/api/auth.py`, `@backend/api/rate_limit.py`, `@backend/api/oauth.py`, `@backend/api/session_auth.py`, `@backend/api/csrf.py`
+**Canonical:** `@backend/api/auth.py`, `@backend/api/refresh_tokens.py`, `@backend/api/rate_limit.py`, `@backend/api/oauth.py`, `@backend/api/session_auth.py`, `@backend/api/csrf.py`
 
 Read settings from `AppConfig.get_instance()` or `current_app.config`. Call `load_env_file()` only before Flask starts (`database.py`).
 

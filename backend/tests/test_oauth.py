@@ -109,7 +109,10 @@ def test_oauth_callback_creates_user(oauth_client, monkeypatch):
     assert first.status_code == 302
     assert second.status_code == 302
     assert 'auth=success' in first.location
-    assert AUTH_COOKIE_NAME in first.headers.getlist('Set-Cookie')[0]
+    set_cookie = first.headers.getlist('Set-Cookie')
+    assert any(header.startswith(f'{AUTH_COOKIE_NAME}=') for header in set_cookie)
+    assert any(header.startswith('refresh_token=') for header in set_cookie)
+    assert any('Path=/api/auth' in header for header in set_cookie)
 
     user = User.query.filter_by(oauth_provider='google', oauth_id='oauth-123').first()
     assert user is not None

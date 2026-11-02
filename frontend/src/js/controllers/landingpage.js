@@ -33,7 +33,6 @@ export const landingPageController = {
             if (!response.ok) {
                 if (response.status === 401) {
                     this.error = this.appContext.t('errors.UNAUTHORIZED');
-                    this.appContext.logout();
                 } else {
                     this.error = this.appContext.t('errors.HTTP_ERROR', {
                         status: response.status,
