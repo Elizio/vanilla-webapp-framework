@@ -88,7 +88,7 @@ Contract: `backend/billing/providers/base.py`. Working adapter: `lemon_squeezy.p
 
 ## Auth notes
 
-Cookie session (`auth_token`) + CSRF (`GET /api/csrf` then `X-CSRF-Token`). Inactive users get **403** `ACCOUNT_INACTIVE`. Google links by email only when `email_verified`; Facebook never links by email. `users.password_hash` is `String(255)`.
+Cookie session (`auth_token`) + CSRF (`GET /api/csrf` then `X-CSRF-Token`). Each JWT includes `tv` matching `users.token_version` (Alembic 008, default 0). Logout bumps that version so a copied cookie or Bearer token is **401** `INVALID_TOKEN` on `@token_required` routes; every session for that user is revoked. A JWT without `tv` is accepted as version 0. `auth_device` survives logout. Inactive users get **403** `ACCOUNT_INACTIVE`. Google links by email only when `email_verified`; Facebook never links by email. `users.password_hash` is `String(255)`.
 
 Auth rate limits (login + register) use **fixed windows** in `rate_limit_counters` (approximate; a window-edge burst can admit ~2×): per client IP (IPv6 /64); trusted `auth_device` cookie (5 / 15 min per username+device); untrusted username+subnet (IPv4 /24, IPv6 /64) plus global per-username backoff (**15 password checks / 900 s**). Keys are stored as SHA-256 hex. `RATELIMIT_ENABLED` is on in production/development and off in testing. `TRUST_PROXY=1` plus `TRUST_PROXY_HOPS` (**default 1**, matching prod Caddy) select `request.remote_addr`. Appending the client to `X-Forwarded-For` is fine with `x_for=1`. Decision: [docs/adr/0006-auth-rate-limit-store.md](docs/adr/0006-auth-rate-limit-store.md).
 

@@ -15,6 +15,7 @@ class User(db.Base):
         email (str): Optional email from OAuth provider (not unique)
         oauth_provider (str): OAuth provider name (google, facebook)
         oauth_id (str): Provider-specific user id
+        token_version (int): Server-side JWT generation; must match claim ``tv``
     """
 
     __tablename__ = 'users'
@@ -27,6 +28,7 @@ class User(db.Base):
     oauth_provider = Column(String(20), nullable=True)
     oauth_id = Column(String(255), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
+    token_version = Column(Integer, nullable=False, default=0, server_default='0')
 
     def __repr__(self) -> str:
         """String representation of the User model."""

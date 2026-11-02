@@ -346,3 +346,170 @@ def test_put_login_returns_method_not_allowed(test_client, test_db):
         if part.strip()
     }
     assert 'POST' in allow
+
+
+def _copy_auth_token(client) -> str:
+    """Return the current ``auth_token`` cookie value."""
+    cookie = client.get_cookie('auth_token')
+    assert cookie is not None
+    assert cookie.value
+    return cookie.value
+
+
+def test_logout_revokes_copied_cookie_token(test_client, test_db):
+    """Copied auth_token cookie is 401 on a protected route after logout."""
+    register_user(test_client, username='cookierevoke', password='testpass8')
+    login_user(test_client, username='cookierevoke', password='testpass8')
+    token = _copy_auth_token(test_client)
+    assert test_client.get('/api/data').status_code == 200
+
+    logout = test_client.post('/api/logout', headers=csrf_headers(test_client))
+    assert logout.status_code == 200
+
+    test_client.set_cookie('auth_token', token)
+    revoked = test_client.get('/api/data')
+    assert revoked.status_code == 401
+    assert revoked.json['code'] == 'INVALID_TOKEN'
+
+
+def test_logout_revokes_copied_bearer_token(test_client, test_db):
+    """Copied Authorization Bearer JWT is 401 on a protected route after logout."""
+    register_user(test_client, username='bearerrevo', password='testpass8')
+    login_user(test_client, username='bearerrevo', password='testpass8')
+    token = _copy_auth_token(test_client)
+    assert (
+        test_client.get(
+            '/api/data', headers={'Authorization': f'Bearer {token}'}
+        ).status_code
+        == 200
+    )
+
+    logout = test_client.post('/api/logout', headers=csrf_headers(test_client))
+    assert logout.status_code == 200
+
+    revoked = test_client.get('/api/data', headers={'Authorization': f'Bearer {token}'})
+    assert revoked.status_code == 401
+    assert revoked.json['code'] == 'INVALID_TOKEN'
+
+
+def test_logout_revokes_other_sessions(test_client, test_db, test_app):
+    """Token-version logout invalidates every session for that user."""
+    register_user(test_client, username='allsessions', password='testpass8')
+    login_user(test_client, username='allsessions', password='testpass8')
+    first_token = _copy_auth_token(test_client)
+
+    other = test_app.test_client()
+    login_user(other, username='allsessions', password='testpass8')
+    second_token = _copy_auth_token(other)
+
+    logout = test_client.post('/api/logout', headers=csrf_headers(test_client))
+    assert logout.status_code == 200
+
+    first = test_client.get(
+        '/api/data', headers={'Authorization': f'Bearer {first_token}'}
+    )
+    second = other.get('/api/data', headers={'Authorization': f'Bearer {second_token}'})
+    assert first.status_code == 401
+    assert first.json['code'] == 'INVALID_TOKEN'
+    assert second.status_code == 401
+    assert second.json['code'] == 'INVALID_TOKEN'
+
+
+def test_jwt_without_tv_accepted_as_version_zero(test_client, test_db, test_app):
+    """In-flight tokens minted before the ``tv`` claim stay valid at version 0."""
+    register_user(test_client, username='legacytv', password='testpass8')
+    user = User.query.filter_by(username='legacytv').first()
+    assert user is not None
+    assert int(user.token_version or 0) == 0
+    token = jwt.encode(
+        {'user_id': user.id, 'exp': datetime.utcnow() + timedelta(hours=1)},
+        'test-jwt-secret-key',
+        algorithm=JWT_ALGORITHM,
+    )
+    anon = test_app.test_client()
+    response = anon.get('/api/data', headers={'Authorization': f'Bearer {token}'})
+    assert response.status_code == 200
+
+
+def test_stale_logout_does_not_revoke_new_session(test_client, test_db, test_app):
+    """Replaying logout with an already-revoked JWT must not bump a new session."""
+    register_user(test_client, username='stalelogout', password='testpass8')
+    login_user(test_client, username='stalelogout', password='testpass8')
+    old_token = _copy_auth_token(test_client)
+    test_client.post('/api/logout', headers=csrf_headers(test_client))
+
+    login_user(test_client, username='stalelogout', password='testpass8')
+    assert test_client.get('/api/data').status_code == 200
+
+    stale = test_app.test_client()
+    replay = stale.post(
+        '/api/logout',
+        headers={
+            **csrf_headers(stale),
+            'Authorization': f'Bearer {old_token}',
+        },
+    )
+    assert replay.status_code == 200
+    assert test_client.get('/api/data').status_code == 200
+
+
+def test_logout_preserves_auth_device_cookie(test_client, test_db):
+    """Logout must not drop the trusted ``auth_device`` cookie."""
+    from ..api.rate_limit import DEVICE_COOKIE_NAME
+
+    register_user(test_client, username='keepdevice', password='testpass8')
+    login_user(test_client, username='keepdevice', password='testpass8')
+    device = test_client.get_cookie(DEVICE_COOKIE_NAME)
+    assert device is not None
+    assert device.value
+
+    logout = test_client.post('/api/logout', headers=csrf_headers(test_client))
+    assert logout.status_code == 200
+    after = test_client.get_cookie(DEVICE_COOKIE_NAME)
+    assert after is not None
+    assert after.value == device.value
+
+
+def test_login_after_logout_issues_working_token(test_client, test_db):
+    """A new login after logout must mint a JWT that matches the new version."""
+    register_user(test_client, username='relogin', password='testpass8')
+    login_user(test_client, username='relogin', password='testpass8')
+    test_client.post('/api/logout', headers=csrf_headers(test_client))
+    login_user(test_client, username='relogin', password='testpass8')
+    assert test_client.get('/api/data').status_code == 200
+    session = test_client.get('/api/auth/session')
+    assert session.json['authenticated'] is True
+
+
+def test_revoked_token_session_is_unauthenticated(test_client, test_db):
+    """GET /api/auth/session treats a stale ``tv`` like any other bad token."""
+    register_user(test_client, username='sessiontv', password='testpass8')
+    login_user(test_client, username='sessiontv', password='testpass8')
+    token = _copy_auth_token(test_client)
+    test_client.post('/api/logout', headers=csrf_headers(test_client))
+    session = test_client.get(
+        '/api/auth/session',
+        headers={'Authorization': f'Bearer {token}'},
+    )
+    assert session.status_code == 200
+    assert session.json == {'authenticated': False}
+
+
+def test_non_int_tv_claim_returns_401(test_client, test_db, test_app):
+    """A ``tv`` claim that is not an int is rejected, not coerced."""
+    register_user(test_client, username='badtv', password='testpass8')
+    user = User.query.filter_by(username='badtv').first()
+    assert user is not None
+    token = jwt.encode(
+        {
+            'user_id': user.id,
+            'tv': '0',
+            'exp': datetime.utcnow() + timedelta(hours=1),
+        },
+        'test-jwt-secret-key',
+        algorithm=JWT_ALGORITHM,
+    )
+    anon = test_app.test_client()
+    response = anon.get('/api/data', headers={'Authorization': f'Bearer {token}'})
+    assert response.status_code == 401
+    assert response.json['code'] == 'INVALID_TOKEN'

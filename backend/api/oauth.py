@@ -262,7 +262,7 @@ def oauth_callback(provider):
         if not user_may_authenticate(user):
             return _frontend_redirect(auth_error=ACCOUNT_INACTIVE)
         response = _frontend_redirect(auth='success')
-        set_auth_cookie(response, user.id)
+        set_auth_cookie(response, user.id, user.token_version)
         return response
     except Exception as exc:
         current_app.logger.error('OAuth callback failed for %s: %s', provider, exc)

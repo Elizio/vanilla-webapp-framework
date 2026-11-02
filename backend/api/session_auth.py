@@ -13,7 +13,7 @@ from .jwt_utils import JWT_EXPIRATION, generate_token
 AUTH_COOKIE_NAME = 'auth_token'
 
 
-def set_auth_cookie(response, user_id: int):
+def set_auth_cookie(response, user_id: int, token_version: int = 0):
     """Attach a signed JWT as an httpOnly session cookie.
 
     Also expires any leftover ``Path=/`` ``auth_token`` or ``csrf_token``
@@ -22,11 +22,12 @@ def set_auth_cookie(response, user_id: int):
     Args:
         response: Flask response to mutate.
         user_id: Authenticated user primary key.
+        token_version: Current ``users.token_version`` embedded as claim ``tv``.
 
     Returns:
         The same response with ``Set-Cookie`` applied.
     """
-    token = generate_token(user_id)
+    token = generate_token(user_id, token_version)
     response.set_cookie(
         AUTH_COOKIE_NAME,
         token,
