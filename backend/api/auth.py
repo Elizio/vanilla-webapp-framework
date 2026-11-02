@@ -103,9 +103,10 @@ def bump_token_version(user: User) -> int:
 
     Call this on logout-all and on any later password-change or reset
     path (#59). Regular logout of a ``sid`` token revokes one family.
-    Logout of a legacy token with no ``sid`` also calls this so that
-    token dies immediately (other devices of that user are signed out
-    for the remaining access TTL of in-flight pre-deploy JWTs).
+
+    Logging out with a pre-deploy (sid-less) token also calls this.
+    That signs the user out on every device during roughly the first
+    access-token lifetime after deploy.
 
     Args:
         user: Persisted user row whose tokens should be revoked.

@@ -577,6 +577,62 @@ def test_non_string_sid_claim_returns_401(test_client, test_db, test_app):
     assert response.json['code'] == 'INVALID_TOKEN'
 
 
+def test_empty_sid_claim_returns_401(test_client, test_db, test_app):
+    """A present but empty ``sid`` is rejected, not treated as legacy."""
+    register_user(test_client, username='emptysid', password='testpass8')
+    user = User.query.filter_by(username='emptysid').first()
+    assert user is not None
+    token = jwt.encode(
+        {
+            'user_id': user.id,
+            'tv': 0,
+            'sid': '',
+            'exp': datetime.utcnow() + timedelta(hours=1),
+        },
+        'test-jwt-secret-key',
+        algorithm=JWT_ALGORITHM,
+    )
+    anon = test_app.test_client()
+    response = anon.get('/api/data', headers={'Authorization': f'Bearer {token}'})
+    assert response.status_code == 401
+    assert response.json['code'] == 'INVALID_TOKEN'
+
+
+def test_foreign_sid_claim_returns_401(test_client, test_db, test_app):
+    """Alice's JWT carrying Bob's live family id is 401; Bob stays signed in."""
+    register_user(test_client, username='sidalice', password='testpass8')
+    login_user(test_client, username='sidalice', password='testpass8')
+    alice = User.query.filter_by(username='sidalice').one()
+
+    bob_client = test_app.test_client()
+    register_user(bob_client, username='sidbob', password='testpass8')
+    login_user(bob_client, username='sidbob', password='testpass8')
+    bob_token = _copy_auth_token(bob_client)
+    bob_sid = jwt.decode(
+        bob_token,
+        'test-jwt-secret-key',
+        algorithms=[JWT_ALGORITHM],
+    )['sid']
+    assert isinstance(bob_sid, str) and bob_sid
+
+    forged = jwt.encode(
+        {
+            'user_id': alice.id,
+            'tv': int(alice.token_version or 0),
+            'sid': bob_sid,
+            'exp': datetime.utcnow() + timedelta(hours=1),
+        },
+        'test-jwt-secret-key',
+        algorithm=JWT_ALGORITHM,
+    )
+    stolen = test_app.test_client().get(
+        '/api/data', headers={'Authorization': f'Bearer {forged}'}
+    )
+    assert stolen.status_code == 401
+    assert stolen.json['code'] == 'INVALID_TOKEN'
+    assert bob_client.get('/api/data').status_code == 200
+
+
 def test_bump_token_version_revokes_sid_tokens(test_client, test_db, test_app):
     """Password-reset style ``bump_token_version`` kills every access JWT."""
     from ..api.auth import bump_token_version
@@ -811,6 +867,77 @@ def test_refresh_reuse_after_grace_revokes_family(test_client, test_db, monkeypa
 
     test_client.set_cookie('refresh_token', current, path='/api/auth')
     assert refresh_session(test_client).status_code == 401
+
+
+def test_refresh_reuse_after_grace_revokes_access(
+    test_client, test_db, test_app, monkeypatch
+):
+    """Reuse detection revokes the family so in-flight access JWTs are 401."""
+    from ..api import refresh_tokens as rt
+
+    class Clock:
+        def __init__(self):
+            self.now = rt.utc_now()
+
+        def __call__(self):
+            return self.now
+
+        def advance(self, seconds):
+            self.now = self.now + timedelta(seconds=seconds)
+
+    clock = Clock()
+    monkeypatch.setattr(rt, 'utc_now', clock)
+
+    register_user(test_client, username='reuseaccess', password='testpass8')
+    login_user(test_client, username='reuseaccess', password='testpass8')
+    first = _copy_refresh_token(test_client)
+    access = _copy_auth_token(test_client)
+    assert refresh_session(test_client).status_code == 200
+
+    clock.advance(31)
+    test_client.set_cookie('refresh_token', first, path='/api/auth')
+    reused = refresh_session(test_client)
+    assert reused.status_code == 401
+    assert reused.json['code'] == 'INVALID_TOKEN'
+
+    revoked = test_app.test_client().get(
+        '/api/data', headers={'Authorization': f'Bearer {access}'}
+    )
+    assert revoked.status_code == 401
+    assert revoked.json['code'] == 'INVALID_TOKEN'
+
+
+def test_expired_family_sid_returns_401(test_client, test_db, test_app):
+    """An expired family cannot refresh; leftover access is 401 after purge."""
+    from ..models.refresh_token import RefreshToken
+
+    register_user(test_client, username='expfam', password='testpass8')
+    login_user(test_client, username='expfam', password='testpass8')
+    access = _copy_auth_token(test_client)
+    refresh = _copy_refresh_token(test_client)
+
+    past = datetime.utcnow() - timedelta(seconds=1)
+    RefreshToken.query.update(
+        {
+            RefreshToken.family_expires_at: past,
+            RefreshToken.expires_at: past,
+        },
+        synchronize_session=False,
+    )
+    db_session.commit()
+
+    test_client.set_cookie('refresh_token', refresh, path='/api/auth')
+    expired_refresh = refresh_session(test_client)
+    assert expired_refresh.status_code == 401
+    assert expired_refresh.json['code'] == 'INVALID_TOKEN'
+
+    login_user(test_client, username='expfam', password='testpass8')
+    leftover = test_app.test_client().get(
+        '/api/data', headers={'Authorization': f'Bearer {access}'}
+    )
+    assert leftover.status_code == 401
+    assert leftover.json['code'] == 'INVALID_TOKEN'
+    assert test_client.get('/api/data').status_code == 200
 
 
 def test_logout_revokes_refresh_family(test_client, test_db):
