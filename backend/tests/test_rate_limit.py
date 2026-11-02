@@ -85,6 +85,15 @@ def _freeze_now(monkeypatch, now: float) -> None:
     monkeypatch.setattr(rate_limit_mod, '_now', lambda: now)
 
 
+@pytest.fixture(autouse=True)
+def _pin_limiter_clock(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep every test off the wall-clock 60s/900s epoch windows.
+
+    Tests that need a moving clock replace ``_now`` in the body.
+    """
+    _freeze_now(monkeypatch, _FROZEN_IP)
+
+
 def test_eleventh_login_from_one_ip_is_429(test_app, test_db, test_client, monkeypatch):
     """The 11th auth request from one IP is 429 with Retry-After."""
     _enable_rate_limit(test_app, username_max=100)
