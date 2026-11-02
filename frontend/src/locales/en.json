@@ -26,6 +26,7 @@
     "title": "Vanilla WebApp Demo",
     "username": "Username",
     "password": "Password",
+    "rememberMe": "Remember me",
     "noAccount": "Don't have an account? Register",
     "oauthHint": "Social login requires provider keys in .env. Restart Flask after adding them."
   },

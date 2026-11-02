@@ -9,12 +9,17 @@ export const api = {
     /**
      * @param {string} username
      * @param {string} password
+     * @param {boolean} [rememberMe=false]
      * @returns {Promise<object>}
      */
-    async loginApi(username, password) {
+    async loginApi(username, password, rememberMe = false) {
         const response = await apiFetch('/api/login', {
             method: 'POST',
-            body: JSON.stringify({ username, password }),
+            body: JSON.stringify({
+                username,
+                password,
+                remember_me: Boolean(rememberMe),
+            }),
         });
 
         const data = await response.json().catch(() => ({}));
@@ -44,9 +49,11 @@ export const loginController = {
     error: null,
     response: null,
     isLoggedIn: false,
+    rememberMe: false,
 
     init() {
         this.isLoggedIn = false;
+        this.rememberMe = false;
     },
 
     async login() {
@@ -67,7 +74,11 @@ export const loginController = {
         }
 
         try {
-            const data = await api.loginApi(this.username, this.password);
+            const data = await api.loginApi(
+                this.username,
+                this.password,
+                this.rememberMe,
+            );
 
             if (data.authenticated) {
                 this.isLoggedIn = true;

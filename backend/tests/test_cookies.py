@@ -150,8 +150,19 @@ def test_default_set_cookie_attrs_match_today(default_client):
     ]
     assert len(auth_headers) == 1
     assert _stable_cookie_attrs(auth_headers[0]) == (
-        'Max-Age=3600; HttpOnly; Path=/; SameSite=Lax'
+        'Max-Age=900; HttpOnly; Path=/; SameSite=Lax'
     )
+    refresh_headers = [
+        header
+        for header in login.headers.getlist('Set-Cookie')
+        if header.startswith('refresh_token=') and 'Path=/api/auth' in header
+    ]
+    assert len(refresh_headers) == 1
+    attrs = _stable_cookie_attrs(refresh_headers[0])
+    assert 'HttpOnly' in attrs
+    assert 'Path=/api/auth' in attrs
+    assert 'SameSite=Strict' in attrs
+    assert 'Max-Age=' not in attrs
     device_headers = [
         header
         for header in login.headers.getlist('Set-Cookie')
@@ -163,7 +174,7 @@ def test_default_set_cookie_attrs_match_today(default_client):
     )
 
     logout = default_client.post(
-        '/api/logout',
+        '/api/auth/logout',
         headers=csrf_headers(default_client),
     )
     logout_auth = _cookies_named(logout.headers.getlist('Set-Cookie'), 'auth_token')
@@ -173,6 +184,15 @@ def test_default_set_cookie_attrs_match_today(default_client):
     assert _stable_cookie_attrs(logout.headers.getlist('Set-Cookie')[0]) == (
         'HttpOnly; Path=/; SameSite=Lax'
     )
+    logout_refresh = [
+        morsel
+        for morsel in _cookies_named(
+            logout.headers.getlist('Set-Cookie'), 'refresh_token'
+        )
+        if morsel['path'] == '/api/auth'
+    ]
+    assert len(logout_refresh) == 1
+    assert logout_refresh[0].value == ''
 
 
 def test_scoped_cookies_use_app_base_path(scoped_app, scoped_client):
@@ -214,6 +234,15 @@ def test_scoped_cookies_use_app_base_path(scoped_app, scoped_client):
     assert len(scoped_device) == 1
     assert scoped_device[0]['httponly'] is True
     assert scoped_device[0]['samesite'] == 'Lax'
+    login_cookies = login.headers.getlist('Set-Cookie')
+    scoped_refresh = [
+        morsel
+        for morsel in _cookies_named(login_cookies, 'refresh_token')
+        if morsel['path'] == '/vanilla-webapp-framework/api/auth' and morsel.value
+    ]
+    assert len(scoped_refresh) == 1
+    assert scoped_refresh[0]['httponly'] is True
+    assert scoped_refresh[0]['samesite'] == 'Strict'
 
     assert scoped_app.config['SESSION_COOKIE_PATH'] == ('/vanilla-webapp-framework')
     session_client = scoped_app.test_client()
@@ -239,7 +268,7 @@ def test_scoped_logout_clears_cookie_at_app_base_path(scoped_client):
         headers=_scoped_csrf_headers(scoped_client),
     )
     response = scoped_client.post(
-        '/api/logout',
+        '/api/auth/logout',
         headers=_scoped_csrf_headers(scoped_client),
     )
     scoped = [
@@ -252,6 +281,15 @@ def test_scoped_logout_clears_cookie_at_app_base_path(scoped_client):
     assert len(scoped) == 1
     assert scoped[0].value == ''
     assert scoped[0]['expires'] != ''
+    scoped_refresh = [
+        morsel
+        for morsel in _cookies_named(
+            response.headers.getlist('Set-Cookie'), 'refresh_token'
+        )
+        if morsel['path'] == '/vanilla-webapp-framework/api/auth'
+    ]
+    assert len(scoped_refresh) == 1
+    assert scoped_refresh[0].value == ''
 
 
 def test_legacy_root_cookies_are_expired_on_login_and_logout(scoped_client):
@@ -295,7 +333,7 @@ def test_legacy_root_cookies_are_expired_on_login_and_logout(scoped_client):
     assert root_csrf_on_issue[0].value == ''
 
     logout = scoped_client.post(
-        '/api/logout',
+        '/api/auth/logout',
         headers=_scoped_csrf_headers(scoped_client),
     )
     logout_headers = logout.headers.getlist('Set-Cookie')
@@ -313,6 +351,13 @@ def test_legacy_root_cookies_are_expired_on_login_and_logout(scoped_client):
     assert root_auth_logout[0].value == ''
     assert len(root_csrf_logout) == 1
     assert root_csrf_logout[0].value == ''
+    leftover_refresh = [
+        morsel
+        for morsel in _cookies_named(logout_headers, 'refresh_token')
+        if morsel['path'] in ('/', '/api/auth')
+    ]
+    assert leftover_refresh
+    assert all(morsel.value == '' for morsel in leftover_refresh)
 
 
 def test_default_does_not_emit_duplicate_root_expiry(default_client):
@@ -323,3 +368,67 @@ def test_default_does_not_emit_duplicate_root_expiry(default_client):
     register_user(default_client, username='nodup', password='testpass8')
     login = login_user(default_client, username='nodup', password='testpass8')
     assert len(_cookies_named(login.headers.getlist('Set-Cookie'), 'auth_token')) == 1
+    assert (
+        len(
+            [
+                morsel
+                for morsel in _cookies_named(
+                    login.headers.getlist('Set-Cookie'), 'refresh_token'
+                )
+                if morsel.value
+            ]
+        )
+        == 1
+    )
+
+
+def test_remember_me_sets_persistent_refresh_cookie(default_client):
+    """Remember-me login sets Max-Age on the refresh cookie (~30 days)."""
+    register_user(default_client, username='remember', password='testpass8')
+    login = login_user(
+        default_client, username='remember', password='testpass8', remember_me=True
+    )
+    assert login.status_code == 200
+    refresh = [
+        morsel
+        for morsel in _cookies_named(
+            login.headers.getlist('Set-Cookie'), 'refresh_token'
+        )
+        if morsel.value and morsel['path'] == '/api/auth'
+    ]
+    assert len(refresh) == 1
+    max_age = int(refresh[0]['max-age'])
+    assert 30 * 24 * 3600 - 5 <= max_age <= 30 * 24 * 3600
+
+
+def test_production_refresh_cookie_is_secure(monkeypatch):
+    """Refresh cookie sets Secure in the production profile."""
+    app = _make_app(monkeypatch, APP_PROFILE='production')
+    with app.app_context():
+        db._Session.remove()
+        db.Base.metadata.drop_all(db.engine)
+        db.init_db()
+    client = app.test_client()
+    try:
+        register_user(client, username='secureuser', password='testpass8')
+        login = login_user(client, username='secureuser', password='testpass8')
+        refresh = [
+            morsel
+            for morsel in _cookies_named(
+                login.headers.getlist('Set-Cookie'), 'refresh_token'
+            )
+            if morsel.value and morsel['path'] == '/api/auth'
+        ]
+        assert len(refresh) == 1
+        assert refresh[0]['secure'] is True
+        auth = [
+            morsel
+            for morsel in _cookies_named(
+                login.headers.getlist('Set-Cookie'), 'auth_token'
+            )
+            if morsel.value
+        ]
+        assert auth[0]['secure'] is True
+    finally:
+        monkeypatch.delenv('APP_PROFILE', raising=False)
+        reset_app_config_for_tests()

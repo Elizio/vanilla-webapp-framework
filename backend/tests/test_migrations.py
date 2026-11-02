@@ -1,4 +1,4 @@
-"""Alembic migration tests, including 006 password_hash and 008 token_version."""
+"""Alembic migration tests, including 006–009 schema revisions."""
 
 import os
 
@@ -12,9 +12,10 @@ from backend.models.user import User
 
 REVISION_BEFORE_PASSWORD_HASH_WIDEN = '005'
 PASSWORD_HASH_WIDEN_REVISION = '006'
-HEAD_REVISION = '008'
+HEAD_REVISION = '009'
 RATE_LIMIT_COUNTERS_REVISION = '007'
 TOKEN_VERSION_REVISION = '008'
+REFRESH_TOKENS_REVISION = '009'
 PASSWORD_HASH_WIDENED_LENGTH = 255
 
 _USER_COLUMNS = (
@@ -111,6 +112,7 @@ def test_alembic_upgrade_head(tmp_path, monkeypatch):
     tables = inspect(engine).get_table_names()
     assert 'users' in tables
     assert 'rate_limit_counters' in tables
+    assert 'refresh_tokens' in tables
     assert 'alembic_version' in tables
     assert _current_revision(engine) == HEAD_REVISION
 
@@ -405,6 +407,62 @@ def test_migration_008_adds_token_version_for_existing_users(tmp_path, monkeypat
             text('SELECT username, token_version FROM users ORDER BY id')
         ).all()
     assert versions == [('pre_tv', 0), ('post_tv', 0)]
+
+
+def test_migration_009_adds_refresh_tokens_for_existing_users(tmp_path, monkeypatch):
+    """009 creates refresh_tokens; existing users stay; downgrade drops it."""
+    _db_path, alembic_cfg, engine = _configure_tmp_db(tmp_path, monkeypatch)
+    command.upgrade(alembic_cfg, TOKEN_VERSION_REVISION)
+    assert _current_revision(engine) == TOKEN_VERSION_REVISION
+    assert 'refresh_tokens' not in inspect(engine).get_table_names()
+
+    _insert_user(
+        engine,
+        username='pre_refresh',
+        password_hash=generate_password_hash('existing-user'),
+        email=None,
+        oauth_provider=None,
+        oauth_id=None,
+        is_active=1,
+    )
+
+    command.upgrade(alembic_cfg, REFRESH_TOKENS_REVISION)
+    assert _current_revision(engine) == REFRESH_TOKENS_REVISION
+    inspector = inspect(engine)
+    assert 'refresh_tokens' in inspector.get_table_names()
+    columns = {column['name'] for column in inspector.get_columns('refresh_tokens')}
+    assert columns == {
+        'id',
+        'user_id',
+        'family_id',
+        'token_hash',
+        'token_version',
+        'created_at',
+        'expires_at',
+        'family_expires_at',
+        'used_at',
+        'revoked_at',
+        'user_agent',
+    }
+    with engine.connect() as conn:
+        remaining = conn.execute(text('SELECT COUNT(*) FROM users')).scalar()
+        tokens = conn.execute(text('SELECT COUNT(*) FROM refresh_tokens')).scalar()
+    assert remaining == 1
+    assert tokens == 0
+
+    command.downgrade(alembic_cfg, TOKEN_VERSION_REVISION)
+    assert _current_revision(engine) == TOKEN_VERSION_REVISION
+    assert 'refresh_tokens' not in inspect(engine).get_table_names()
+    with engine.connect() as conn:
+        users = conn.execute(text('SELECT username FROM users')).scalars().all()
+    assert users == ['pre_refresh']
+
+    command.upgrade(alembic_cfg, 'head')
+    assert _current_revision(engine) == HEAD_REVISION
+    assert 'refresh_tokens' in inspect(engine).get_table_names()
+    with engine.connect() as conn:
+        versions = conn.execute(text('SELECT username, token_version FROM users')).all()
+    assert versions == [('pre_refresh', 0)]
 
 
 def test_alembic_check_reports_no_model_drift(tmp_path, monkeypatch):

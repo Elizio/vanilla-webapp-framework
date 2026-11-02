@@ -113,7 +113,6 @@ export const billingController = {
         try {
             const response = await apiFetch('/api/billing/status');
             if (response.status === 401) {
-                this.appContext.logout();
                 return;
             }
             if (!response.ok) {

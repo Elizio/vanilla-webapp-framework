@@ -17,7 +17,7 @@ API endpoints:
 |----------|---------|
 | `GET /api/auth/providers` | List enabled providers |
 | `GET /api/auth/<provider>/login` | Start OAuth (redirects to provider) |
-| `GET /api/auth/<provider>/callback` | Provider callback; sets the httpOnly auth cookie and redirects to the SPA |
+| `GET /api/auth/<provider>/callback` | Provider callback; sets access + refresh cookies and redirects to the SPA |
 
 ### Provider consoles
 
@@ -74,10 +74,10 @@ sequenceDiagram
     Provider->>Vite: Redirect to /api/auth/provider/callback
     Vite->>Flask: Proxied callback
     Flask->>Provider: Exchange code for token
-    Flask->>Browser: Set httpOnly auth_token cookie; redirect to FRONTEND_URL/?auth=success
+    Flask->>Browser: Set auth_token + refresh_token cookies; redirect to FRONTEND_URL/?auth=success
 ```
 
-After a successful login, the callback sets the httpOnly `auth_token` cookie and redirects to `FRONTEND_URL/?auth=success`. The SPA (`handleOAuthQuery` in [`frontend/src/js/app.js`](../frontend/src/js/app.js)) reads that query, sets `isLoggedIn`, and later API calls use the cookie. Denied or cancelled consent redirects to `FRONTEND_URL/?auth_error=AUTH_FAILED` (shown as the generic authentication-failed message). Unconfigured providers never start this flow: `GET /api/auth/providers` returns `[]`, login and callback return 404 `PROVIDER_NOT_CONFIGURED`, and the Google/Facebook buttons stay disabled.
+After a successful login, the callback sets the short-lived httpOnly `auth_token` cookie and a rotating `refresh_token` cookie (OAuth counts as remember-me: 30-day family) and redirects to `FRONTEND_URL/?auth=success`. The SPA (`handleOAuthQuery` in [`frontend/src/js/app.js`](../frontend/src/js/app.js)) reads that query, sets `isLoggedIn`, and later API calls use the cookies. Denied or cancelled consent redirects to `FRONTEND_URL/?auth_error=AUTH_FAILED` (shown as the generic authentication-failed message). Unconfigured providers never start this flow: `GET /api/auth/providers` returns `[]`, login and callback return 404 `PROVIDER_NOT_CONFIGURED`, and the Google/Facebook buttons stay disabled.
 
 ### Account linking
 

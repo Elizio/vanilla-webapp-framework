@@ -6,6 +6,17 @@ describe('loadPage', () => {
         document.body.innerHTML = '<div id="view-container"></div>';
         window.Alpine = { initTree: vi.fn(), mutateDom: (cb) => cb() };
         localStorage.clear();
+        fetch.mockReset();
+        fetch.mockImplementation(async (input) => {
+            const url = typeof input === 'string' ? input : input.url;
+            if (url.endsWith('/api/auth/providers')) {
+                return { ok: true, json: async () => [] };
+            }
+            if (url.endsWith('/api/csrf')) {
+                return { ok: true, json: async () => ({ csrf_token: 'csrf' }) };
+            }
+            throw new Error(`Unmocked fetch in tests: ${url}`);
+        });
     });
 
     it('loads landingpage template and controller into currentPage', () => {
@@ -85,5 +96,58 @@ describe('loadPage', () => {
             document.getElementById('menu-container').innerHTML.length,
         ).toBeGreaterThan(0);
         expect(window.location.pathname).toBe('/app');
+    });
+
+    it('logout posts to /api/auth/logout and leaves the welcome page', async () => {
+        document.body.innerHTML = `
+            <div id="public-container"></div>
+            <div id="login-register-container"></div>
+            <div id="menu-container"></div>
+            <div id="view-container"></div>
+        `;
+        fetch.mockImplementation(async (input) => {
+            const url = typeof input === 'string' ? input : input.url;
+            if (url.endsWith('/api/csrf')) {
+                return { ok: true, json: async () => ({ csrf_token: 'csrf' }) };
+            }
+            if (url.endsWith('/api/auth/logout')) {
+                return {
+                    ok: true,
+                    json: async () => ({ authenticated: false }),
+                };
+            }
+            if (url.endsWith('/api/auth/providers')) {
+                return { ok: true, json: async () => [] };
+            }
+            throw new Error(`Unmocked fetch in tests: ${url}`);
+        });
+
+        const app = createSpaApp();
+        app.isLoggedIn = true;
+        await app.logout();
+
+        expect(app.isLoggedIn).toBe(false);
+        expect(app.showLogin).toBe(false);
+        const urls = fetch.mock.calls.map(([input]) =>
+            typeof input === 'string' ? input : input.url,
+        );
+        expect(urls.some((url) => url.endsWith('/api/auth/logout'))).toBe(true);
+    });
+
+    it('auth:expired shows the login page', async () => {
+        document.body.innerHTML = `
+            <div id="public-container"></div>
+            <div id="login-register-container"></div>
+            <div id="menu-container"></div>
+            <div id="view-container"></div>
+        `;
+        const app = createSpaApp();
+        app.isLoggedIn = true;
+        window.dispatchEvent(new Event('auth:expired'));
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(app.isLoggedIn).toBe(false);
+        expect(app.showLogin).toBe(true);
     });
 });

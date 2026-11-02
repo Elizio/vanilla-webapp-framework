@@ -192,6 +192,25 @@ class AppConfig:
             minimum=1,
         )
 
+        self.ACCESS_TOKEN_TTL_SECONDS = _parse_int_env(
+            os.getenv('ACCESS_TOKEN_TTL_SECONDS'),
+            'ACCESS_TOKEN_TTL_SECONDS',
+            default=900,
+            minimum=1,
+        )
+        self.REFRESH_TOKEN_TTL_DAYS = _parse_int_env(
+            os.getenv('REFRESH_TOKEN_TTL_DAYS'),
+            'REFRESH_TOKEN_TTL_DAYS',
+            default=30,
+            minimum=1,
+        )
+        self.REFRESH_SESSION_TTL_HOURS = _parse_int_env(
+            os.getenv('REFRESH_SESSION_TTL_HOURS'),
+            'REFRESH_SESSION_TTL_HOURS',
+            default=24,
+            minimum=1,
+        )
+
         self.SWAGGER_CONFIG = {
             'headers': [],
             'specs': [
