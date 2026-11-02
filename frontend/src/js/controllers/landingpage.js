@@ -9,6 +9,8 @@ export const landingPageController = {
     isLoading: false,
     error: null,
     response: null,
+    newEmail: '',
+    emailSuccess: null,
 
     /** @param {object} appContext - Root spaApp from createSpaApp(). */
     init(appContext) {
@@ -16,6 +18,38 @@ export const landingPageController = {
         this.isLoading = false;
         this.error = null;
         this.response = null;
+        this.newEmail = '';
+        this.emailSuccess = null;
+    },
+
+    async submitEmail() {
+        const address = (this.newEmail || '').trim();
+        if (!address) {
+            this.error = this.appContext.t('errors.EMAIL_REQUIRED');
+            return;
+        }
+        this.isLoading = true;
+        this.error = null;
+        this.emailSuccess = null;
+        try {
+            const response = await apiFetch('/api/auth/email', {
+                method: 'POST',
+                body: JSON.stringify({ email: address }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (!response.ok) {
+                this.error = this.appContext.tError(
+                    data.code || 'REQUEST_FAILED',
+                );
+                return;
+            }
+            this.emailSuccess = this.appContext.t('landing.addEmailSent');
+            this.appContext.needsEmail = false;
+        } catch (_err) {
+            this.error = this.appContext.t('errors.FETCH_FAILED');
+        } finally {
+            this.isLoading = false;
+        }
     },
 
     async fetchProtectedData() {

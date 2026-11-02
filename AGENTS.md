@@ -12,6 +12,7 @@ Flask REST API + vanilla JavaScript SPA (Alpine.js, Tailwind, Vite). Human onboa
 | [CONTRIBUTING.md](CONTRIBUTING.md) | PR/issue templates and review expectations |
 | [docs/oauth-configuration.md](docs/oauth-configuration.md) | OAuth (human): Google, Facebook |
 | [docs/billing-configuration.md](docs/billing-configuration.md) | Billing (human): Lemon Squeezy, webhooks |
+| [docs/email-configuration.md](docs/email-configuration.md) | Email (human): SMTP / Resend, verification, password reset |
 | [docs/template-placeholders.md](docs/template-placeholders.md) | Names rewritten by `make init` |
 | [backend/AGENTS.md](backend/AGENTS.md) | Flask / DB / JWT / pytest map |
 | [frontend/AGENTS.md](frontend/AGENTS.md) | Vite / Alpine / controllers map |

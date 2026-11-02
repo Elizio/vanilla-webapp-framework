@@ -3,6 +3,7 @@
  * Handles user authentication and login functionality
  */
 import { apiFetch } from '../api.js';
+import { resendVerificationApi } from './check_email.js';
 
 /** API module for handling login */
 export const api = {
@@ -50,16 +51,21 @@ export const loginController = {
     response: null,
     isLoggedIn: false,
     rememberMe: false,
+    showResend: false,
+    resendEmail: '',
 
     init() {
         this.isLoggedIn = false;
         this.rememberMe = false;
+        this.showResend = false;
+        this.resendEmail = '';
     },
 
     async login() {
         const app = window.spaApp;
         this.isLoading = true;
         this.error = null;
+        this.showResend = false;
 
         if (!this.username || !this.username.trim()) {
             this.error = app.t('errors.USERNAME_REQUIRED');
@@ -89,6 +95,29 @@ export const loginController = {
         } catch (err) {
             console.error('Login error:', err);
             this.error = app.tError(err.code || 'LOGIN_FAILED');
+            this.showResend = err.code === 'EMAIL_NOT_VERIFIED';
+        } finally {
+            this.isLoading = false;
+        }
+    },
+
+    async resendVerification() {
+        const app = window.spaApp;
+        this.isLoading = true;
+        this.error = null;
+        const address = (this.resendEmail || '').trim();
+        if (!address) {
+            this.error = app.t('errors.EMAIL_REQUIRED');
+            this.isLoading = false;
+            return;
+        }
+        try {
+            await resendVerificationApi(address);
+            this.error = null;
+            this.showResend = true;
+            this.response = { code: 'EMAIL_ACCEPTED' };
+        } catch (err) {
+            this.error = app.tError(err.code || 'REQUEST_FAILED');
         } finally {
             this.isLoading = false;
         }

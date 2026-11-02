@@ -211,6 +211,27 @@ class AppConfig:
             minimum=1,
         )
 
+        self.EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', '').strip().strip("'\"")
+        self.SMTP_HOST = os.getenv('SMTP_HOST', '').strip()
+        self.SMTP_PORT = _parse_int_env(
+            os.getenv('SMTP_PORT'),
+            'SMTP_PORT',
+            default=465,
+            minimum=1,
+        )
+        self.SMTP_USERNAME = os.getenv('SMTP_USERNAME', '').strip()
+        self.SMTP_PASSWORD = os.getenv('SMTP_PASSWORD', '')
+        smtp_security = os.getenv('SMTP_SECURITY', 'ssl').strip().strip("'\"").lower()
+        self.SMTP_SECURITY = smtp_security if smtp_security else 'ssl'
+        self.EMAIL_FROM = os.getenv('EMAIL_FROM', '').strip()
+        app_name_raw = os.getenv('APP_NAME', 'vanilla-webapp-framework')
+        app_name = app_name_raw.strip().strip("'\"")
+        self.APP_NAME = app_name or 'vanilla-webapp-framework'
+        self.REQUIRE_EMAIL_VERIFIED = _parse_bool_env(
+            os.getenv('REQUIRE_EMAIL_VERIFIED'),
+            default=True,
+        )
+
         self.SWAGGER_CONFIG = {
             'headers': [],
             'specs': [

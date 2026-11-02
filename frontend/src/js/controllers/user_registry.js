@@ -3,18 +3,24 @@
  * Handles new user registration functionality
  */
 import { apiFetch } from '../api.js';
+import { getLocale } from '../i18n.js';
 
 /** API module for handling user registration */
 export const api = {
     /**
      * @param {string} username
      * @param {string} password
+     * @param {string} [email]
      * @returns {Promise<object>}
      */
-    async registerApi(username, password) {
+    async registerApi(username, password, email) {
+        const body = { username, password, locale: getLocale() };
+        if (email) {
+            body.email = email;
+        }
         const response = await apiFetch('/api/register', {
             method: 'POST',
-            body: JSON.stringify({ username, password }),
+            body: JSON.stringify(body),
         });
 
         const data = await response.json().catch(() => ({}));
@@ -32,6 +38,7 @@ export const api = {
 export const userRegistryController = {
     appContext: null,
     username: '',
+    email: '',
     password: '',
     confirmPassword: '',
     isLoading: false,
@@ -42,6 +49,7 @@ export const userRegistryController = {
     init(appContext) {
         this.appContext = appContext;
         this.username = '';
+        this.email = '';
         this.password = '';
         this.confirmPassword = '';
         this.isLoading = false;
@@ -60,6 +68,14 @@ export const userRegistryController = {
             return;
         }
 
+        const emailRequired =
+            this.appContext?.emailCapabilities?.email_configured === true;
+        if (emailRequired && (!this.email || !this.email.trim())) {
+            this.error = this.appContext.t('errors.EMAIL_REQUIRED');
+            this.isLoading = false;
+            return;
+        }
+
         if (!this.password || this.password.length < 8) {
             this.error = this.appContext.t('errors.PASSWORD_TOO_SHORT');
             this.isLoading = false;
@@ -73,11 +89,21 @@ export const userRegistryController = {
         }
 
         try {
-            const data = await api.registerApi(this.username, this.password);
+            const data = await api.registerApi(
+                this.username,
+                this.password,
+                this.email.trim() || undefined,
+            );
 
-            if (data.authenticated || data.code === 'USER_CREATED') {
+            if (data.authenticated) {
                 this.success = this.appContext.t('register.success');
                 this.appContext.enterAuthenticatedApp();
+            } else if (data.code === 'USER_CREATED') {
+                this.appContext.pendingVerifyEmail = this.email.trim();
+                this.appContext.loadPage(
+                    'login-register-container',
+                    'check_email',
+                );
             } else {
                 this.error = this.appContext.tError(
                     data.code || 'REGISTRATION_FAILED',

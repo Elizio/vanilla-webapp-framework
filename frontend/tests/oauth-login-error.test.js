@@ -98,6 +98,16 @@ describe('unconfigured OAuth login errors', () => {
                     json: async () => ({ authenticated: false }),
                 };
             }
+            if (url.includes('/api/auth/capabilities')) {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        email_configured: false,
+                        password_reset: false,
+                        email_verification: false,
+                    }),
+                };
+            }
             throw new Error(`Unmocked fetch in tests: ${url}`);
         });
     });
