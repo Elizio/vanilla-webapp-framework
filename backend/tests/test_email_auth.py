@@ -26,6 +26,7 @@ from backend.db_repository.database import db_session
 from backend.email.console import clear_outbox, get_outbox
 from backend.email.service import is_email_configured
 from backend.models.auth_token import AuthToken
+from backend.models.refresh_token import RefreshToken
 from backend.models.user import User
 from backend.tests.conftest import csrf_headers, login_user, register_user
 
@@ -430,6 +431,9 @@ def test_password_reset_revokes_sessions_and_other_tokens(
     payload = jwt.decode(old_jwt, 'test-jwt-secret-key', algorithms=[JWT_ALGORITHM])
     user = User.query.filter_by(username='resetme').first()
     assert payload['tv'] != user.token_version
+    refresh_rows = db_session.query(RefreshToken).filter_by(user_id=user_id).all()
+    assert refresh_rows
+    assert all(row.revoked_at is not None for row in refresh_rows)
     stale = test_client.get('/api/data', headers={'Authorization': f'Bearer {old_jwt}'})
     assert stale.status_code == 401
     old_login = login_user(test_client, username='resetme', password='oldpass88')

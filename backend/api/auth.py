@@ -778,6 +778,8 @@ def reset_password():
     if user is None:
         return error_response(TOKEN_INVALID_OR_EXPIRED, 400)
     user.password_hash = generate_password_hash(password)
+    # Per-device logout is not enough: bump every access JWT and every
+    # refresh family so a reset signs the user out everywhere.
     bump_token_version(user)
     revoke_all_families(user.id)
     return jsonify({'code': PASSWORD_RESET, 'authenticated': False})
