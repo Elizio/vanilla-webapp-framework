@@ -1,6 +1,7 @@
 """Alembic migration tests, including 006–010 schema revisions."""
 
 import os
+import re
 
 from alembic import command
 from alembic.config import Config
@@ -565,6 +566,48 @@ def test_migration_010_normalizes_emails_and_adds_auth_tokens(tmp_path, monkeypa
     command.upgrade(alembic_cfg, 'head')
     assert _current_revision(engine) == HEAD_REVISION
     assert 'auth_tokens' in inspect(engine).get_table_names()
+
+
+def test_migrations_001_to_010_raw_sql_avoids_integer_booleans() -> None:
+    """Postgres rejects integer literals on boolean columns in raw SQL."""
+    versions_dir = os.path.join(
+        os.path.dirname(__file__),
+        '..',
+        'db_repository',
+        'migrations',
+        'versions',
+    )
+    integer_bool_assign = re.compile(
+        r"""(?:text|execute)\(\s*(['"])(?:(?!\1).)*?\bSET\s+\w+\s*=\s*[01]\b""",
+        re.IGNORECASE | re.DOTALL,
+    )
+    offenders: list[str] = []
+    for name in sorted(os.listdir(versions_dir)):
+        if not re.match(r'0(?:0[1-9]|10)_.*\.py$', name):
+            continue
+        path = os.path.join(versions_dir, name)
+        with open(path, encoding='utf-8') as handle:
+            source = handle.read()
+        if integer_bool_assign.search(source):
+            offenders.append(name)
+    assert offenders == [], offenders
+
+
+def test_migration_010_binds_boolean_true_for_verification_exempt() -> None:
+    """Revision 010 must bind a real boolean so SQLite and Postgres agree."""
+    path = os.path.join(
+        os.path.dirname(__file__),
+        '..',
+        'db_repository',
+        'migrations',
+        'versions',
+        '010_email_verification.py',
+    )
+    with open(path, encoding='utf-8') as handle:
+        source = handle.read()
+    assert 'verification_exempt = :v' in source
+    assert 'bindparams' in source
+    assert 'v=True' in source or 'v=sa.true()' in source or 'v=true()' in source
 
 
 def test_alembic_check_reports_no_model_drift(tmp_path, monkeypatch):
