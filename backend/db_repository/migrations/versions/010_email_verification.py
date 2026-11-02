@@ -80,7 +80,9 @@ def upgrade() -> None:
         )
     )
     bind.execute(text('DROP TABLE _keep_email'))
-    bind.execute(text('UPDATE users SET verification_exempt = 1'))
+    bind.execute(
+        sa.text('UPDATE users SET verification_exempt = :v').bindparams(v=True)
+    )
     if dup_count:
         print(f'010_email_verification: nulled {dup_count} duplicate email rows')
 

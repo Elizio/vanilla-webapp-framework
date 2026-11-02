@@ -152,11 +152,11 @@ exit 0
 '''
 
 
-def _project_payload() -> str:
+def _project_payload(image_var: str = "VWF_IMAGE") -> str:
     """Return a Hostinger GET-project JSON body with mixed secret keys."""
     environment = "\n".join(
         [
-            f"VWF_IMAGE={OLD_IMAGE}",
+            f"{image_var}={OLD_IMAGE}",
             f'FLASK_SECRET="{SECRET_VALUE}"',
             f"HOSTINGER_LIKE_TOKEN={TOKEN_VALUE}",
             f"API_KEY={KEY_VALUE}",
@@ -190,7 +190,9 @@ def _write_executable(path: Path, contents: str) -> None:
     path.chmod(path.stat().st_mode | stat.S_IEXEC)
 
 
-def _base_env(tmp_path: Path, health_mode: str) -> dict[str, str]:
+def _base_env(
+    tmp_path: Path, health_mode: str, image_var: str = "VWF_IMAGE"
+) -> dict[str, str]:
     """Build the environment the deploy script expects in CI."""
     stub_dir = tmp_path / "bin"
     stub_dir.mkdir()
@@ -198,7 +200,7 @@ def _base_env(tmp_path: Path, health_mode: str) -> dict[str, str]:
     _write_executable(stub_dir / "sleep", SLEEP_STUB)
 
     project_file = tmp_path / "project.json"
-    project_file.write_text(_project_payload())
+    project_file.write_text(_project_payload(image_var=image_var))
     env = os.environ.copy()
     env.update(
         {
@@ -221,10 +223,16 @@ def _base_env(tmp_path: Path, health_mode: str) -> dict[str, str]:
 
 
 def _run_script(
-    tmp_path: Path, health_mode: str = "match"
+    tmp_path: Path,
+    health_mode: str = "match",
+    *,
+    image_var: str = "VWF_IMAGE",
+    extra_env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run the deploy script with a stubbed curl and sleep."""
-    env = _base_env(tmp_path, health_mode)
+    env = _base_env(tmp_path, health_mode, image_var=image_var)
+    if extra_env:
+        env.update(extra_env)
     return subprocess.run(
         ["bash", str(SCRIPT)],
         cwd=str(REPO_ROOT),
@@ -327,6 +335,54 @@ def test_emit_masks_is_selective_for_non_secret_keys() -> None:
     assert "production" not in output
     assert "5000" not in output
     assert "ghcr.io/example/app:tag" not in output
+
+
+def test_image_var_defaults_to_vwf_image(tmp_path: Path) -> None:
+    """Unset IMAGE_VAR retags VWF_IMAGE so existing Hostinger deploys stay unchanged."""
+    result = _run_script(tmp_path, health_mode="match")
+    combined = result.stdout + result.stderr
+    assert result.returncode == 0, combined
+    log = (tmp_path / "curl.log").read_text()
+    assert f"VWF_IMAGE={NEW_IMAGE}" in log
+    leaked = _secret_leaks(combined)
+    assert leaked == [], leaked
+
+
+def test_image_var_override_retags_custom_key(tmp_path: Path) -> None:
+    """IMAGE_VAR selects which project env key the script rewrites."""
+    result = _run_script(
+        tmp_path,
+        health_mode="match",
+        image_var="GB_IMAGE",
+        extra_env={"IMAGE_VAR": "GB_IMAGE"},
+    )
+    combined = result.stdout + result.stderr
+    assert result.returncode == 0, combined
+    log = (tmp_path / "curl.log").read_text()
+    assert f"GB_IMAGE={NEW_IMAGE}" in log
+    assert "VWF_IMAGE=" not in log
+    leaked = _secret_leaks(combined)
+    assert leaked == [], leaked
+
+
+def test_image_var_rejects_unsafe_identifier(tmp_path: Path) -> None:
+    """IMAGE_VAR must be a safe shell identifier before any Hostinger call."""
+    env = _base_env(tmp_path, "match")
+    env["IMAGE_VAR"] = "VWF_IMAGE;rm"
+    result = subprocess.run(
+        ["bash", str(SCRIPT)],
+        cwd=str(REPO_ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    combined = result.stdout + result.stderr
+    assert result.returncode == 1, combined
+    assert "IMAGE_VAR" in combined
+    assert not (tmp_path / "curl.log").exists()
+    leaked = _secret_leaks(combined)
+    assert leaked == [], leaked
 
 
 def test_health_match_does_not_rollback(tmp_path: Path) -> None:

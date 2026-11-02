@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Deploy the GHCR image to Hostinger VPS Docker project dsfor.
+# Image env key is IMAGE_VAR (default VWF_IMAGE). Must be a shell identifier.
 # Do not enable xtrace: it would print secret environment values.
 set -euo pipefail
 
@@ -92,10 +93,17 @@ emit_masks() {
   done <<< "$env_text"
 }
 
-# Fetch the current project, retag VWF_IMAGE, health-gate, and roll back on failure.
+# Fetch the current project, retag the image env var (IMAGE_VAR, default
+# VWF_IMAGE), health-gate, and roll back on failure.
 main() {
   if [ -z "${HOSTINGER_API_TOKEN:-}" ]; then
     echo "::error::HOSTINGER_API_TOKEN secret is not set"
+    exit 1
+  fi
+
+  IMAGE_VAR="${IMAGE_VAR:-VWF_IMAGE}"
+  if [[ ! "$IMAGE_VAR" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]]; then
+    echo "::error::IMAGE_VAR must be a valid shell identifier"
     exit 1
   fi
 
@@ -151,17 +159,17 @@ NORMAL_VAR=normal_value'
 
   echo "$environment" > "$OLD_ENV_FILE"
 
-  # Find and replace VWF_IMAGE line
-  if ! grep -q "^VWF_IMAGE=" "$OLD_ENV_FILE"; then
-    echo "::error::VWF_IMAGE not found in project environment"
+  # Find and replace the IMAGE_VAR line (default VWF_IMAGE).
+  if ! grep -q "^${IMAGE_VAR}=" "$OLD_ENV_FILE"; then
+    echo "::error::${IMAGE_VAR} not found in project environment"
     exit 1
   fi
 
-  old_image=$(grep "^VWF_IMAGE=" "$OLD_ENV_FILE" | cut -d= -f2-)
-  echo "Old image: VWF_IMAGE=$old_image"
-  echo "New image: VWF_IMAGE=$NEW_IMAGE"
+  old_image=$(grep "^${IMAGE_VAR}=" "$OLD_ENV_FILE" | cut -d= -f2-)
+  echo "Old image: ${IMAGE_VAR}=$old_image"
+  echo "New image: ${IMAGE_VAR}=$NEW_IMAGE"
 
-  sed "s|^VWF_IMAGE=.*|VWF_IMAGE=$NEW_IMAGE|" "$OLD_ENV_FILE" > "$NEW_ENV_FILE"
+  sed "s|^${IMAGE_VAR}=.*|${IMAGE_VAR}=$NEW_IMAGE|" "$OLD_ENV_FILE" > "$NEW_ENV_FILE"
   new_environment=$(cat "$NEW_ENV_FILE")
 
   # Deploy the updated project
