@@ -12,7 +12,7 @@ from .auth import user_may_authenticate
 from .error_codes import ACCOUNT_INACTIVE, PROVIDER_NOT_CONFIGURED
 from .refresh_tokens import utc_now
 from .session_auth import set_session_cookies
-from ..email.service import normalize_email
+from ..mailer.service import normalize_email
 
 oauth = OAuth()
 oauth_bp = Blueprint('oauth', __name__)

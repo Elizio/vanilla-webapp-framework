@@ -3,8 +3,11 @@
 Transactional mail is optional. With no SMTP env vars set, sign-up and login
 behave as they do today (no verification gate), and password reset is
 unavailable. Nothing fails at startup. This file is the human how-to for
-turning sending on. Code layout lives in [`backend/AGENTS.md`](../backend/AGENTS.md)
-and [`ARCHITECTURE.md`](../ARCHITECTURE.md).
+turning sending on. Sending code lives in `backend/mailer/` (not
+`backend/email/`, which shadows the stdlib `email` package when Docker
+runs `python /app/backend/container_healthcheck.py`). Layout:
+[`backend/AGENTS.md`](../backend/AGENTS.md) and
+[`ARCHITECTURE.md`](../ARCHITECTURE.md).
 
 ## Backends
 
