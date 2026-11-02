@@ -1,8 +1,9 @@
 """SPA static serving and global error handlers."""
 
 import os
-from flask import Response, current_app, request, send_from_directory, abort
-from werkzeug.exceptions import HTTPException
+from flask import Flask, Response, current_app, request, send_from_directory
+from werkzeug.exceptions import HTTPException, MethodNotAllowed
+from werkzeug.routing import PathConverter
 
 from .api.error_codes import (
     BAD_REQUEST,
@@ -23,6 +24,34 @@ _HTTP_STATUS_CODES = {
     405: METHOD_NOT_ALLOWED,
     429: RATE_LIMIT_EXCEEDED,
 }
+
+# Prefixes that Flask (or Flasgger) already owns. The SPA catch-all must
+# not register GET for these, or Werkzeug matches this route instead of
+# raising 405 for POST-only API paths such as /api/login.
+_SPA_RESERVED_PREFIX_RE = (
+    r'(?:api(?:/|$)|docs(?:/|$)|apispec\.json(?:/|$)|flasgger_static(?:/|$))'
+)
+
+
+class SpaFallbackPathConverter(PathConverter):
+    """Match client routes and root static files, not API or docs prefixes."""
+
+    regex = rf'(?!{_SPA_RESERVED_PREFIX_RE}).+'
+
+
+def _allow_headers(error: HTTPException) -> dict[str, str] | None:
+    """Copy the Allow header from a MethodNotAllowed exception.
+
+    Args:
+        error: Werkzeug HTTP exception raised by routing or abort().
+
+    Returns:
+        ``{"Allow": "..."}`` when the exception lists valid methods,
+        otherwise ``None``.
+    """
+    if isinstance(error, MethodNotAllowed) and error.valid_methods:
+        return {'Allow': ', '.join(error.valid_methods)}
+    return None
 
 
 def code_for_http_status(status: int | None) -> str:
@@ -73,8 +102,9 @@ def build_robots_txt(seo_mode: str) -> str:
     )
 
 
-def register_web_routes(app):
+def register_web_routes(app: Flask) -> None:
     """Register SPA static serving and error handlers on the Flask app."""
+    app.url_map.converters['spa_path'] = SpaFallbackPathConverter
 
     @app.after_request
     def set_security_headers(response):
@@ -101,12 +131,9 @@ def register_web_routes(app):
         return Response(body, mimetype='text/plain')
 
     @app.route('/', defaults={'path': ''})
-    @app.route('/<path:path>')
+    @app.route('/<spa_path:path>')
     def serve_spa(path):
         """Serve SPA static assets; fallback to index.html for client-side routes."""
-        if path.startswith(('api/', 'docs', 'apispec.json', 'flasgger_static')):
-            abort(404)
-
         static_folder = app.static_folder
         if path:
             full_path = os.path.join(static_folder, path)
@@ -130,4 +157,8 @@ def register_web_routes(app):
     @app.errorhandler(HTTPException)
     def http_exception(error):
         status = error.code or 400
-        return error_response(code_for_http_status(status), status)
+        return error_response(
+            code_for_http_status(status),
+            status,
+            headers=_allow_headers(error),
+        )
