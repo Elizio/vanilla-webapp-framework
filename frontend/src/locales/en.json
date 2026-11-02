@@ -190,7 +190,7 @@
     "NOT_FOUND": "Not found",
     "INTERNAL_ERROR": "Internal server error",
     "AUTH_FAILED": "Authentication failed",
-    "OAUTH_NOT_CONFIGURED": "{provider} login is not configured. Add {envPrefix}_CLIENT_ID and {envPrefix}_CLIENT_SECRET to .env, then restart Flask.",
+    "OAUTH_NOT_CONFIGURED": "{provider} sign-in isn't available right now.",
     "CSRF_INVALID": "Invalid or missing security token. Refresh the page and try again.",
     "USER_CREATED": "User created successfully",
     "ACCOUNT_INACTIVE": "This account is inactive",
