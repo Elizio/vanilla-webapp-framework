@@ -8,8 +8,9 @@ from datetime import datetime, timedelta
 from typing import cast
 
 from sqlalchemy import func
+from sqlalchemy.orm import Session
 
-from ..db_repository.database import db_session
+from ..db_repository.database import db, db_session
 from ..models.auth_token import AuthToken
 from ..models.user import User
 from .refresh_tokens import utc_now
@@ -21,6 +22,11 @@ RESET_TTL = timedelta(hours=1)
 SEND_COOLDOWN = timedelta(seconds=60)
 SEND_HOUR_WINDOW = timedelta(hours=1)
 SEND_HOUR_MAX = 5
+
+
+def _orm_session() -> Session:
+    """Return the thread-local scoped session (safe from the email worker)."""
+    return cast(Session, db.session)
 
 
 def hash_auth_token(raw: str) -> str:
@@ -60,8 +66,9 @@ def issue_auth_token(user_id: int, purpose: str) -> str:
         expires_at=now + _ttl_for(purpose),
         created_at=now,
     )
-    db_session.add(row)
-    db_session.commit()
+    session = _orm_session()
+    session.add(row)
+    session.commit()
     return raw
 
 
@@ -80,8 +87,9 @@ def can_send(user_id: int, purpose: str, *, now: datetime | None = None) -> bool
         ``True`` when a new token may be issued.
     """
     clock = now if now is not None else utc_now()
+    session = _orm_session()
     recent = (
-        db_session.query(func.count(AuthToken.id))
+        session.query(func.count(AuthToken.id))
         .filter(
             AuthToken.user_id == user_id,
             AuthToken.purpose == purpose,
@@ -92,7 +100,7 @@ def can_send(user_id: int, purpose: str, *, now: datetime | None = None) -> bool
     if int(recent or 0) >= 1:
         return False
     hourly = (
-        db_session.query(func.count(AuthToken.id))
+        session.query(func.count(AuthToken.id))
         .filter(
             AuthToken.user_id == user_id,
             AuthToken.purpose == purpose,

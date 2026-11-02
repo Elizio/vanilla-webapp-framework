@@ -446,6 +446,7 @@ def test_password_reset_revokes_sessions_and_other_tokens(
         json={'email': 'resetme@example.com'},
         headers=csrf_headers(test_client),
     )
+    wait_for_auth_emails()
     extra = issue_auth_token(user_id, PURPOSE_RESET)
     token = _token_from_outbox(PURPOSE_RESET)
     reset = test_client.post(
@@ -729,6 +730,160 @@ def test_forgot_and_resend_do_not_send_on_the_request_thread(
     assert resend_known.json == resend_unknown.json
     wait_for_auth_emails()
     assert request_ident not in send_idents
+
+
+def test_forgot_lookup_and_token_insert_run_on_worker(
+    test_client: FlaskClient,
+    test_db: object,
+    test_app: Flask,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """The request thread must not look up the user or INSERT a token."""
+    from sqlalchemy.orm import Query
+
+    from backend.api import auth_tokens as auth_tokens_mod
+
+    _enable_console_email(test_app)
+    test_client.post(
+        '/api/register',
+        json={
+            'username': 'offthread',
+            'password': 'testpass8',
+            'email': 'offthread@example.com',
+        },
+        headers=csrf_headers(test_client),
+    )
+    clear_outbox()
+    request_ident = threading.get_ident()
+    lookup_idents: list[int] = []
+    insert_idents: list[int] = []
+    original_filter_by = Query.filter_by
+    original_issue = auth_tokens_mod.issue_auth_token
+
+    def _tracking_filter_by(self: Any, **kwargs: object) -> Any:
+        if 'email' in kwargs:
+            lookup_idents.append(threading.get_ident())
+        return original_filter_by(self, **kwargs)
+
+    def _tracking_issue(user_id: int, purpose: str) -> str:
+        insert_idents.append(threading.get_ident())
+        return original_issue(user_id, purpose)
+
+    monkeypatch.setattr(Query, 'filter_by', _tracking_filter_by)
+    monkeypatch.setattr(auth_tokens_mod, 'issue_auth_token', _tracking_issue)
+    known = test_client.post(
+        '/api/auth/password/forgot',
+        json={'email': 'offthread@example.com'},
+        headers=csrf_headers(test_client),
+    )
+    unknown = test_client.post(
+        '/api/auth/password/forgot',
+        json={'email': 'missing-offthread@example.com'},
+        headers=csrf_headers(test_client),
+    )
+    assert known.status_code == unknown.status_code == 202
+    assert request_ident not in lookup_idents
+    assert request_ident not in insert_idents
+    wait_for_auth_emails()
+    assert lookup_idents
+    assert insert_idents
+    assert all(ident != request_ident for ident in lookup_idents)
+    assert all(ident != request_ident for ident in insert_idents)
+    assert any(item.purpose == PURPOSE_RESET for item in get_outbox())
+
+
+def test_worker_send_failure_logs_purpose_only(
+    test_client: FlaskClient,
+    test_db: object,
+    test_app: Flask,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Worker send errors are logged without the address or token."""
+    from backend.email.console import ConsoleEmailBackend
+
+    _enable_console_email(test_app)
+    test_client.post(
+        '/api/register',
+        json={
+            'username': 'logfail',
+            'password': 'testpass8',
+            'email': 'logfail@example.com',
+        },
+        headers=csrf_headers(test_client),
+    )
+    clear_outbox()
+
+    def _boom(self: ConsoleEmailBackend, message: OutboundEmail) -> None:
+        raise OSError('smtp down')
+
+    monkeypatch.setattr(ConsoleEmailBackend, 'send', _boom)
+    recorded: list[str] = []
+
+    def _exception(msg: str, *args: object, **_kwargs: object) -> None:
+        recorded.append((msg % args) if args else msg)
+
+    monkeypatch.setattr('backend.email.service.logger.exception', _exception)
+    response = test_client.post(
+        '/api/auth/password/forgot',
+        json={'email': 'logfail@example.com'},
+        headers=csrf_headers(test_client),
+    )
+    assert response.status_code == 202
+    wait_for_auth_emails()
+    combined = ' '.join(recorded).lower()
+    assert 'purpose=reset' in combined
+    assert 'logfail@example.com' not in combined
+    assert 'reset_token' not in combined
+    assert 'verify_token' not in combined
+
+
+def test_worker_lookup_failure_logs_purpose_only(
+    test_client: FlaskClient,
+    test_db: object,
+    test_app: Flask,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Worker lookup errors are swallowed and logged without the address."""
+    from sqlalchemy.orm import Query
+
+    _enable_console_email(test_app)
+    test_client.post(
+        '/api/register',
+        json={
+            'username': 'lookupfail',
+            'password': 'testpass8',
+            'email': 'lookupfail@example.com',
+        },
+        headers=csrf_headers(test_client),
+    )
+    clear_outbox()
+    original_filter_by = Query.filter_by
+
+    def _boom(self: Any, **kwargs: object) -> Any:
+        if 'email' in kwargs:
+            raise RuntimeError('lookup failed')
+        return original_filter_by(self, **kwargs)
+
+    recorded: list[str] = []
+
+    def _exception(msg: str, *args: object, **_kwargs: object) -> None:
+        recorded.append((msg % args) if args else msg)
+
+    monkeypatch.setattr(Query, 'filter_by', _boom)
+    monkeypatch.setattr('backend.email.service.logger.exception', _exception)
+    response = test_client.post(
+        '/api/auth/password/forgot',
+        json={'email': 'lookupfail@example.com'},
+        headers=csrf_headers(test_client),
+    )
+    assert response.status_code == 202
+    wait_for_auth_emails()
+    combined = ' '.join(recorded).lower()
+    assert 'purpose=reset' in combined
+    assert 'lookupfail@example.com' not in combined
+    assert 'reset_token' not in combined
+    assert get_outbox() == []
+    assert db_session.query(AuthToken).filter_by(purpose=PURPOSE_RESET).count() == 0
 
 
 def test_consume_auth_token_succeeds_only_once(

@@ -917,7 +917,7 @@ def test_expired_family_sid_returns_401(test_client, test_db, test_app):
     refresh = _copy_refresh_token(test_client)
 
     past = datetime.utcnow() - timedelta(seconds=1)
-    RefreshToken.query.update(
+    db_session.query(RefreshToken).update(
         {
             RefreshToken.family_expires_at: past,
             RefreshToken.expires_at: past,
@@ -925,6 +925,7 @@ def test_expired_family_sid_returns_401(test_client, test_db, test_app):
         synchronize_session=False,
     )
     db_session.commit()
+    db_session.expire_all()
 
     test_client.set_cookie('refresh_token', refresh, path='/api/auth')
     expired_refresh = refresh_session(test_client)

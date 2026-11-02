@@ -9,9 +9,10 @@ from ..config.app_config import AppConfig, load_env_file
 
 
 def _sqlite_on_connect(dbapi_conn, _connection_record):
-    """Set a short busy timeout so SQLite lock waits fail before gunicorn."""
+    """Enable WAL and a short busy timeout so request and worker writes share SQLite."""
     cursor = dbapi_conn.cursor()
     try:
+        cursor.execute('PRAGMA journal_mode=WAL')
         cursor.execute('PRAGMA busy_timeout=5000')
     finally:
         cursor.close()

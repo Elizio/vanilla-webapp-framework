@@ -262,36 +262,40 @@ def wait_for_auth_emails(timeout: float = 5.0) -> None:
 
 
 def queue_auth_email(purpose: str, email: str, locale: str) -> None:
-    """Look up ``email`` and enqueue a send off the request thread.
+    """Submit a background send; the request thread does no user lookup.
 
-    Known and unknown addresses share this path: one lookup, then one
-    bounded-executor job. The worker calls the mailer (or no-ops when
-    the address is unknown). Failures log ``purpose`` only.
+    Known and unknown addresses share this path: copy ``purpose``,
+    ``email``, and ``locale``, then submit one bounded-executor job.
+    The worker looks up the user, may issue a token, renders, and sends.
+    Failures log ``purpose`` only (no address or token).
 
     Args:
         purpose: ``verify`` or ``reset``.
         email: Normalized recipient.
         locale: Whitelisted locale.
     """
-    from ..models.user import User
-
-    user = User.query.filter_by(email=email).first()
-    message: OutboundEmail | None = None
-    if user is not None and (purpose == RESET_PURPOSE or not bool(user.email_verified)):
-        message = _prepare_message(user, purpose, locale)
-    _enqueue_outbound_email(message)
-
-
-def _enqueue_outbound_email(message: OutboundEmail | None) -> None:
     app = cast(Flask, getattr(current_app, '_get_current_object')())
-    future = _EMAIL_EXECUTOR.submit(_deliver_queued, app, message)
+    future = _EMAIL_EXECUTOR.submit(_run_auth_email_job, app, purpose, email, locale)
     _PENDING_EMAIL_JOBS.add(future)
     future.add_done_callback(_PENDING_EMAIL_JOBS.discard)
 
 
-def _deliver_queued(app: Flask, message: OutboundEmail | None) -> None:
-    """Run the mailer on a worker thread; ``message`` is already rendered."""
+def _run_auth_email_job(app: Flask, purpose: str, email: str, locale: str) -> None:
+    """Look up, prepare, and send on a worker thread; always drop the session."""
+    from ..db_repository.database import db
+    from ..models.user import User
+
     with app.app_context():
-        if message is None:
-            return
-        _send_now(message)
+        try:
+            user = User.query.filter_by(email=email).first()
+            if purpose == RESET_PURPOSE:
+                if user is not None:
+                    send_reset_email(user, locale=locale)
+            elif user is not None and not bool(user.email_verified):
+                send_verification_email(user, locale=locale)
+        except Exception:
+            logger.exception('Failed to send email purpose=%s', purpose)
+        finally:
+            scoped = db._Session
+            if scoped is not None:
+                scoped.remove()
