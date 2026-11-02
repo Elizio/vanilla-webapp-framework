@@ -19,7 +19,11 @@ from .error_codes import (
     ACCOUNT_INACTIVE,
     error_response,
 )
-from .jwt_utils import JWT_ALGORITHM, _jwt_secret
+from .jwt_utils import (
+    JWT_ALGORITHM,
+    _jwt_secret,
+    token_version_matches,
+)
 from .session_auth import (
     clear_auth_cookie,
     get_token_from_request,
@@ -84,6 +88,46 @@ def _read_username_password():
     return (username, password), None
 
 
+def bump_token_version(user: User) -> int:
+    """Increment ``users.token_version`` so existing JWTs fail ``tv`` checks.
+
+    Call this on logout and on any later password-change or reset path
+    (#59) or logout-all (#60). There is no password-change route today.
+
+    Args:
+        user: Persisted user row whose tokens should be revoked.
+
+    Returns:
+        The new token version.
+    """
+    user.token_version = int(user.token_version or 0) + 1
+    db_session.commit()
+    return user.token_version
+
+
+def _authenticate_token_payload(data: dict) -> User | None:
+    """Return the user for a decoded JWT, or ``None`` if it is invalid.
+
+    Does not check ``is_active``; callers apply ``user_may_authenticate``.
+
+    Args:
+        data: Decoded JWT claims (``user_id``, optional ``tv``).
+
+    Returns:
+        The matching user, or ``None`` when ``user_id`` is missing, the
+        row does not exist, or ``tv`` does not match ``users.token_version``.
+    """
+    user_id = _user_id_from_payload(data)
+    if user_id is None:
+        return None
+    user = db_session.get(User, user_id)
+    if not user:
+        return None
+    if not token_version_matches(data, int(user.token_version or 0)):
+        return None
+    return user
+
+
 def token_required(f):
     """Require a valid JWT and an active user; inject ``current_user``."""
 
@@ -94,11 +138,8 @@ def token_required(f):
             return error_response(TOKEN_MISSING, 401)
         try:
             data = jwt.decode(token, _jwt_secret(), algorithms=[JWT_ALGORITHM])
-            user_id = _user_id_from_payload(data)
-            if user_id is None:
-                return error_response(INVALID_TOKEN, 401)
-            current_user = db_session.get(User, user_id)
-            if not current_user:
+            current_user = _authenticate_token_payload(data)
+            if current_user is None:
                 return error_response(INVALID_TOKEN, 401)
             if not user_may_authenticate(current_user):
                 return error_response(ACCOUNT_INACTIVE, 403)
@@ -128,10 +169,7 @@ def session_status():
 
     try:
         data = jwt.decode(token, _jwt_secret(), algorithms=[JWT_ALGORITHM])
-        user_id = _user_id_from_payload(data)
-        if user_id is None:
-            return jsonify({'authenticated': False})
-        user = db_session.get(User, user_id)
+        user = _authenticate_token_payload(data)
         if not user or not user_may_authenticate(user):
             return jsonify({'authenticated': False})
         return jsonify({'authenticated': True, 'username': user.username})
@@ -191,7 +229,7 @@ def login():
             return error_response(ACCOUNT_INACTIVE, 403)
         reset_failed_logins(username)
         response = jsonify({'authenticated': True, 'username': user.username})
-        set_auth_cookie(response, user.id)
+        set_auth_cookie(response, user.id, user.token_version)
         return issue_device_cookie(response, username)
 
     return error_response(INVALID_CREDENTIALS, 401)
@@ -201,16 +239,29 @@ def login():
 @csrf_protect
 def logout():
     """
-    Clear the session cookie.
+    Revoke this user's JWTs and clear the session cookie.
+
+    Increments ``users.token_version`` so every access token for the
+    account fails ``tv`` checks (cookie or ``Authorization: Bearer``).
+    A stale or missing token is ignored; the cookie is still cleared.
     ---
     tags:
       - Authentication
     responses:
       200:
-        description: Logged out
+        description: Logged out; existing JWTs for this user are revoked
       403:
         description: CSRF validation failed
     """
+    token = get_token_from_request()
+    if token:
+        try:
+            data = jwt.decode(token, _jwt_secret(), algorithms=[JWT_ALGORITHM])
+            user = _authenticate_token_payload(data)
+            if user is not None:
+                bump_token_version(user)
+        except jwt.InvalidTokenError:
+            pass
     response = jsonify({'authenticated': False})
     return clear_auth_cookie(response)
 
@@ -275,5 +326,5 @@ def register():
         {'code': USER_CREATED, 'authenticated': True, 'username': username}
     )
     response.status_code = 201
-    set_auth_cookie(response, user.id)
+    set_auth_cookie(response, user.id, user.token_version)
     return issue_device_cookie(response, username)

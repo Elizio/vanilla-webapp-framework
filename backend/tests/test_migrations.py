@@ -1,4 +1,4 @@
-"""Alembic migration tests, including revision 006 password_hash widen."""
+"""Alembic migration tests, including 006 password_hash and 008 token_version."""
 
 import os
 
@@ -12,8 +12,9 @@ from backend.models.user import User
 
 REVISION_BEFORE_PASSWORD_HASH_WIDEN = '005'
 PASSWORD_HASH_WIDEN_REVISION = '006'
-HEAD_REVISION = '007'
+HEAD_REVISION = '008'
 RATE_LIMIT_COUNTERS_REVISION = '007'
+TOKEN_VERSION_REVISION = '008'
 PASSWORD_HASH_WIDENED_LENGTH = 255
 
 _USER_COLUMNS = (
@@ -336,6 +337,74 @@ def test_migration_007_rate_limit_counters_round_trip(tmp_path, monkeypatch):
             text('SELECT COUNT(*) FROM rate_limit_counters')
         ).scalar()
     assert remaining == 0
+
+
+def test_migration_008_adds_token_version_for_existing_users(tmp_path, monkeypatch):
+    """008 backfills token_version=0 on existing users; downgrade drops it."""
+    _db_path, alembic_cfg, engine = _configure_tmp_db(tmp_path, monkeypatch)
+    command.upgrade(alembic_cfg, RATE_LIMIT_COUNTERS_REVISION)
+    assert _current_revision(engine) == RATE_LIMIT_COUNTERS_REVISION
+    users_columns = {column['name'] for column in inspect(engine).get_columns('users')}
+    assert 'token_version' not in users_columns
+
+    _insert_user(
+        engine,
+        username='pre_tv',
+        password_hash=generate_password_hash('existing-user'),
+        email=None,
+        oauth_provider=None,
+        oauth_id=None,
+        is_active=1,
+    )
+
+    command.upgrade(alembic_cfg, TOKEN_VERSION_REVISION)
+    assert _current_revision(engine) == TOKEN_VERSION_REVISION
+    inspector = inspect(engine)
+    token_col = next(
+        column
+        for column in inspector.get_columns('users')
+        if column['name'] == 'token_version'
+    )
+    assert token_col['nullable'] is False
+    with engine.connect() as conn:
+        versions = conn.execute(
+            text('SELECT username, token_version FROM users ORDER BY id')
+        ).all()
+    assert versions == [('pre_tv', 0)]
+
+    _insert_user(
+        engine,
+        username='post_tv',
+        password_hash=generate_password_hash('new-user'),
+        email=None,
+        oauth_provider=None,
+        oauth_id=None,
+        is_active=1,
+    )
+    with engine.connect() as conn:
+        new_version = conn.execute(
+            text("SELECT token_version FROM users WHERE username = 'post_tv'")
+        ).scalar()
+    assert new_version == 0
+
+    command.downgrade(alembic_cfg, RATE_LIMIT_COUNTERS_REVISION)
+    assert _current_revision(engine) == RATE_LIMIT_COUNTERS_REVISION
+    assert 'token_version' not in {
+        column['name'] for column in inspect(engine).get_columns('users')
+    }
+    with engine.connect() as conn:
+        remaining = (
+            conn.execute(text('SELECT username FROM users ORDER BY id')).scalars().all()
+        )
+    assert remaining == ['pre_tv', 'post_tv']
+
+    command.upgrade(alembic_cfg, 'head')
+    assert _current_revision(engine) == HEAD_REVISION
+    with engine.connect() as conn:
+        versions = conn.execute(
+            text('SELECT username, token_version FROM users ORDER BY id')
+        ).all()
+    assert versions == [('pre_tv', 0), ('post_tv', 0)]
 
 
 def test_alembic_check_reports_no_model_drift(tmp_path, monkeypatch):
