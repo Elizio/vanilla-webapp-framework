@@ -85,9 +85,10 @@ def _freeze_now(monkeypatch, now: float) -> None:
     monkeypatch.setattr(rate_limit_mod, '_now', lambda: now)
 
 
-def test_eleventh_login_from_one_ip_is_429(test_app, test_db, test_client):
+def test_eleventh_login_from_one_ip_is_429(test_app, test_db, test_client, monkeypatch):
     """The 11th auth request from one IP is 429 with Retry-After."""
     _enable_rate_limit(test_app, username_max=100)
+    _freeze_now(monkeypatch, _FROZEN_IP)
     register_user(test_client, username='ipuser', password='testpass8')
     for attempt in range(9):
         response = _login(test_client, 'ipuser', 'wrong-password')
@@ -96,9 +97,12 @@ def test_eleventh_login_from_one_ip_is_429(test_app, test_db, test_client):
     _assert_rate_limited(eleventh)
 
 
-def test_eleventh_register_from_one_ip_is_429(test_app, test_db, test_client):
+def test_eleventh_register_from_one_ip_is_429(
+    test_app, test_db, test_client, monkeypatch
+):
     """Register shares the per-IP auth bucket with login."""
     _enable_rate_limit(test_app)
+    _freeze_now(monkeypatch, _FROZEN_IP)
     for index in range(10):
         response = _register(test_client, f'reg{index}')
         assert response.status_code == 201, index
@@ -106,9 +110,12 @@ def test_eleventh_register_from_one_ip_is_429(test_app, test_db, test_client):
     _assert_rate_limited(eleventh)
 
 
-def test_rotating_ip_hits_per_username_limit(test_app, test_db, test_client):
+def test_rotating_ip_hits_per_username_limit(
+    test_app, test_db, test_client, monkeypatch
+):
     """Wrong passwords on one exact username trip 429 when REMOTE_ADDR rotates."""
     _enable_rate_limit(test_app)
+    _freeze_now(monkeypatch, _FROZEN_USER)
     register_user(test_client, username='target', password='testpass8')
     for index in range(5):
         response = _login(
@@ -129,7 +136,7 @@ def test_rotating_ip_hits_per_username_limit(test_app, test_db, test_client):
 
 
 def test_username_case_variant_success_does_not_reset_or_clear_lockout(
-    test_app, test_db, test_client
+    test_app, test_db, test_client, monkeypatch
 ):
     """Lowercase failures stay counted after a case-variant success.
 
@@ -138,6 +145,7 @@ def test_username_case_variant_success_does_not_reset_or_clear_lockout(
     store key would have been reset by the ``Victim`` success.
     """
     _enable_rate_limit(test_app)
+    _freeze_now(monkeypatch, _FROZEN_USER)
     register_user(test_client, username='Victim', password='testpass8')
     for index in range(4):
         response = _login(
@@ -187,9 +195,12 @@ def test_username_case_variant_success_does_not_reset_or_clear_lockout(
     _assert_rate_limited(still_blocked)
 
 
-def test_username_limit_does_not_reveal_missing_user(test_app, test_db, test_client):
+def test_username_limit_does_not_reveal_missing_user(
+    test_app, test_db, test_client, monkeypatch
+):
     """Unknown usernames use the same 429 as existing ones after five failures."""
     _enable_rate_limit(test_app)
+    _freeze_now(monkeypatch, _FROZEN_USER)
     for index in range(5):
         response = _login(
             test_client,
@@ -229,6 +240,7 @@ def test_blocked_username_skips_password_check(
 ):
     """A locked-out username is rejected without hashing the password."""
     _enable_rate_limit(test_app)
+    _freeze_now(monkeypatch, _FROZEN_USER)
     register_user(test_client, username='locked', password='testpass8')
     for index in range(5):
         response = _login(
@@ -256,9 +268,12 @@ def test_blocked_username_skips_password_check(
     assert called == []
 
 
-def test_successful_login_resets_username_counter(test_app, test_db, test_client):
+def test_successful_login_resets_username_counter(
+    test_app, test_db, test_client, monkeypatch
+):
     """A successful login clears the per-username failure count."""
     _enable_rate_limit(test_app)
+    _freeze_now(monkeypatch, _FROZEN_USER)
     register_user(test_client, username='resetme', password='testpass8')
     for index in range(4):
         response = _login(
@@ -369,10 +384,11 @@ def shared_sqlite_file(tmp_path) -> Iterator[str]:
         _restore_original_db(old_engine, new_engine)
 
 
-def test_two_apps_sharing_sqlite_file_trip_limit(shared_sqlite_file):
+def test_two_apps_sharing_sqlite_file_trip_limit(shared_sqlite_file, monkeypatch):
     """Two create_app() objects sharing one SQLite file share the IP counter."""
     from backend import create_app
 
+    _freeze_now(monkeypatch, _FROZEN_IP)
     app1 = create_app()
     app2 = create_app()
     _enable_rate_limit(app1, username_max=100)
@@ -396,10 +412,12 @@ def test_two_apps_sharing_sqlite_file_trip_limit(shared_sqlite_file):
     assert 429 in statuses, statuses
 
 
-def test_sqlite_concurrent_increments_lose_no_counts(tmp_path):
+def test_sqlite_concurrent_increments_lose_no_counts(tmp_path, monkeypatch):
     """Threads hammering one key on two SQLite engines must not drop hits."""
     from backend.api.rate_limit import hashed_counter_key, increment_counter
     from backend.models.rate_limit_counter import RateLimitCounter
+
+    _freeze_now(monkeypatch, _FROZEN_IP)
 
     db_path = tmp_path / 'concurrent.db'
     url = f'sqlite:///{db_path}'
@@ -456,6 +474,7 @@ def test_concurrent_logins_cap_password_checks(shared_sqlite_file, monkeypatch):
     """Atomic increment-before-password lets at most 5 concurrent checks run."""
     from backend import create_app
 
+    _freeze_now(monkeypatch, _FROZEN_USER)
     app = create_app()
     _enable_rate_limit(app)
     app.config['RATELIMIT_AUTH_IP_MAX'] = 100
@@ -586,6 +605,7 @@ def test_trust_proxy_keys_on_rightmost_forwarded_for(test_db, monkeypatch):
         app = create_app()
         _enable_rate_limit(app, username_max=100)
         client = app.test_client()
+        _freeze_now(monkeypatch, _FROZEN_IP)
         register_user(client, username='xffuser', password='testpass8')
 
         real_headers = {'X-Forwarded-For': '203.0.113.1, 198.51.100.20'}
@@ -773,13 +793,14 @@ def _device_cookie_value(client) -> str:
 
 
 def test_device_cookie_allows_login_after_rotating_ip_attack(
-    test_app, test_db, test_client
+    test_app, test_db, test_client, monkeypatch
 ):
     """Alice with her device cookie logs in after untrusted IPs exhaust limits."""
     from backend.api.rate_limit import DEVICE_COOKIE_NAME
 
     _enable_rate_limit(test_app)
     test_app.config['RATELIMIT_AUTH_IP_MAX'] = 100
+    _freeze_now(monkeypatch, 1_699_999_200.0)
     register_user(test_client, username='alice', password='testpass8')
     device_value = _device_cookie_value(test_client)
 
@@ -900,7 +921,9 @@ def test_forged_and_foreign_device_cookies_are_untrusted(
     _freeze_now(monkeypatch, 1_699_999_200.0)
     register_user(test_client, username='alice', password='testpass8')
     real_device = _device_cookie_value(test_client)
-    forged = real_device[:-1] + ('A' if real_device[-1] != 'A' else 'B')
+    # Flip an interior character. Trailing base64 alphabet neighbors can decode
+    # to the same signature bytes, so a last-char tweak is not always a tamper.
+    forged = real_device[:-3] + ('xxx' if real_device[-3:] != 'xxx' else 'yyy')
 
     bob = test_app.test_client()
     register_user(bob, username='bob', password='testpass8')
