@@ -21,6 +21,11 @@ const NO_REFRESH_PATHS = new Set([
     '/api/logout',
     '/api/login',
     '/api/register',
+    '/api/auth/verify-email',
+    '/api/auth/verify-email/resend',
+    '/api/auth/password/forgot',
+    '/api/auth/password/reset',
+    '/api/auth/capabilities',
 ]);
 
 /**

@@ -7,10 +7,16 @@ import { userRegistryController } from './controllers/user_registry.js';
 import { billingController } from './controllers/billing.js';
 import { settingsController } from './controllers/settings.js';
 import { profileController } from './controllers/profile.js';
+import { forgotPasswordController } from './controllers/forgot_password.js';
+import { resetPasswordController } from './controllers/reset_password.js';
+import { checkEmailController } from './controllers/check_email.js';
 
 import menuTpl from '../templates/partials/menu.hbs?raw';
 import loginTpl from '../templates/partials/login.hbs?raw';
 import userRegistryTpl from '../templates/partials/user_registry.hbs?raw';
+import forgotPasswordTpl from '../templates/partials/forgot_password.hbs?raw';
+import resetPasswordTpl from '../templates/partials/reset_password.hbs?raw';
+import checkEmailTpl from '../templates/partials/check_email.hbs?raw';
 import welcomeTpl from '../templates/pages/welcome.hbs?raw';
 import landingTpl from '../templates/pages/landingpage.hbs?raw';
 import testTpl from '../templates/pages/testpage.hbs?raw';
@@ -57,6 +63,33 @@ export const pages = {
         seo: {
             visibility: 'auth',
             titleKey: 'seo.register.title',
+            descriptionKey: 'seo.frameworkDescription',
+        },
+    },
+    forgot_password: {
+        template: forgotPasswordTpl,
+        controller: forgotPasswordController,
+        seo: {
+            visibility: 'auth',
+            titleKey: 'seo.forgot.title',
+            descriptionKey: 'seo.frameworkDescription',
+        },
+    },
+    reset_password: {
+        template: resetPasswordTpl,
+        controller: resetPasswordController,
+        seo: {
+            visibility: 'auth',
+            titleKey: 'seo.reset.title',
+            descriptionKey: 'seo.frameworkDescription',
+        },
+    },
+    check_email: {
+        template: checkEmailTpl,
+        controller: checkEmailController,
+        seo: {
+            visibility: 'auth',
+            titleKey: 'seo.verify.title',
             descriptionKey: 'seo.frameworkDescription',
         },
     },

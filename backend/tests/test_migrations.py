@@ -1,4 +1,4 @@
-"""Alembic migration tests, including 006–009 schema revisions."""
+"""Alembic migration tests, including 006–010 schema revisions."""
 
 import os
 
@@ -12,10 +12,11 @@ from backend.models.user import User
 
 REVISION_BEFORE_PASSWORD_HASH_WIDEN = '005'
 PASSWORD_HASH_WIDEN_REVISION = '006'
-HEAD_REVISION = '009'
+HEAD_REVISION = '010'
 RATE_LIMIT_COUNTERS_REVISION = '007'
 TOKEN_VERSION_REVISION = '008'
 REFRESH_TOKENS_REVISION = '009'
+EMAIL_VERIFICATION_REVISION = '010'
 PASSWORD_HASH_WIDENED_LENGTH = 255
 
 _USER_COLUMNS = (
@@ -113,6 +114,7 @@ def test_alembic_upgrade_head(tmp_path, monkeypatch):
     assert 'users' in tables
     assert 'rate_limit_counters' in tables
     assert 'refresh_tokens' in tables
+    assert 'auth_tokens' in tables
     assert 'alembic_version' in tables
     assert _current_revision(engine) == HEAD_REVISION
 
@@ -463,6 +465,106 @@ def test_migration_009_adds_refresh_tokens_for_existing_users(tmp_path, monkeypa
     with engine.connect() as conn:
         versions = conn.execute(text('SELECT username, token_version FROM users')).all()
     assert versions == [('pre_refresh', 0)]
+
+
+def test_migration_010_normalizes_emails_and_adds_auth_tokens(tmp_path, monkeypatch):
+    """010 lowercases/dedups emails, exempts existing users, adds auth_tokens."""
+    _db_path, alembic_cfg, engine = _configure_tmp_db(tmp_path, monkeypatch)
+    command.upgrade(alembic_cfg, REFRESH_TOKENS_REVISION)
+    assert _current_revision(engine) == REFRESH_TOKENS_REVISION
+    users_columns = {column['name'] for column in inspect(engine).get_columns('users')}
+    assert 'email_verified' not in users_columns
+    assert 'auth_tokens' not in inspect(engine).get_table_names()
+
+    _insert_user(
+        engine,
+        username='dup_keep',
+        password_hash=generate_password_hash('keep-me'),
+        email='A@Example.COM',
+        oauth_provider='google',
+        oauth_id='g-keep',
+        is_active=1,
+    )
+    _insert_user(
+        engine,
+        username='dup_drop',
+        password_hash=None,
+        email='a@example.com',
+        oauth_provider='facebook',
+        oauth_id='fb-drop',
+        is_active=1,
+    )
+    _insert_user(
+        engine,
+        username='unique_user',
+        password_hash=generate_password_hash('unique-me'),
+        email='Unique@Test.com',
+        oauth_provider=None,
+        oauth_id=None,
+        is_active=1,
+    )
+    _insert_user(
+        engine,
+        username='no_email',
+        password_hash=generate_password_hash('none-me'),
+        email=None,
+        oauth_provider=None,
+        oauth_id=None,
+        is_active=1,
+    )
+
+    command.upgrade(alembic_cfg, EMAIL_VERIFICATION_REVISION)
+    assert _current_revision(engine) == EMAIL_VERIFICATION_REVISION
+    inspector = inspect(engine)
+    users_columns = {column['name'] for column in inspector.get_columns('users')}
+    assert 'email_verified' in users_columns
+    assert 'email_verified_at' in users_columns
+    assert 'verification_exempt' in users_columns
+    assert 'auth_tokens' in inspector.get_table_names()
+    token_cols = {column['name'] for column in inspector.get_columns('auth_tokens')}
+    assert token_cols == {
+        'id',
+        'user_id',
+        'purpose',
+        'token_hash',
+        'expires_at',
+        'used_at',
+        'created_at',
+    }
+    uniques = _unique_column_sets(inspector)
+    assert ('email',) in uniques
+
+    with engine.connect() as conn:
+        rows = conn.execute(
+            text(
+                'SELECT username, email, email_verified, verification_exempt '
+                'FROM users ORDER BY id'
+            )
+        ).all()
+    by_name = {row[0]: row for row in rows}
+    assert by_name['dup_keep'][1] == 'a@example.com'
+    assert by_name['dup_drop'][1] is None
+    assert by_name['unique_user'][1] == 'unique@test.com'
+    assert by_name['no_email'][1] is None
+    for row in rows:
+        assert row[2] in (0, False)
+        assert row[3] in (1, True)
+
+    command.downgrade(alembic_cfg, REFRESH_TOKENS_REVISION)
+    assert _current_revision(engine) == REFRESH_TOKENS_REVISION
+    inspector = inspect(engine)
+    users_columns = {column['name'] for column in inspector.get_columns('users')}
+    assert 'email_verified' not in users_columns
+    assert 'auth_tokens' not in inspector.get_table_names()
+    with engine.connect() as conn:
+        remaining = (
+            conn.execute(text('SELECT username FROM users ORDER BY id')).scalars().all()
+        )
+    assert remaining == ['dup_keep', 'dup_drop', 'unique_user', 'no_email']
+
+    command.upgrade(alembic_cfg, 'head')
+    assert _current_revision(engine) == HEAD_REVISION
+    assert 'auth_tokens' in inspect(engine).get_table_names()
 
 
 def test_alembic_check_reports_no_model_drift(tmp_path, monkeypatch):

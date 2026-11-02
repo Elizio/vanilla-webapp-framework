@@ -12,6 +12,16 @@ describe('loadPage', () => {
             if (url.endsWith('/api/auth/providers')) {
                 return { ok: true, json: async () => [] };
             }
+            if (url.endsWith('/api/auth/capabilities')) {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        email_configured: false,
+                        password_reset: false,
+                        email_verification: false,
+                    }),
+                };
+            }
             if (url.endsWith('/api/csrf')) {
                 return { ok: true, json: async () => ({ csrf_token: 'csrf' }) };
             }
@@ -118,6 +128,16 @@ describe('loadPage', () => {
             }
             if (url.endsWith('/api/auth/providers')) {
                 return { ok: true, json: async () => [] };
+            }
+            if (url.endsWith('/api/auth/capabilities')) {
+                return {
+                    ok: true,
+                    json: async () => ({
+                        email_configured: false,
+                        password_reset: false,
+                        email_verification: false,
+                    }),
+                };
             }
             throw new Error(`Unmocked fetch in tests: ${url}`);
         });

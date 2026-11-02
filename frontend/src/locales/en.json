@@ -28,7 +28,28 @@
     "password": "Password",
     "rememberMe": "Remember me",
     "noAccount": "Don't have an account? Register",
+    "forgotPassword": "Forgot password?",
     "oauthHint": "Social login requires provider keys in .env. Restart Flask after adding them."
+  },
+  "forgot": {
+    "title": "Reset your password",
+    "email": "Email",
+    "submit": "Send reset link",
+    "checkEmail": "If an account exists for that address, we sent a reset link.",
+    "unavailable": "Password reset is not available until email sending is configured.",
+    "backToLogin": "Back to login"
+  },
+  "reset": {
+    "title": "Choose a new password",
+    "password": "New password",
+    "submit": "Update password",
+    "success": "Your password was updated. You can log in now."
+  },
+  "verify": {
+    "title": "Check your email",
+    "instructions": "We sent a confirmation link. Open it to finish creating your account.",
+    "resend": "Resend confirmation email",
+    "resent": "If that address is registered and still unverified, we sent another link."
   },
   "settings": {
     "placeholder": "Settings will be available in a future release."
@@ -39,6 +60,7 @@
   "register": {
     "title": "Create an Account",
     "username": "Username",
+    "email": "Email",
     "password": "Password",
     "confirmPassword": "Confirm Password",
     "hasAccount": "Already have an account? Login",
@@ -48,7 +70,10 @@
     "title": "Vanilla WebApp Demo 2",
     "fetchProtected": "Fetch Protected Data",
     "fetchPublic": "Fetch Public Data",
-    "loadTestPage": "Load Test Page"
+    "loadTestPage": "Load Test Page",
+    "addEmailBanner": "Add an email so you can recover this account.",
+    "addEmailSubmit": "Save email",
+    "addEmailSent": "Check your inbox for a confirmation link."
   },
   "testpage": {
     "loadLanding": "Load Landing Page"
@@ -205,13 +230,26 @@
     "METHOD_NOT_ALLOWED": "Method not allowed",
     "BAD_REQUEST": "Bad request",
     "FORBIDDEN": "Forbidden",
-    "UNKNOWN_ERROR": "An unexpected error occurred"
+    "UNKNOWN_ERROR": "An unexpected error occurred",
+    "EMAIL_REQUIRED": "Email is required",
+    "EMAIL_INVALID": "Enter a valid email address",
+    "EMAIL_EXISTS": "That email is already registered",
+    "EMAIL_NOT_VERIFIED": "Confirm your email before logging in.",
+    "EMAIL_NOT_CONFIGURED": "Email sending is not configured, so password reset is unavailable.",
+    "EMAIL_ALREADY_SET": "This account already has an email address",
+    "EMAIL_ACCEPTED": "If an account exists, we sent an email.",
+    "EMAIL_VERIFIED": "Email confirmed",
+    "PASSWORD_RESET": "Password updated",
+    "TOKEN_INVALID_OR_EXPIRED": "This link is invalid or has expired"
   },
   "seo": {
     "frameworkDescription": "Vanilla WebApp Framework — lightweight Flask and Alpine.js starter for entrepreneur solutions.",
     "menu": { "title": "Menu — Vanilla WebApp Demo" },
     "login": { "title": "Login — Vanilla WebApp Demo" },
     "register": { "title": "Register — Vanilla WebApp Demo" },
+    "forgot": { "title": "Forgot password — Vanilla WebApp Demo" },
+    "reset": { "title": "Reset password — Vanilla WebApp Demo" },
+    "verify": { "title": "Check your email — Vanilla WebApp Demo" },
     "welcome": {
       "title": "Vanilla WebApp Framework — Ship your SaaS faster",
       "description": "Vanilla WebApp Framework — lightweight Flask and Alpine.js starter for entrepreneur solutions."

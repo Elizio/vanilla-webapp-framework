@@ -17,7 +17,30 @@ from .error_codes import (
     USER_CREATED,
     PASSWORD_TOO_SHORT,
     ACCOUNT_INACTIVE,
+    EMAIL_REQUIRED,
+    EMAIL_INVALID,
+    EMAIL_EXISTS,
+    EMAIL_NOT_VERIFIED,
+    EMAIL_NOT_CONFIGURED,
+    EMAIL_ALREADY_SET,
+    EMAIL_ACCEPTED,
+    EMAIL_VERIFIED,
+    PASSWORD_RESET,
+    TOKEN_INVALID_OR_EXPIRED,
     error_response,
+)
+from .auth_tokens import (
+    PURPOSE_RESET,
+    PURPOSE_VERIFY,
+    consume_auth_token,
+)
+from ..email.service import (
+    is_email_configured,
+    login_blocked_unverified,
+    normalize_email,
+    queue_auth_email,
+    send_verification_email,
+    whitelist_locale,
 )
 from .jwt_utils import (
     JWT_ALGORITHM,
@@ -38,9 +61,11 @@ from .refresh_tokens import (
     revoke_presented_token,
     revoke_session,
     rotate_refresh_token,
+    utc_now,
 )
 from .csrf import csrf_protect
 from .rate_limit import (
+    increment_counter,
     issue_device_cookie,
     rate_limit_auth,
     reset_failed_logins,
@@ -241,7 +266,15 @@ def session_status():
         user = _authenticate_token_payload(data)
         if not user or not user_may_authenticate(user):
             return jsonify({'authenticated': False})
-        return jsonify({'authenticated': True, 'username': user.username})
+        return jsonify(
+            {
+                'authenticated': True,
+                'username': user.username,
+                'email': user.email,
+                'email_verified': bool(user.email_verified),
+                'needs_email': user.email is None,
+            }
+        )
     except jwt.InvalidTokenError:
         return jsonify({'authenticated': False})
 
@@ -299,6 +332,8 @@ def login():
     if user and user.password_hash and password_ok:
         if not user_may_authenticate(user):
             return error_response(ACCOUNT_INACTIVE, 403)
+        if login_blocked_unverified(user):
+            return error_response(EMAIL_NOT_VERIFIED, 403)
         reset_failed_logins(username)
         response = jsonify({'authenticated': True, 'username': user.username})
         set_session_cookies(response, user, remember_me=remember_me)
@@ -416,12 +451,88 @@ def logout_all(current_user):
     return clear_session_cookies(response)
 
 
+def _parse_register_email(configured: bool):
+    """Return ``(email, error_response)`` for a register body.
+
+    When email sending is configured, ``email`` is required, normalized,
+    and unique. When it is not, email is optional so sign-up matches the
+    pre-verification API.
+    """
+    data = request.get_json(silent=True) or {}
+    raw = data.get('email')
+    if configured:
+        if not isinstance(raw, str) or not raw.strip():
+            return None, error_response(EMAIL_REQUIRED, 400)
+        email = normalize_email(raw)
+        if email is None:
+            return None, error_response(EMAIL_INVALID, 400)
+    else:
+        if raw is None or (isinstance(raw, str) and not raw.strip()):
+            return None, None
+        email = normalize_email(raw)
+        if email is None:
+            return None, error_response(EMAIL_INVALID, 400)
+    if User.query.filter_by(email=email).first():
+        return None, error_response(EMAIL_EXISTS, 400)
+    return email, None
+
+
+def _accepted_email_response():
+    """Same 202 body for known and unknown addresses (anti-enumeration)."""
+    return jsonify({'code': EMAIL_ACCEPTED}), 202
+
+
+EMAIL_SEND_SCOPE = 'reset_email'
+EMAIL_SEND_WINDOW_SECONDS = 3600
+EMAIL_SEND_MAX = 5
+
+
+def _email_send_allowed(email: str) -> bool:
+    """Increment the per-email hour bucket; True unless the cap is exceeded.
+
+    Fail-open when the counter store errors so a DB blip cannot distinguish
+    known addresses. The HTTP response is always the same 202 body.
+
+    Args:
+        email: Normalized address used as the hashed counter key.
+
+    Returns:
+        Whether a background send may be queued.
+    """
+    count = increment_counter(EMAIL_SEND_SCOPE, email, EMAIL_SEND_WINDOW_SECONDS)
+    if count is None:
+        return True
+    return int(count) <= EMAIL_SEND_MAX
+
+
+@auth_bp.route('/api/auth/capabilities', methods=['GET'])
+def email_capabilities():
+    """
+    Report whether verification mail and password reset are available.
+    ---
+    tags:
+      - Authentication
+    responses:
+      200:
+        description: Feature flags driven by EMAIL_BACKEND / SMTP env vars
+    """
+    configured = is_email_configured()
+    require = bool(current_app.config.get('REQUIRE_EMAIL_VERIFIED', True))
+    return jsonify(
+        {
+            'email_configured': configured,
+            'password_reset': configured,
+            'email_verification': configured and require,
+        }
+    )
+
+
 @auth_bp.route('/api/register', methods=['POST'])
 @rate_limit_auth
 @csrf_protect
 def register():
     """
-    Register a new user and start a session.
+    Register a new user. Logs in immediately when email sending is off.
     ---
     tags:
       - Authentication
@@ -436,6 +547,10 @@ def register():
               type: string
             password:
               type: string
+            email:
+              type: string
+            locale:
+              type: string
           required:
             - username
             - password
@@ -443,7 +558,7 @@ def register():
       201:
         description: User created successfully
       400:
-        description: Username already exists
+        description: Username already exists, or email invalid/taken
       403:
         description: CSRF validation failed
       429:
@@ -460,9 +575,20 @@ def register():
     if User.query.filter_by(username=username).first():
         return error_response(USERNAME_EXISTS, 400)
 
+    configured = is_email_configured()
+    email, email_error = _parse_register_email(configured)
+    if email_error:
+        return email_error
+
+    data = request.get_json(silent=True) or {}
+    locale = whitelist_locale(data.get('locale'))
+
     user = User(
         username=username,
         password_hash=generate_password_hash(password),
+        email=email,
+        email_verified=False,
+        verification_exempt=not configured,
     )
     try:
         db_session.add(user)
@@ -472,9 +598,260 @@ def register():
         current_app.logger.error('Registration failed: %s', exc)
         return error_response(REGISTRATION_FAILED, 500)
 
+    if configured and email:
+        send_verification_email(user, locale=locale)
+        response = jsonify(
+            {
+                'code': USER_CREATED,
+                'authenticated': False,
+                'username': username,
+            }
+        )
+        response.status_code = 201
+        return response
+
     response = jsonify(
         {'code': USER_CREATED, 'authenticated': True, 'username': username}
     )
     response.status_code = 201
     set_session_cookies(response, user, remember_me=False)
     return issue_device_cookie(response, username)
+
+
+@auth_bp.route('/api/auth/verify-email', methods=['POST'])
+@rate_limit_auth
+@csrf_protect
+def verify_email():
+    """
+    Consume a verification token and start a session.
+    ---
+    tags:
+      - Authentication
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            token:
+              type: string
+          required:
+            - token
+    responses:
+      200:
+        description: Email verified; session cookies set
+      400:
+        description: Token missing, reused, or expired
+      403:
+        description: CSRF validation failed
+    """
+    data = request.get_json(silent=True) or {}
+    token = data.get('token')
+    if not isinstance(token, str) or not token.strip():
+        return error_response(TOKEN_INVALID_OR_EXPIRED, 400)
+    user = consume_auth_token(token.strip(), PURPOSE_VERIFY)
+    if user is None:
+        return error_response(TOKEN_INVALID_OR_EXPIRED, 400)
+
+    user.email_verified = True
+    user.email_verified_at = utc_now()
+    db_session.commit()
+    response = jsonify(
+        {
+            'code': EMAIL_VERIFIED,
+            'authenticated': True,
+            'username': user.username,
+        }
+    )
+    set_session_cookies(response, user, remember_me=False)
+    return issue_device_cookie(response, user.username)
+
+
+@auth_bp.route('/api/auth/verify-email/resend', methods=['POST'])
+@rate_limit_auth
+@csrf_protect
+def resend_verification():
+    """
+    Resend a verification email. Always 202 for a well-formed address.
+    ---
+    tags:
+      - Authentication
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            email:
+              type: string
+            locale:
+              type: string
+          required:
+            - email
+    responses:
+      202:
+        description: Accepted (same body whether or not the account exists)
+      503:
+        description: Email sending is not configured
+    """
+    if not is_email_configured():
+        return error_response(EMAIL_NOT_CONFIGURED, 503)
+    data = request.get_json(silent=True) or {}
+    email = normalize_email(data.get('email'))
+    if email is None:
+        return _accepted_email_response()
+    if _email_send_allowed(email):
+        queue_auth_email(PURPOSE_VERIFY, email, whitelist_locale(data.get('locale')))
+    return _accepted_email_response()
+
+
+@auth_bp.route('/api/auth/password/forgot', methods=['POST'])
+@rate_limit_auth
+@csrf_protect
+def forgot_password():
+    """
+    Request a password-reset email. Always 202 for a well-formed address.
+    ---
+    tags:
+      - Authentication
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            email:
+              type: string
+            locale:
+              type: string
+          required:
+            - email
+    responses:
+      202:
+        description: Accepted (same body whether or not the account exists)
+      503:
+        description: Email sending is not configured
+    """
+    if not is_email_configured():
+        return error_response(EMAIL_NOT_CONFIGURED, 503)
+    data = request.get_json(silent=True) or {}
+    email = normalize_email(data.get('email'))
+    if email is None:
+        return _accepted_email_response()
+    if _email_send_allowed(email):
+        queue_auth_email(PURPOSE_RESET, email, whitelist_locale(data.get('locale')))
+    return _accepted_email_response()
+
+
+@auth_bp.route('/api/auth/password/reset', methods=['POST'])
+@rate_limit_auth
+@csrf_protect
+def reset_password():
+    """
+    Set a new password from a reset token and revoke every session.
+    ---
+    tags:
+      - Authentication
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            token:
+              type: string
+            password:
+              type: string
+          required:
+            - token
+            - password
+    responses:
+      200:
+        description: Password updated; all sessions revoked
+      400:
+        description: Token invalid or password too short
+      503:
+        description: Email sending is not configured
+    """
+    if not is_email_configured():
+        return error_response(EMAIL_NOT_CONFIGURED, 503)
+    data = request.get_json(silent=True) or {}
+    token = data.get('token')
+    password = data.get('password')
+    if not isinstance(token, str) or not token.strip():
+        return error_response(TOKEN_INVALID_OR_EXPIRED, 400)
+    if not isinstance(password, str):
+        return error_response(PASSWORD_TOO_SHORT, 400)
+    if len(password) < 8:
+        return error_response(PASSWORD_TOO_SHORT, 400)
+    user = consume_auth_token(token.strip(), PURPOSE_RESET)
+    if user is None:
+        return error_response(TOKEN_INVALID_OR_EXPIRED, 400)
+    user.password_hash = generate_password_hash(password)
+    # Per-device logout is not enough: bump every access JWT and every
+    # refresh family so a reset signs the user out everywhere.
+    bump_token_version(user)
+    revoke_all_families(user.id)
+    return jsonify({'code': PASSWORD_RESET, 'authenticated': False})
+
+
+@auth_bp.route('/api/auth/email', methods=['POST'])
+@rate_limit_auth
+@csrf_protect
+@token_required
+def add_email(current_user):
+    """
+    Attach an email to an account that has none, then send verification.
+    ---
+    tags:
+      - Authentication
+    security:
+      - Bearer: []
+    parameters:
+      - in: body
+        name: body
+        required: true
+        schema:
+          type: object
+          properties:
+            email:
+              type: string
+            locale:
+              type: string
+          required:
+            - email
+    responses:
+      202:
+        description: Verification email accepted
+      400:
+        description: Email missing, invalid, taken, or already set
+      503:
+        description: Email sending is not configured
+    """
+    if not is_email_configured():
+        return error_response(EMAIL_NOT_CONFIGURED, 503)
+    if current_user.email:
+        return error_response(EMAIL_ALREADY_SET, 400)
+    data = request.get_json(silent=True) or {}
+    email = normalize_email(data.get('email'))
+    if email is None:
+        raw = data.get('email')
+        if not isinstance(raw, str) or not raw.strip():
+            return error_response(EMAIL_REQUIRED, 400)
+        return error_response(EMAIL_INVALID, 400)
+    if User.query.filter_by(email=email).first():
+        return error_response(EMAIL_EXISTS, 400)
+    current_user.email = email
+    current_user.email_verified = False
+    try:
+        db_session.commit()
+    except Exception as exc:
+        db_session.rollback()
+        current_app.logger.error('Add email failed: %s', exc)
+        return error_response(EMAIL_EXISTS, 400)
+    send_verification_email(current_user, locale=whitelist_locale(data.get('locale')))
+    return _accepted_email_response()

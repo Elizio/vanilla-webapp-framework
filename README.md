@@ -92,6 +92,7 @@ vanilla-webapp-framework/
 │   ├── adr/                    # Architecture decision records
 │   ├── oauth-configuration.md  # OAuth setup (Google, Facebook)
 │   ├── billing-configuration.md # Billing setup (Lemon Squeezy)
+│   ├── email-configuration.md  # SMTP / Resend, verification, password reset
 │   └── template-placeholders.md # Names rewritten by `make init`
 ├── .cursor/rules/              # Cursor coding standards
 ├── .env.example                # Environment variable template
@@ -137,6 +138,7 @@ Copy `.env.example` to `.env` and adjust values before running.
    | `JWT_SECRET` | Secret key for JWT token generation and validation |
    | `DATABASE_URI` | Database connection string (SQLite, PostgreSQL, MySQL, etc.) |
    | `APP_PROFILE` | `development`, `testing`, or `production` |
+   | `ENV` | If `production`, `EMAIL_BACKEND=console` is treated as unconfigured (same as `APP_PROFILE=production`). Prefer `APP_PROFILE`. |
    | `FLASK_APP` | Flask CLI target (default `backend.app`). Required for `flask run` from the repo root. |
    | `PROJECT_FOLDER` | Used only when `LOG_TO_FILE=1` and `LOG_FILE` is unset: the directory that contains (or is) the log folder. Default `~/project_folder`. Not used for default stdout logging. |
    | `LOG_TO_FILE` / `LOG_FILE` | Opt-in file logging. `LOG_TO_FILE=1` (or `true`/`yes`) writes a rotating `app.log` under `PROJECT_FOLDER`. An explicit `LOG_FILE` path wins. Unset in the container (stdout). |
@@ -145,7 +147,16 @@ Copy `.env.example` to `.env` and adjust values before running.
    | `ENV_FILE` | Optional path to a dotenv file (default `<repo>/.env`). Ignored when `APP_PROFILE=production`. |
    | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth (optional) |
    | `FACEBOOK_CLIENT_ID` / `FACEBOOK_CLIENT_SECRET` | Facebook OAuth (optional) |
-   | `FRONTEND_URL` | Full public app URL after OAuth/billing (keep any subpath; default `http://localhost:5173` in dev) |
+   | `FRONTEND_URL` | Full public app URL after OAuth/billing/email links (keep any subpath; default `http://localhost:5173` in dev). Production: `https://dsfor.fun/vanilla-webapp-framework`. |
+   | `EMAIL_BACKEND` | Email transport: empty (disabled, default), `console` (dev/tests; treated as disabled when `APP_PROFILE` or `ENV` is `production`), or `smtp`. Unset is safe to deploy. |
+   | `SMTP_HOST` | SMTP hostname. Resend: `smtp.resend.com`. Empty disables `smtp`. |
+   | `SMTP_PORT` | SMTP port (default `465`). |
+   | `SMTP_USERNAME` | SMTP user. Resend: `resend`. |
+   | `SMTP_PASSWORD` | SMTP password / API key (secret; never commit). |
+   | `SMTP_SECURITY` | `ssl` (default, SMTP_SSL) or `starttls`. |
+   | `EMAIL_FROM` | From address, e.g. `no-reply@dsfor.fun`. Required for `smtp`. |
+   | `APP_NAME` | Display name in From, subject, and body (default `vanilla-webapp-framework`). |
+   | `REQUIRE_EMAIL_VERIFIED` | When sending is on, block password login until confirm (default `1`). `0` is non-blocking. |
    | `OAUTH_REDIRECT_BASE` | OAuth callback base URL (default `http://localhost:5173` in dev) |
    | `CORS_ORIGINS` | Comma-separated browser origins only (`scheme://host[:port]`, no paths). A path is stripped at startup with a warning. A malformed entry (no scheme/host) raises `ValueError` and stops startup. Defaults to the origin of `FRONTEND_URL`. |
    | `APP_BASE_PATH` | Public subpath prefix used as cookie `Path` for `auth_token`, `csrf_token`, `auth_device`, and the Flask session (default `/`). The `refresh_token` cookie is scoped to `{APP_BASE_PATH}/api/auth`. Use `/vanilla-webapp-framework` on the dsfor.fun subpath deploy. Empty/unset keeps access cookies at `Path=/`. |
@@ -254,10 +265,11 @@ Coverage floors: backend `fail_under` in `pyproject.toml` (omits `backend/tests`
   - Facebook never links by email (Graph `me` has no verified flag); it creates or reuses its own provider account.
   - `users.password_hash` is `String(255)` (Werkzeug scrypt hashes are ~162 characters).
 - **Billing:** optional Lemon Squeezy demo (donations, spot purchases, credit top-ups). See [docs/billing-configuration.md](docs/billing-configuration.md) for dashboard setup, webhooks, test mode, and troubleshooting. Env vars remain in the table above.
+- **Email (verification and password reset):** optional. Empty `EMAIL_BACKEND` (missing SMTP vars, or `console` in production) leaves sign-up/login unchanged and returns **503** `EMAIL_NOT_CONFIGURED` for reset. See [docs/email-configuration.md](docs/email-configuration.md) for Resend SMTP, DNS, and the duplicate-email pre-flight. Env vars remain in the table above. `GET /api/auth/capabilities` tells the SPA whether to show “Forgot password?”.
 - **Subpath cookies and HSTS:** behind a prefix-stripping proxy (Caddy), Flask still sees `/api/...`. Set `APP_BASE_PATH` to the public prefix (no trailing slash) so cookies are not host-wide. `CORS_ORIGINS` is origin-only (`scheme://host[:port]`); do not put a path there. `Path` is not a security boundary between same-origin apps — a sibling `Path=/` cookie is still sent here; a dedicated subdomain (for example `vwf.dsfor.fun`) is the real isolation. Production HSTS is `max-age=31536000` without `includeSubDomains` so a later header replaces a cached includeSubDomains policy (RFC 6797 §8.1). Keep HSTS on for at least one max-age before `HSTS_ENABLED=0`. Prefer domain-wide HSTS on the reverse proxy if this host is shared.
 - **Auth rate limits:** login and register share a per-IP bucket (default 10 / 60 s; IPv6 /64). Successful login/register sets a signed **`auth_device`** cookie (HMAC with `FLASK_SECRET`, bound to the exact username, 30-day TTL, same Path/flags as `auth_token`). A valid device cookie is trusted: 5 / 15 min per `(username, device)` only. Untrusted clients get 5 / 15 min per `(exact username, IPv4 /24 or IPv6 /64)` plus a global per-username backoff (5 free password checks, then 2, 4, 8, … s, cap 180 s) so a known name cannot be locked out from every IP. **Bound: 15 untrusted password checks per username per 15 min window** (~2× at a window edge). Success resets only that client's pair/device counter, not the global one. Limits are **fixed-window and approximate**. Exceeded limits return **429** `RATE_LIMIT_EXCEEDED` with `Retry-After`. Counters live in `rate_limit_counters` (SHA-256 keys). A store error fails open and logs `Rate limit store failed open`. `TRUST_PROXY_HOPS` **defaults to 1** (prod-ready with Caddy). Appending the client to `X-Forwarded-For` is fine with `x_for=1`.
 - **Logs:** stdout/stderr by default (`docker logs`). File logging is opt-in (`LOG_TO_FILE=1` or `LOG_FILE`). `PROJECT_FOLDER` is not a log destination unless file logging is enabled without `LOG_FILE`.
-- **Migrations (local production / `flask run`):** `make migrate` or `alembic -c backend/alembic.ini upgrade head` (the container entrypoint does this once before gunicorn). Revision **008** adds `users.token_version` (default 0). Revision **009** adds `refresh_tokens` (rotating refresh families; `family_id` is the JWT `sid`, already indexed — no extra column). Existing users are not logged out; in-flight access JWTs without `sid` keep working until `exp` or until that user logs out (legacy logout bumps `tv`). A new login issues a refresh cookie and a `sid`.
+- **Migrations (local production / `flask run`):** `make migrate` or `alembic -c backend/alembic.ini upgrade head` (the container entrypoint does this once before gunicorn). Revision **008** adds `users.token_version` (default 0). Revision **009** adds `refresh_tokens` (rotating refresh families; `family_id` is the JWT `sid`, already indexed — no extra column). Revision **010** adds `email_verified` / `verification_exempt` / unique `users.email` and `auth_tokens` (hashed, single-use verify/reset tokens). Existing users are not logged out; in-flight access JWTs without `sid` keep working until `exp` or until that user logs out (legacy logout bumps `tv`). They are verification-exempt and keep logging in. A new login issues a refresh cookie and a `sid`.
 - **Health check:** `GET /api/health` runs `SELECT 1` through the app database session. Returns 200 `{"status":"ok","db":"ok","version":"<APP_VERSION>"}` when the database is reachable, or 503 `{"status":"error","db":"error","version":"..."}` when it is not. `version` is the image git SHA (`APP_VERSION` bake-time env), or `unknown` when unset. Production deploy (`scripts/deploy-hostinger.sh`) requires `version ==` the merge commit SHA and rolls back to the previous `VWF_IMAGE` on failure.
 - **Production deploy:** every merge to `master` runs `.github/workflows/docker-publish.yml`: required CI (`backend`, `frontend`, `build-and-push`, plus `lint`), then a private GHCR image tagged `sha-<full-commit>` (and `latest`), then `scripts/deploy-hostinger.sh` against Hostinger VM `1136636` / Docker project `dsfor` at `https://dsfor.fun/vanilla-webapp-framework`. The only secret the script needs is `HOSTINGER_API_TOKEN`. Production config lives on the VPS — do not commit it.
 - **Git workflow:** open PRs against `master`. Never push to `master` or any default branch, and never merge your own work unless asked. Branch protection requires the branch to be **up to date** with `master` and the required checks to be green. Merging triggers the auto-deploy above.
@@ -313,7 +325,7 @@ Coverage floors: backend `fail_under` in `pyproject.toml` (omits `backend/tests`
 
 ## 📚 Documentation
 
-- **How-to guides:** this README (setup, run, configure); [OAuth configuration](docs/oauth-configuration.md) (Google, Facebook); [Billing configuration](docs/billing-configuration.md) (Lemon Squeezy)
+- **How-to guides:** this README (setup, run, configure); [OAuth configuration](docs/oauth-configuration.md) (Google, Facebook); [Billing configuration](docs/billing-configuration.md) (Lemon Squeezy); [Email configuration](docs/email-configuration.md) (SMTP / Resend)
 - **API reference:** Swagger UI at `/docs` when the Flask server is running
 - **In-code docs:** Python docstrings + type hints; JavaScript JSDoc (see [AGENTS.md](AGENTS.md) and `.cursor/rules/documentation.mdc`)
 - **Architecture / ADRs:** [ARCHITECTURE.md](ARCHITECTURE.md), [docs/adr/](docs/adr/)

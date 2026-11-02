@@ -1,5 +1,5 @@
 /**
- * SPA shell: page registry router, OAuth query handler, Alpine root state.
+ * SPA shell: page registry router, OAuth/email query handlers, Alpine root state.
  * @module app
  */
 import { withBase, stripBase } from './basepath.js';
@@ -122,6 +122,53 @@ export function handleOAuthQuery(app) {
 }
 
 /**
+ * Consume ``verify_token`` / ``reset_token`` query params from email links.
+ * Tokens are stripped from the URL then POSTed (GET never changes state).
+ * @param {object} app - Root spaApp instance.
+ * @returns {Promise<void>}
+ */
+export async function handleEmailQuery(app) {
+    const params = new URLSearchParams(window.location.search);
+    const verifyToken = params.get('verify_token');
+    const resetToken = params.get('reset_token');
+    if (!verifyToken && !resetToken) {
+        return;
+    }
+
+    window.history.replaceState(null, '', window.location.pathname);
+
+    if (verifyToken) {
+        try {
+            const response = await apiFetch('/api/auth/verify-email', {
+                method: 'POST',
+                body: JSON.stringify({ token: verifyToken }),
+            });
+            const data = await response.json().catch(() => ({}));
+            if (response.ok && data.authenticated) {
+                app.enterAuthenticatedApp();
+                return;
+            }
+            setLoginError(
+                app,
+                app.tError(data.code || 'TOKEN_INVALID_OR_EXPIRED'),
+            );
+            app.showLogin = true;
+            applySeo(pages.login.seo, SEO_MODE);
+        } catch (_err) {
+            setLoginError(app, app.tError('TOKEN_INVALID_OR_EXPIRED'));
+            app.showLogin = true;
+            applySeo(pages.login.seo, SEO_MODE);
+        }
+        return;
+    }
+
+    app.pendingResetToken = resetToken;
+    app.showLogin = true;
+    app.activeAuthPageKey = 'reset_password';
+    applySeo(pages.reset_password.seo, SEO_MODE);
+}
+
+/**
  * Create the Alpine root application object.
  * @returns {object} Alpine x-data root (isLoggedIn, loadPage, controllers, …)
  */
@@ -131,6 +178,14 @@ export const createSpaApp = () => {
         showLogin: false,
         sidebarOpen: typeof window !== 'undefined' && window.innerWidth >= 1024,
         oauthProviders: [],
+        emailCapabilities: {
+            email_configured: false,
+            password_reset: false,
+            email_verification: false,
+        },
+        needsEmail: false,
+        pendingResetToken: null,
+        pendingVerifyEmail: '',
         currentPage: {},
         activeViewPageKey: 'landingpage',
         activeAuthPageKey: 'login',
@@ -233,6 +288,17 @@ export const createSpaApp = () => {
             }
         },
 
+        async refreshEmailCapabilities() {
+            try {
+                const response = await apiFetch('/api/auth/capabilities');
+                if (response.ok) {
+                    this.emailCapabilities = await response.json();
+                }
+            } catch (err) {
+                console.error('Failed to load email capabilities:', err);
+            }
+        },
+
         isOAuthEnabled(provider) {
             return this.oauthProviders.includes(provider);
         },
@@ -317,6 +383,7 @@ export const createSpaApp = () => {
 
             if (pageKey === 'login') {
                 this.refreshOAuthProviders();
+                this.refreshEmailCapabilities();
             }
 
             if (pageKey === 'welcome') {
@@ -327,9 +394,12 @@ export const createSpaApp = () => {
         /** Load shell partials and initial page content after Alpine.start(). */
         async bootApp() {
             await initCsrf();
+            await this.refreshEmailCapabilities();
             const session = await fetchSession();
             this.isLoggedIn = session.authenticated === true;
+            this.needsEmail = session.needs_email === true;
             handleOAuthQuery(this);
+            await handleEmailQuery(this);
 
             if (this.isLoggedIn) {
                 this.sidebarOpen = true;
@@ -395,9 +465,15 @@ export const createSpaApp = () => {
     window.welcomeController = app.welcomeController;
 
     if (typeof window.addEventListener === 'function') {
-        window.addEventListener(AUTH_EXPIRED_EVENT, () => {
-            app.clearLocalSession({ showLogin: true });
-        });
+        app._onAuthExpired = () => {
+            app.clearLocalSession({ showLogin: true }).catch((err) => {
+                console.error(
+                    'Failed to reset session after auth expiry:',
+                    err,
+                );
+            });
+        };
+        window.addEventListener(AUTH_EXPIRED_EVENT, app._onAuthExpired);
     }
 
     return app;

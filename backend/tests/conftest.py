@@ -7,7 +7,8 @@ import os
 os.environ["APP_PROFILE"] = "testing"
 os.environ["FLASK_SECRET"] = "test-flask-secret-key"
 os.environ["JWT_SECRET"] = "test-jwt-secret-key"
-os.environ["DATABASE_URI"] = "sqlite:///:memory:"
+# File SQLite so the email worker thread shares the schema.
+os.environ["DATABASE_URI"] = "sqlite:////tmp/vanilla-webapp-pytest.db"
 os.environ["PROJECT_FOLDER"] = "/tmp/vanilla-webapp"
 
 import pytest  # noqa: E402
@@ -59,7 +60,7 @@ def set_test_env():
     os.environ["APP_PROFILE"] = "testing"
     os.environ["FLASK_SECRET"] = "test-flask-secret-key"
     os.environ["JWT_SECRET"] = "test-jwt-secret-key"
-    os.environ["DATABASE_URI"] = "sqlite:///:memory:"
+    os.environ["DATABASE_URI"] = "sqlite:////tmp/vanilla-webapp-pytest.db"
     os.environ["PROJECT_FOLDER"] = "/tmp/vanilla-webapp"
     yield
 
@@ -83,10 +84,9 @@ def test_client(test_app):
 def test_db():
     """Provide a clean schema per test.
 
-    Recreate tables on setup and drop them on teardown. The in-memory SQLite
-    engine is intentionally *not* disposed between tests: disposing it drops
-    the database held by the single pooled connection, which made schema
-    visibility order-dependent across tests.
+    Recreate tables on setup and drop them on teardown. Do not dispose the
+    engine: tests share one process-wide Database singleton, and the email
+    worker thread uses the same file SQLite database.
     """
     db._Session.remove()
     db.Base.metadata.drop_all(db.engine)

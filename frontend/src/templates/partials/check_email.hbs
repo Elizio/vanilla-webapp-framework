@@ -1,0 +1,34 @@
+<!-- Check your email after sign-up -->
+
+<div class="max-w-md mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+    <div class="space-y-4">
+        <h1 class="text-2xl font-bold mb-6 text-center text-gray-800 dark:text-white" x-text="t('verify.title')"></h1>
+        <p class="text-sm text-gray-600 dark:text-gray-300 text-center" x-text="t('verify.instructions')"></p>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300" x-text="t('forgot.email')"></label>
+            <input type="email"
+                   x-model="currentPage.email"
+                   class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:focus:ring-indigo-400"
+                   :disabled="currentPage.isLoading">
+        </div>
+        <button type="button"
+                @click="currentPage.resend()"
+                class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors duration-200 disabled:opacity-50"
+                :disabled="currentPage.isLoading">
+            <span x-show="!currentPage.isLoading" x-text="t('verify.resend')"></span>
+            <span x-show="currentPage.isLoading" x-text="t('common.loading')"></span>
+        </button>
+        <div class="text-center mt-4">
+            <a href="#" @click.prevent="loadPage('login-register-container', 'login');"
+               class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
+               x-text="t('forgot.backToLogin')">
+            </a>
+        </div>
+        <div x-show="currentPage.error"
+             class="mt-4 p-4 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-md"
+             x-text="currentPage.error"></div>
+        <div x-show="currentPage.success"
+             class="mt-4 p-4 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-md"
+             x-text="currentPage.success"></div>
+    </div>
+</div>
