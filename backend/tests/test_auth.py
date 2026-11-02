@@ -431,19 +431,171 @@ def test_logout_all_revokes_other_sessions(test_client, test_db, test_app):
     assert second.json['code'] == 'INVALID_TOKEN'
 
 
+def test_logout_revokes_this_device_access_immediately(test_client, test_db, test_app):
+    """Copied access JWT is 401 on the next request after this device logs out."""
+    register_user(test_client, username='sidlogout', password='testpass8')
+    login_user(test_client, username='sidlogout', password='testpass8')
+    token = _copy_auth_token(test_client)
+    assert test_client.get('/api/data').status_code == 200
+    assert (
+        test_client.get(
+            '/api/data', headers={'Authorization': f'Bearer {token}'}
+        ).status_code
+        == 200
+    )
+
+    assert logout_session(test_client).status_code == 200
+
+    test_client.set_cookie('auth_token', token)
+    cookie_revoked = test_client.get('/api/data')
+    assert cookie_revoked.status_code == 401
+    assert cookie_revoked.json['code'] == 'INVALID_TOKEN'
+
+    bearer = test_app.test_client()
+    bearer_revoked = bearer.get(
+        '/api/data', headers={'Authorization': f'Bearer {token}'}
+    )
+    assert bearer_revoked.status_code == 401
+    assert bearer_revoked.json['code'] == 'INVALID_TOKEN'
+
+
 def test_family_logout_keeps_other_device_access(test_client, test_db, test_app):
-    """Regular logout revokes one family; other devices keep their access JWT."""
+    """Regular logout kills this device; other devices keep access and refresh."""
     register_user(test_client, username='onefamily', password='testpass8')
     login_user(test_client, username='onefamily', password='testpass8')
+    this_token = _copy_auth_token(test_client)
 
     other = test_app.test_client()
     login_user(other, username='onefamily', password='testpass8')
     other_token = _copy_auth_token(other)
+    other_refresh = _copy_refresh_token(other)
 
     logout = logout_session(test_client)
     assert logout.status_code == 200
+
+    this_revoked = test_app.test_client().get(
+        '/api/data', headers={'Authorization': f'Bearer {this_token}'}
+    )
+    assert this_revoked.status_code == 401
+    assert this_revoked.json['code'] == 'INVALID_TOKEN'
+
     still = other.get('/api/data', headers={'Authorization': f'Bearer {other_token}'})
     assert still.status_code == 200
+    rotated = refresh_session(other)
+    assert rotated.status_code == 200
+    assert _copy_refresh_token(other) != other_refresh
+
+
+def test_legacy_access_token_without_sid_survives_deploy(
+    test_client, test_db, test_app
+):
+    """Tokens minted before ``sid`` stay valid; missing ``tv`` still counts as 0."""
+    register_user(test_client, username='legacysid', password='testpass8')
+    user = User.query.filter_by(username='legacysid').first()
+    assert user is not None
+    token = jwt.encode(
+        {
+            'user_id': user.id,
+            'tv': 0,
+            'exp': datetime.utcnow() + timedelta(hours=1),
+        },
+        'test-jwt-secret-key',
+        algorithm=JWT_ALGORITHM,
+    )
+    anon = test_app.test_client()
+    response = anon.get('/api/data', headers={'Authorization': f'Bearer {token}'})
+    assert response.status_code == 200
+
+
+def test_legacy_access_token_without_sid_dies_on_logout(test_client, test_db, test_app):
+    """Logging out with a no-``sid`` JWT bumps ``tv`` so that token is 401."""
+    register_user(test_client, username='legacylogout', password='testpass8')
+    user = User.query.filter_by(username='legacylogout').first()
+    assert user is not None
+    token = jwt.encode(
+        {
+            'user_id': user.id,
+            'tv': 0,
+            'exp': datetime.utcnow() + timedelta(hours=1),
+        },
+        'test-jwt-secret-key',
+        algorithm=JWT_ALGORITHM,
+    )
+    anon = test_app.test_client()
+    headers = {
+        **csrf_headers(anon),
+        'Authorization': f'Bearer {token}',
+    }
+    logout = anon.post('/api/auth/logout', headers=headers)
+    assert logout.status_code == 200
+    revoked = anon.get('/api/data', headers={'Authorization': f'Bearer {token}'})
+    assert revoked.status_code == 401
+    assert revoked.json['code'] == 'INVALID_TOKEN'
+    bumped = User.query.filter_by(username='legacylogout').one()
+    assert int(bumped.token_version or 0) == 1
+
+
+def test_unknown_sid_claim_returns_401(test_client, test_db, test_app):
+    """A signed JWT whose ``sid`` is not a live family is rejected."""
+    register_user(test_client, username='badsid', password='testpass8')
+    user = User.query.filter_by(username='badsid').first()
+    assert user is not None
+    token = jwt.encode(
+        {
+            'user_id': user.id,
+            'tv': 0,
+            'sid': '00000000-0000-4000-8000-000000000000',
+            'exp': datetime.utcnow() + timedelta(hours=1),
+        },
+        'test-jwt-secret-key',
+        algorithm=JWT_ALGORITHM,
+    )
+    anon = test_app.test_client()
+    response = anon.get('/api/data', headers={'Authorization': f'Bearer {token}'})
+    assert response.status_code == 401
+    assert response.json['code'] == 'INVALID_TOKEN'
+
+
+def test_non_string_sid_claim_returns_401(test_client, test_db, test_app):
+    """A ``sid`` claim that is not a string is rejected."""
+    register_user(test_client, username='intsid', password='testpass8')
+    user = User.query.filter_by(username='intsid').first()
+    assert user is not None
+    token = jwt.encode(
+        {
+            'user_id': user.id,
+            'tv': 0,
+            'sid': 1,
+            'exp': datetime.utcnow() + timedelta(hours=1),
+        },
+        'test-jwt-secret-key',
+        algorithm=JWT_ALGORITHM,
+    )
+    anon = test_app.test_client()
+    response = anon.get('/api/data', headers={'Authorization': f'Bearer {token}'})
+    assert response.status_code == 401
+    assert response.json['code'] == 'INVALID_TOKEN'
+
+
+def test_bump_token_version_revokes_sid_tokens(test_client, test_db, test_app):
+    """Password-reset style ``bump_token_version`` kills every access JWT."""
+    from ..api.auth import bump_token_version
+
+    register_user(test_client, username='pwdreset', password='testpass8')
+    login_user(test_client, username='pwdreset', password='testpass8')
+    token = _copy_auth_token(test_client)
+    user = User.query.filter_by(username='pwdreset').first()
+    assert user is not None
+    user = db_session.get(User, user.id)
+    assert user is not None
+    bump_token_version(user)
+    db_session.expire_all()
+
+    revoked = test_app.test_client().get(
+        '/api/data', headers={'Authorization': f'Bearer {token}'}
+    )
+    assert revoked.status_code == 401
+    assert revoked.json['code'] == 'INVALID_TOKEN'
 
 
 def test_jwt_without_tv_accepted_as_version_zero(test_client, test_db, test_app):
@@ -575,6 +727,7 @@ def test_access_token_includes_iat(test_client, test_db):
     assert 'iat' in payload
     assert payload['tv'] == 0
     assert payload['user_id']
+    assert isinstance(payload.get('sid'), str) and payload['sid']
 
 
 def test_refresh_rotates_token(test_client, test_db):
@@ -598,6 +751,12 @@ def test_refresh_rotates_token(test_client, test_db):
     ).one()
     assert used.used_at is not None
     assert used.revoked_at is None
+    new_sid = jwt.decode(
+        _copy_auth_token(test_client),
+        'test-jwt-secret-key',
+        algorithms=[JWT_ALGORITHM],
+    )['sid']
+    assert new_sid == used.family_id
 
 
 def test_refresh_reuse_within_grace_issues_sibling(test_client, test_db):

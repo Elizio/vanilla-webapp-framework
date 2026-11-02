@@ -19,7 +19,7 @@ class RefreshToken(_Base):
     Attributes:
         id: Primary key.
         user_id: Owning user (FK ``users.id``).
-        family_id: Rotation family shared by successive replacements.
+        family_id: Rotation family (JWT ``sid``) shared by successive replacements.
         token_hash: Unique SHA-256 hex digest of the cookie value.
         token_version: ``users.token_version`` at issue time.
         created_at: When this row was issued.

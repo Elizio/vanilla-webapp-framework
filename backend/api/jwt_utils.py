@@ -65,24 +65,34 @@ def token_version_matches(payload: dict, token_version: int) -> bool:
     return claimed == int(token_version)
 
 
-def generate_token(user_id: int, token_version: int = 0) -> str:
+def generate_token(
+    user_id: int,
+    token_version: int = 0,
+    session_id: str | None = None,
+) -> str:
     """Return a signed JWT for the given user id and token version.
 
     Args:
         user_id: Authenticated user primary key.
         token_version: Current ``users.token_version`` (claim ``tv``).
+        session_id: Refresh-token family id (claim ``sid``). Omit for
+            legacy tokens that are checked with ``tv`` only.
 
     Returns:
         Encoded HS256 JWT with ``iat``, ``exp``, ``user_id``, and ``tv``.
+        Includes ``sid`` when ``session_id`` is set.
     """
     now = datetime.now(timezone.utc)
+    payload = {
+        'user_id': user_id,
+        'tv': int(token_version),
+        'iat': now,
+        'exp': now + timedelta(seconds=access_token_ttl_seconds()),
+    }
+    if session_id:
+        payload['sid'] = session_id
     return jwt.encode(
-        {
-            'user_id': user_id,
-            'tv': int(token_version),
-            'iat': now,
-            'exp': now + timedelta(seconds=access_token_ttl_seconds()),
-        },
+        payload,
         _jwt_secret(),
         algorithm=JWT_ALGORITHM,
     )

@@ -21,7 +21,12 @@ from .refresh_tokens import (
 AUTH_COOKIE_NAME = 'auth_token'
 
 
-def set_auth_cookie(response, user_id: int, token_version: int = 0):
+def set_auth_cookie(
+    response,
+    user_id: int,
+    token_version: int = 0,
+    session_id: str | None = None,
+):
     """Attach a signed JWT as an httpOnly session cookie.
 
     Also expires any leftover ``Path=/`` ``auth_token`` or ``csrf_token``
@@ -31,11 +36,12 @@ def set_auth_cookie(response, user_id: int, token_version: int = 0):
         response: Flask response to mutate.
         user_id: Authenticated user primary key.
         token_version: Current ``users.token_version`` embedded as claim ``tv``.
+        session_id: Refresh family id embedded as claim ``sid``.
 
     Returns:
         The same response with ``Set-Cookie`` applied.
     """
-    token = generate_token(user_id, token_version)
+    token = generate_token(user_id, token_version, session_id=session_id)
     response.set_cookie(
         AUTH_COOKIE_NAME,
         token,
@@ -91,17 +97,28 @@ def set_session_cookies(response, user: User, *, remember_me: bool = False):
     Returns:
         The same response with both cookies set.
     """
-    set_auth_cookie(response, user.id, int(user.token_version or 0))
-    raw, max_age = issue_refresh_token(
+    raw, max_age, family_id = issue_refresh_token(
         user,
         remember_me=remember_me,
         user_agent=request.headers.get('User-Agent'),
+    )
+    set_auth_cookie(
+        response,
+        user.id,
+        int(user.token_version or 0),
+        session_id=family_id,
     )
     set_refresh_cookie(response, raw, max_age)
     return response
 
 
-def apply_rotated_refresh(response, user: User, raw_token: str, max_age: int | None):
+def apply_rotated_refresh(
+    response,
+    user: User,
+    raw_token: str,
+    max_age: int | None,
+    family_id: str,
+):
     """Replace access and refresh cookies after a successful rotation.
 
     Args:
@@ -109,11 +126,17 @@ def apply_rotated_refresh(response, user: User, raw_token: str, max_age: int | N
         user: Authenticated user row.
         raw_token: Newly issued opaque refresh token.
         max_age: Cookie Max-Age, or ``None`` for a session cookie.
+        family_id: Refresh family id written as JWT ``sid``.
 
     Returns:
         The same response with both cookies set.
     """
-    set_auth_cookie(response, user.id, int(user.token_version or 0))
+    set_auth_cookie(
+        response,
+        user.id,
+        int(user.token_version or 0),
+        session_id=family_id,
+    )
     set_refresh_cookie(response, raw_token, max_age)
     return response
 

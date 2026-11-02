@@ -150,6 +150,58 @@ def revoke_presented_token(raw_token: str) -> None:
     revoke_family(str(row.family_id))
 
 
+def access_session_is_active(session_id: str, user_id: int) -> bool:
+    """Return True when ``session_id`` is a live family for ``user_id``.
+
+    One indexed lookup on ``refresh_tokens.family_id``. A family is live
+    when at least one row is unrevoked (used rows still count until
+    logout-all / family revoke).
+
+    Args:
+        session_id: JWT ``sid`` (refresh-token ``family_id``).
+        user_id: JWT ``user_id``; must own the family.
+
+    Returns:
+        ``False`` when the family is missing, revoked, or owned by
+        another user.
+    """
+    row = (
+        db_session.query(RefreshToken.id)
+        .filter(
+            RefreshToken.family_id == session_id,
+            RefreshToken.user_id == user_id,
+            RefreshToken.revoked_at.is_(None),
+        )
+        .limit(1)
+        .first()
+    )
+    return row is not None
+
+
+def revoke_session(session_id: str, user_id: int) -> int:
+    """Revoke the family ``session_id`` when it belongs to ``user_id``.
+
+    Args:
+        session_id: Refresh-token family id (JWT ``sid``).
+        user_id: Owning user; other users' families are left alone.
+
+    Returns:
+        Number of rows updated.
+    """
+    now = utc_now()
+    count = (
+        db_session.query(RefreshToken)
+        .filter(
+            RefreshToken.family_id == session_id,
+            RefreshToken.user_id == user_id,
+            RefreshToken.revoked_at.is_(None),
+        )
+        .update({'revoked_at': now}, synchronize_session=False)
+    )
+    db_session.commit()
+    return int(count or 0)
+
+
 def _insert_token(
     user: User,
     *,
@@ -184,7 +236,7 @@ def issue_refresh_token(
     *,
     remember_me: bool,
     user_agent: str | None = None,
-) -> tuple[str, int | None]:
+) -> tuple[str, int | None, str]:
     """Create a new refresh family for a login and return the cookie value.
 
     Args:
@@ -194,8 +246,9 @@ def issue_refresh_token(
         user_agent: Optional User-Agent to store.
 
     Returns:
-        ``(raw_token, cookie_max_age)``. ``cookie_max_age`` is ``None``
-        for a browser-session cookie.
+        ``(raw_token, cookie_max_age, family_id)``. ``cookie_max_age``
+        is ``None`` for a browser-session cookie. ``family_id`` is the
+        JWT ``sid``.
     """
     purge_stale_tokens(int(user.id))
     now = utc_now()
@@ -207,7 +260,7 @@ def issue_refresh_token(
         persistent=remember_me,
         user_agent=user_agent,
     )
-    return raw, _cookie_max_age(row, remember_me)
+    return raw, _cookie_max_age(row, remember_me), str(row.family_id)
 
 
 @dataclass(frozen=True)
@@ -217,6 +270,7 @@ class RotatedRefresh:
     user: User
     raw_token: str
     cookie_max_age: int | None
+    family_id: str
 
 
 def rotate_refresh_token(
@@ -269,6 +323,7 @@ def rotate_refresh_token(
                 user=user,
                 raw_token=raw,
                 cookie_max_age=_cookie_max_age(new_row, persistent),
+                family_id=str(row.family_id),
             )
         current_app.logger.warning(
             'Refresh token reuse detected; family revoked user_id=%s family_id=%s',
@@ -309,4 +364,5 @@ def rotate_refresh_token(
         user=user,
         raw_token=raw,
         cookie_max_age=_cookie_max_age(new_row, persistent),
+        family_id=str(row.family_id),
     )

@@ -33,8 +33,10 @@ from .session_auth import (
 )
 from .refresh_tokens import (
     RotatedRefresh,
+    access_session_is_active,
     revoke_all_families,
     revoke_presented_token,
+    revoke_session,
     rotate_refresh_token,
 )
 from .csrf import csrf_protect
@@ -100,7 +102,10 @@ def bump_token_version(user: User) -> int:
     """Increment ``users.token_version`` so existing JWTs fail ``tv`` checks.
 
     Call this on logout-all and on any later password-change or reset
-    path (#59). Regular logout revokes one refresh family instead.
+    path (#59). Regular logout of a ``sid`` token revokes one family.
+    Logout of a legacy token with no ``sid`` also calls this so that
+    token dies immediately (other devices of that user are signed out
+    for the remaining access TTL of in-flight pre-deploy JWTs).
 
     Args:
         user: Persisted user row whose tokens should be revoked.
@@ -117,13 +122,68 @@ def _authenticate_token_payload(data: dict) -> User | None:
     """Return the user for a decoded JWT, or ``None`` if it is invalid.
 
     Does not check ``is_active``; callers apply ``user_may_authenticate``.
+    A missing ``sid`` is a pre-deploy token and is checked with ``tv``
+    only. A present ``sid`` must be a live refresh family for this user.
 
     Args:
-        data: Decoded JWT claims (``user_id``, optional ``tv``).
+        data: Decoded JWT claims (``user_id``, optional ``tv``, optional
+            ``sid``).
 
     Returns:
         The matching user, or ``None`` when ``user_id`` is missing, the
-        row does not exist, or ``tv`` does not match ``users.token_version``.
+        row does not exist, ``tv`` does not match, or ``sid`` is forged
+        / revoked.
+    """
+    user = _user_from_tv_payload(data)
+    if user is None:
+        return None
+    if 'sid' in data:
+        session_id = data['sid']
+        if not isinstance(session_id, str) or not session_id:
+            return None
+        if not access_session_is_active(session_id, user.id):
+            return None
+    return user
+
+
+def _revoke_request_session() -> None:
+    """Revoke the session presented on this logout request.
+
+    Prefers JWT ``sid`` (this device only). A legacy access token with
+    no ``sid`` bumps ``token_version`` so that JWT dies immediately.
+    The refresh cookie, when sent, revokes its family as well.
+    """
+    token = get_token_from_request()
+    if token:
+        try:
+            data = jwt.decode(token, _jwt_secret(), algorithms=[JWT_ALGORITHM])
+        except jwt.InvalidTokenError:
+            data = None
+        if data is not None:
+            user = _user_from_tv_payload(data)
+            if user is not None:
+                if 'sid' in data:
+                    session_id = data['sid']
+                    if isinstance(session_id, str) and session_id:
+                        revoke_session(session_id, user.id)
+                else:
+                    bump_token_version(user)
+    raw = get_refresh_token_from_request()
+    if raw:
+        revoke_presented_token(raw)
+
+
+def _user_from_tv_payload(data: dict) -> User | None:
+    """Return the user when ``user_id`` and ``tv`` match, ignoring ``sid``.
+
+    Used by logout so a still-signed JWT can identify the account even
+    after its family is already revoked (idempotent logout).
+
+    Args:
+        data: Decoded JWT claims.
+
+    Returns:
+        The user, or ``None`` when the token cannot be bound to a row.
     """
     user_id = _user_id_from_payload(data)
     if user_id is None:
@@ -279,6 +339,7 @@ def refresh():
         result.user,
         result.raw_token,
         result.cookie_max_age,
+        result.family_id,
     )
 
 
@@ -286,22 +347,21 @@ def refresh():
 @csrf_protect
 def logout():
     """
-    Revoke this browser's refresh family and clear session cookies.
+    Revoke this browser's session and clear cookies.
 
-    Does not bump ``token_version`` (other devices stay signed in).
-    Access JWTs already issued remain valid until they expire.
+    Access tokens that carry this session's ``sid`` fail on the next
+    request. Other devices are unchanged. A legacy token with no
+    ``sid`` bumps ``token_version`` so it dies immediately.
     ---
     tags:
       - Authentication
     responses:
       200:
-        description: Logged out; this refresh family is revoked
+        description: Logged out; this session is revoked
       403:
         description: CSRF validation failed
     """
-    raw = get_refresh_token_from_request()
-    if raw:
-        revoke_presented_token(raw)
+    _revoke_request_session()
     response = jsonify({'authenticated': False})
     return clear_session_cookies(response)
 
@@ -310,21 +370,22 @@ def logout():
 @csrf_protect
 def logout_legacy():
     """
-    Deprecated alias for logout. Clears cookies; revokes a family only
-    if a refresh cookie happens to be sent (browsers will not send the
-    ``Path=/api/auth`` cookie here). Prefer ``POST /api/auth/logout``.
+    Deprecated alias for logout. Prefer ``POST /api/auth/logout``.
+
+    The access cookie is sent here (``Path`` is ``APP_BASE_PATH``), so
+    a ``sid`` token still revokes that family. The refresh cookie is
+    not sent at this path. A legacy no-``sid`` access cookie bumps
+    ``token_version``.
     ---
     tags:
       - Authentication
     responses:
       200:
-        description: Cookies cleared
+        description: Cookies cleared; this session revoked when presented
       403:
         description: CSRF validation failed
     """
-    raw = get_refresh_token_from_request()
-    if raw:
-        revoke_presented_token(raw)
+    _revoke_request_session()
     response = jsonify({'authenticated': False})
     return clear_session_cookies(response)
 
