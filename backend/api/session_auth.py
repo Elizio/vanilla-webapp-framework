@@ -3,22 +3,26 @@
 from flask import request
 
 from ..models.user import User
+from ..config.cookie_names import (
+    LEGACY_AUTH_COOKIE_NAME,
+    LEGACY_CSRF_COOKIE_NAME,
+    LEGACY_REFRESH_COOKIE_NAME,
+)
 from .cookie_path import (
     app_cookie_path,
+    auth_cookie_name,
     cookie_secure,
+    csrf_cookie_name,
     expire_cookie,
     expire_legacy_refresh_cookies,
     expire_legacy_root_cookie,
+    expire_replaced_cookie,
+    expire_replaced_refresh_cookie,
+    refresh_cookie_name,
     refresh_cookie_path,
 )
-from .csrf import CSRF_COOKIE_NAME
 from .jwt_utils import access_token_ttl_seconds, generate_token
-from .refresh_tokens import (
-    REFRESH_COOKIE_NAME,
-    issue_refresh_token,
-)
-
-AUTH_COOKIE_NAME = 'auth_token'
+from .refresh_tokens import issue_refresh_token
 
 
 def set_auth_cookie(
@@ -29,8 +33,9 @@ def set_auth_cookie(
 ):
     """Attach a signed JWT as an httpOnly session cookie.
 
-    Also expires any leftover ``Path=/`` ``auth_token`` or ``csrf_token``
-    so a stale root-path cookie cannot shadow the scoped one.
+    Also expires leftover ``Path=/`` copies of the live names and the
+    legacy ``auth_token`` / ``csrf_token`` names so a stale cookie cannot
+    shadow the scoped one.
 
     Args:
         response: Flask response to mutate.
@@ -42,8 +47,10 @@ def set_auth_cookie(
         The same response with ``Set-Cookie`` applied.
     """
     token = generate_token(user_id, token_version, session_id=session_id)
+    live_auth = auth_cookie_name()
+    live_csrf = csrf_cookie_name()
     response.set_cookie(
-        AUTH_COOKIE_NAME,
+        live_auth,
         token,
         httponly=True,
         secure=cookie_secure(),
@@ -51,8 +58,12 @@ def set_auth_cookie(
         path=app_cookie_path(),
         max_age=access_token_ttl_seconds(),
     )
-    expire_legacy_root_cookie(response, AUTH_COOKIE_NAME, httponly=True)
-    expire_legacy_root_cookie(response, CSRF_COOKIE_NAME, httponly=True)
+    expire_legacy_root_cookie(response, live_auth, httponly=True)
+    expire_legacy_root_cookie(response, live_csrf, httponly=True)
+    if live_auth != LEGACY_AUTH_COOKIE_NAME:
+        expire_replaced_cookie(response, LEGACY_AUTH_COOKIE_NAME, httponly=True)
+    if live_csrf != LEGACY_CSRF_COOKIE_NAME:
+        expire_replaced_cookie(response, LEGACY_CSRF_COOKIE_NAME, httponly=True)
     return response
 
 
@@ -80,8 +91,11 @@ def set_refresh_cookie(response, raw_token: str, max_age: int | None):
     }
     if max_age is not None:
         kwargs['max_age'] = max_age
-    response.set_cookie(REFRESH_COOKIE_NAME, raw_token, **kwargs)
-    expire_legacy_refresh_cookies(response, REFRESH_COOKIE_NAME)
+    live_refresh = refresh_cookie_name()
+    response.set_cookie(live_refresh, raw_token, **kwargs)
+    expire_legacy_refresh_cookies(response, live_refresh)
+    if live_refresh != LEGACY_REFRESH_COOKIE_NAME:
+        expire_replaced_refresh_cookie(response, LEGACY_REFRESH_COOKIE_NAME)
     return response
 
 
@@ -150,14 +164,16 @@ def clear_refresh_cookie(response):
     Returns:
         The same response.
     """
+    live_refresh = refresh_cookie_name()
     expire_cookie(
         response,
-        REFRESH_COOKIE_NAME,
+        live_refresh,
         refresh_cookie_path(),
         httponly=True,
         samesite='Strict',
     )
-    expire_legacy_refresh_cookies(response, REFRESH_COOKIE_NAME)
+    expire_legacy_refresh_cookies(response, live_refresh)
+    expire_replaced_refresh_cookie(response, LEGACY_REFRESH_COOKIE_NAME)
     return response
 
 
@@ -165,7 +181,7 @@ def clear_auth_cookie(response):
     """Remove the session cookie from the client.
 
     Clears the cookie at ``APP_BASE_PATH`` and expires leftover ``Path=/``
-    ``auth_token`` and ``csrf_token`` cookies.
+    copies plus the legacy ``auth_token`` and ``csrf_token`` names.
 
     Args:
         response: Flask response to mutate.
@@ -173,8 +189,10 @@ def clear_auth_cookie(response):
     Returns:
         The same response with clear ``Set-Cookie`` headers applied.
     """
+    live_auth = auth_cookie_name()
+    live_csrf = csrf_cookie_name()
     response.set_cookie(
-        AUTH_COOKIE_NAME,
+        live_auth,
         '',
         expires=0,
         httponly=True,
@@ -182,8 +200,10 @@ def clear_auth_cookie(response):
         samesite='Lax',
         path=app_cookie_path(),
     )
-    expire_legacy_root_cookie(response, AUTH_COOKIE_NAME, httponly=True)
-    expire_legacy_root_cookie(response, CSRF_COOKIE_NAME, httponly=True)
+    expire_legacy_root_cookie(response, live_auth, httponly=True)
+    expire_legacy_root_cookie(response, live_csrf, httponly=True)
+    expire_replaced_cookie(response, LEGACY_AUTH_COOKIE_NAME, httponly=True)
+    expire_replaced_cookie(response, LEGACY_CSRF_COOKIE_NAME, httponly=True)
     return response
 
 
@@ -203,17 +223,27 @@ def clear_session_cookies(response):
     return response
 
 
+def _first_cookie(*names: str) -> str | None:
+    """Return the first non-empty cookie among ``names`` (live, then legacy).
+
+    Legacy unprefixed names stay readable until ``REFRESH_TOKEN_TTL_DAYS``
+    plus 7 days after the namespaced-cookie deploy; keep expiring them.
+    """
+    for name in names:
+        token = request.cookies.get(name)
+        if isinstance(token, str) and token:
+            return token
+    return None
+
+
 def get_refresh_token_from_request() -> str | None:
     """Read the refresh cookie. Refresh tokens in headers are ignored."""
-    token = request.cookies.get(REFRESH_COOKIE_NAME)
-    if isinstance(token, str) and token:
-        return token
-    return None
+    return _first_cookie(refresh_cookie_name(), LEGACY_REFRESH_COOKIE_NAME)
 
 
 def get_token_from_request() -> str | None:
     """Read JWT from the session cookie or ``Authorization: Bearer`` header."""
-    token = request.cookies.get(AUTH_COOKIE_NAME)
+    token = _first_cookie(auth_cookie_name(), LEGACY_AUTH_COOKIE_NAME)
     if token:
         return token
 

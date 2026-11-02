@@ -18,7 +18,14 @@ from sqlalchemy.engine import Engine
 from backend.db_repository.database import db
 from backend.models.rate_limit_counter import RateLimitCounter
 
-from .cookie_path import app_cookie_path, cookie_secure, expire_legacy_root_cookie
+from ..config.cookie_names import LEGACY_DEVICE_COOKIE_NAME
+from .cookie_path import (
+    app_cookie_path,
+    cookie_secure,
+    device_cookie_name,
+    expire_legacy_root_cookie,
+    expire_replaced_cookie,
+)
 from .error_codes import RATE_LIMIT_EXCEEDED, error_response
 
 logger = logging.getLogger(__name__)
@@ -35,7 +42,6 @@ LOGIN_BACKOFF_BASE_SECONDS = 2
 LOGIN_BACKOFF_CAP_SECONDS = 180
 # 5 free + 2+4+8+16+32+64+128 + 3×180 = 15 untrusted password checks / 900 s.
 UNTRUSTED_PASSWORD_CHECKS_PER_WINDOW = 15
-DEVICE_COOKIE_NAME = 'auth_device'
 DEVICE_COOKIE_TTL = 30 * 24 * 3600
 DEVICE_COOKIE_SALT = 'auth-device-v1'
 
@@ -367,14 +373,8 @@ def trusted_device_id(username: str) -> str | None:
     return payload['d']
 
 
-def read_device_cookie() -> dict[str, str] | None:
-    """Return the verified device-cookie payload, or ``None``.
-
-    Returns:
-        ``{'u': username_hash, 'd': device_id}`` when the signature and
-        TTL are valid.
-    """
-    raw = request.cookies.get(DEVICE_COOKIE_NAME)
+def _parse_device_cookie(raw: str | None) -> dict[str, str] | None:
+    """Return a verified device-cookie payload from one cookie value."""
     if not raw:
         return None
     try:
@@ -390,6 +390,24 @@ def read_device_cookie() -> dict[str, str] | None:
     if not user_hash or not device_id:
         return None
     return {'u': user_hash, 'd': device_id}
+
+
+def read_device_cookie() -> dict[str, str] | None:
+    """Return the verified device-cookie payload, or ``None``.
+
+    Prefers the live namespaced cookie, then the legacy ``auth_device``
+    name so sessions survive one deploy. Remove the legacy read after
+    ``REFRESH_TOKEN_TTL_DAYS`` plus 7 days; keep expiring the old name.
+
+    Returns:
+        ``{'u': username_hash, 'd': device_id}`` when the signature and
+        TTL are valid.
+    """
+    for name in (device_cookie_name(), LEGACY_DEVICE_COOKIE_NAME):
+        parsed = _parse_device_cookie(request.cookies.get(name))
+        if parsed is not None:
+            return parsed
+    return None
 
 
 def issue_device_cookie(response: Response, username: str) -> Response:
@@ -415,8 +433,9 @@ def issue_device_cookie(response: Response, username: str) -> Response:
         else secrets.token_urlsafe(16)
     )
     token = _device_serializer().dumps({'u': user_hash, 'd': device_id})
+    live_name = device_cookie_name()
     response.set_cookie(
-        DEVICE_COOKIE_NAME,
+        live_name,
         token,
         httponly=True,
         secure=cookie_secure(),
@@ -424,7 +443,9 @@ def issue_device_cookie(response: Response, username: str) -> Response:
         path=app_cookie_path(),
         max_age=DEVICE_COOKIE_TTL,
     )
-    expire_legacy_root_cookie(response, DEVICE_COOKIE_NAME, httponly=True)
+    expire_legacy_root_cookie(response, live_name, httponly=True)
+    if live_name != LEGACY_DEVICE_COOKIE_NAME:
+        expire_replaced_cookie(response, LEGACY_DEVICE_COOKIE_NAME, httponly=True)
     return response
 
 

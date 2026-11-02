@@ -17,11 +17,12 @@ export default defineConfig({
             include: ['src/js/**/*.js'],
             reporter: ['text', 'text-summary'],
             thresholds: {
-                // Measured 2026-11-02 over src/js after email verification:
-                // 77.31 / 81.46 / 69.79 / 77.31. Floors are floor(measured) minus ~1.
+                // Measured 2026-11-02 over src/js after CSRF cookie namespacing:
+                // 78.2 / 81.88 / 71.28 / 78.2. Floors are floor(measured) minus ~1.
+                // Functions rose ≥1 point (69.79 → 71.28); other metrics did not.
                 lines: 76,
                 statements: 76,
-                functions: 68,
+                functions: 70,
                 branches: 81,
             },
         },

@@ -5,7 +5,7 @@ import pytest
 from ..models.user import User
 from ..db_repository.database import db_session
 from ..api.oauth import register_oauth_clients
-from ..api.session_auth import AUTH_COOKIE_NAME
+from backend.tests.conftest import live_cookie_name
 
 
 @pytest.fixture
@@ -110,8 +110,10 @@ def test_oauth_callback_creates_user(oauth_client, monkeypatch):
     assert second.status_code == 302
     assert 'auth=success' in first.location
     set_cookie = first.headers.getlist('Set-Cookie')
-    assert any(header.startswith(f'{AUTH_COOKIE_NAME}=') for header in set_cookie)
-    assert any(header.startswith('refresh_token=') for header in set_cookie)
+    auth_name = live_cookie_name(oauth_client, 'AUTH_COOKIE_NAME')
+    refresh_name = live_cookie_name(oauth_client, 'REFRESH_COOKIE_NAME')
+    assert any(header.startswith(f'{auth_name}=') for header in set_cookie)
+    assert any(header.startswith(f'{refresh_name}=') for header in set_cookie)
     assert any('Path=/api/auth' in header for header in set_cookie)
 
     user = User.query.filter_by(oauth_provider='google', oauth_id='oauth-123').first()
@@ -193,7 +195,8 @@ def test_oauth_callback_inactive_user_redirects_without_session(
     assert response.status_code == 302
     assert 'auth_error=ACCOUNT_INACTIVE' in response.location
     cookies = response.headers.getlist('Set-Cookie')
-    assert not any(AUTH_COOKIE_NAME in cookie for cookie in cookies)
+    auth_name = live_cookie_name(oauth_client, 'AUTH_COOKIE_NAME')
+    assert not any(auth_name in cookie for cookie in cookies)
     session = oauth_client.get('/api/auth/session')
     assert session.json['authenticated'] is False
 
@@ -444,7 +447,8 @@ def test_facebook_callback_creates_user(facebook_oauth_client, monkeypatch):
     response = facebook_oauth_client.get('/api/auth/facebook/callback?code=fake')
     assert response.status_code == 302
     assert 'auth=success' in response.location
-    assert AUTH_COOKIE_NAME in response.headers.getlist('Set-Cookie')[0]
+    auth_name = live_cookie_name(facebook_oauth_client, 'AUTH_COOKIE_NAME')
+    assert any(auth_name in header for header in response.headers.getlist('Set-Cookie'))
 
     user = User.query.filter_by(
         oauth_provider='facebook', oauth_id='fb-oauth-123'

@@ -8,6 +8,8 @@ let csrfToken = null;
 /** @type {Promise<boolean> | null} */
 let inFlightRefresh = null;
 
+const FRESH_CSRF_PATHS = new Set(['/api/login', '/api/register']);
+
 /** Event name dispatched when refresh fails after a 401. */
 export const AUTH_EXPIRED_EVENT = 'auth:expired';
 
@@ -55,6 +57,42 @@ export function resetCsrf() {
 export function resetAuthRefresh() {
     inFlightRefresh = null;
 }
+
+/**
+ * Drop the in-memory CSRF token after a bfcache restore.
+ * @param {PageTransitionEvent | Event} event
+ */
+function onPageShow(event) {
+    if ('persisted' in event && event.persisted) {
+        csrfToken = null;
+    }
+}
+
+let pageShowBound = false;
+
+/**
+ * Listen for bfcache restores so a stale in-memory CSRF token is dropped.
+ */
+export function bindCsrfPageShow() {
+    if (typeof window === 'undefined' || pageShowBound) {
+        return;
+    }
+    window.addEventListener('pageshow', onPageShow);
+    pageShowBound = true;
+}
+
+/**
+ * Remove the bfcache pageshow listener (SPA teardown).
+ */
+export function unbindCsrfPageShow() {
+    if (typeof window === 'undefined' || !pageShowBound) {
+        return;
+    }
+    window.removeEventListener('pageshow', onPageShow);
+    pageShowBound = false;
+}
+
+bindCsrfPageShow();
 
 /**
  * @param {string} url
@@ -107,19 +145,44 @@ export async function refreshAccessToken() {
 }
 
 /**
+ * Read an error ``code`` without consuming the original response body.
+ * @param {Response} response
+ * @returns {Promise<string | undefined>}
+ */
+async function readErrorCode(response) {
+    try {
+        const source =
+            typeof response.clone === 'function' ? response.clone() : response;
+        const data = await source.json();
+        return data && data.code;
+    } catch {
+        return undefined;
+    }
+}
+
+/**
  * Fetch with session cookies and CSRF header on mutating methods.
+ * On 403 CSRF_INVALID, refetch GET /api/csrf (via withBase) and retry once.
  * On 401 from a non-auth route, refresh once and retry the original request.
+ * Login and register always fetch a fresh CSRF token first.
  * @param {string} url
- * @param {RequestInit & { skipRefresh?: boolean }} [options]
+ * @param {RequestInit & { skipRefresh?: boolean, skipCsrfRetry?: boolean }} [options]
  * @returns {Promise<Response>}
  */
 export async function apiFetch(url, options = {}) {
-    const { skipRefresh = false, ...fetchOptions } = options;
+    const {
+        skipRefresh = false,
+        skipCsrfRetry = false,
+        ...fetchOptions
+    } = options;
     const method = (fetchOptions.method || 'GET').toUpperCase();
     const headers = { ...(fetchOptions.headers || {}) };
+    const fullUrl = url.startsWith('/') ? withBase(url) : url;
+    const path = requestPath(fullUrl);
+    const mutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method);
 
-    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
-        if (!csrfToken) {
+    if (mutating) {
+        if (!csrfToken || FRESH_CSRF_PATHS.has(path)) {
             await initCsrf();
         }
         if (csrfToken) {
@@ -131,12 +194,22 @@ export async function apiFetch(url, options = {}) {
         headers['Content-Type'] = 'application/json';
     }
 
-    const fullUrl = url.startsWith('/') ? withBase(url) : url;
     const response = await fetch(fullUrl, {
         ...fetchOptions,
         headers,
         credentials: 'include',
     });
+
+    if (
+        mutating &&
+        response.status === 403 &&
+        !skipCsrfRetry &&
+        (await readErrorCode(response)) === 'CSRF_INVALID'
+    ) {
+        csrfToken = null;
+        await initCsrf();
+        return apiFetch(url, { ...options, skipCsrfRetry: true });
+    }
 
     if (
         response.status === 401 &&

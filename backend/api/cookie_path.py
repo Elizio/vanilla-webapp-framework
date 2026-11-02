@@ -6,6 +6,26 @@ ROOT_COOKIE_PATH = '/'
 REFRESH_COOKIE_SUBPATH = '/api/auth'
 
 
+def csrf_cookie_name() -> str:
+    """Return the live CSRF cookie name from app config."""
+    return str(current_app.config['CSRF_COOKIE_NAME'])
+
+
+def auth_cookie_name() -> str:
+    """Return the live access-token cookie name from app config."""
+    return str(current_app.config['AUTH_COOKIE_NAME'])
+
+
+def refresh_cookie_name() -> str:
+    """Return the live refresh-token cookie name from app config."""
+    return str(current_app.config['REFRESH_COOKIE_NAME'])
+
+
+def device_cookie_name() -> str:
+    """Return the live device cookie name from app config."""
+    return str(current_app.config['AUTH_DEVICE_COOKIE_NAME'])
+
+
 def app_cookie_path() -> str:
     """Return the configured cookie Path (``APP_BASE_PATH`` or ``/``).
 
@@ -80,7 +100,7 @@ def expire_legacy_root_cookie(
 
     Args:
         response: Flask response to mutate.
-        name: Cookie name (``auth_token`` or ``csrf_token``).
+        name: Cookie name (live or legacy ``auth_token`` / ``csrf_token``).
         httponly: HttpOnly flag matching the scoped cookie.
         samesite: SameSite flag matching the scoped cookie.
     """
@@ -95,6 +115,52 @@ def expire_legacy_root_cookie(
     )
 
 
+def expire_replaced_cookie(
+    response: Response,
+    name: str,
+    *,
+    httponly: bool,
+    samesite: str = 'Lax',
+) -> None:
+    """Expire a replaced cookie at the live app path and leftover Path=/.
+
+    Used to drop legacy ``csrf_token`` / ``auth_token`` / ``auth_device``
+    names after the namespaced cookie is issued. Callers that just set the
+    live cookie skip this when that live name still equals the legacy name.
+
+    Args:
+        response: Flask response to mutate.
+        name: Cookie name to expire (typically a legacy name).
+        httponly: HttpOnly flag matching the live cookie.
+        samesite: SameSite flag matching the live cookie.
+    """
+    expire_cookie(
+        response,
+        name,
+        app_cookie_path(),
+        httponly=httponly,
+        samesite=samesite,
+    )
+    expire_legacy_root_cookie(response, name, httponly=httponly, samesite=samesite)
+
+
+def expire_replaced_refresh_cookie(response: Response, name: str) -> None:
+    """Expire a replaced refresh cookie at the live path and leftovers.
+
+    Args:
+        response: Flask response to mutate.
+        name: Cookie name to expire (typically the legacy ``refresh_token``).
+    """
+    expire_cookie(
+        response,
+        name,
+        refresh_cookie_path(),
+        httponly=True,
+        samesite='Strict',
+    )
+    expire_legacy_refresh_cookies(response, name)
+
+
 def expire_legacy_refresh_cookies(response: Response, name: str) -> None:
     """Expire leftover ``refresh_token`` cookies at unscoped paths.
 
@@ -103,7 +169,7 @@ def expire_legacy_refresh_cookies(response: Response, name: str) -> None:
 
     Args:
         response: Flask response to mutate.
-        name: Cookie name (``refresh_token``).
+        name: Cookie name (live or legacy ``refresh_token``).
     """
     current = refresh_cookie_path()
     for path in (ROOT_COOKIE_PATH, REFRESH_COOKIE_SUBPATH):

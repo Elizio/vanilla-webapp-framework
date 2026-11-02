@@ -17,7 +17,6 @@ from ..models.refresh_token import RefreshToken
 from ..models.user import User
 
 REUSE_GRACE_SECONDS = 30
-REFRESH_COOKIE_NAME = 'refresh_token'
 
 
 def utc_now() -> datetime:
