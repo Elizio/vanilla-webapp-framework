@@ -340,3 +340,9 @@ def test_put_login_returns_method_not_allowed(test_client, test_db):
     response = test_client.put('/api/login', json={'username': 'x'})
     assert response.status_code == 405
     assert response.json['code'] == 'METHOD_NOT_ALLOWED'
+    allow = {
+        part.strip()
+        for part in (response.headers.get('Allow') or '').split(',')
+        if part.strip()
+    }
+    assert 'POST' in allow
