@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import smtplib
+import ssl
 from email.message import EmailMessage
 
 from flask import current_app
@@ -29,6 +30,9 @@ class SmtpEmailBackend(EmailBackend):
     def send(self, message: OutboundEmail) -> None:
         """Deliver ``message`` via SMTP_SSL or STARTTLS.
 
+        Both modes pass ``ssl.create_default_context()`` so the server
+        certificate is verified (hostname + default CA store).
+
         Args:
             message: Fully rendered outbound email.
 
@@ -48,12 +52,15 @@ class SmtpEmailBackend(EmailBackend):
         mime.set_content(message.body)
         payload = mime.as_string()
 
+        tls_context = ssl.create_default_context()
         client: smtplib.SMTP
         if security == 'ssl':
-            client = smtplib.SMTP_SSL(host, port, timeout=SMTP_TIMEOUT_SECONDS)
+            client = smtplib.SMTP_SSL(
+                host, port, timeout=SMTP_TIMEOUT_SECONDS, context=tls_context
+            )
         else:
             client = smtplib.SMTP(host, port, timeout=SMTP_TIMEOUT_SECONDS)
-            client.starttls()
+            client.starttls(context=tls_context)
         try:
             client.login(username, password)
             client.sendmail(message.from_addr, [message.to], payload)

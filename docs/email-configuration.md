@@ -13,12 +13,19 @@ and [`ARCHITECTURE.md`](../ARCHITECTURE.md).
 | Value | When to use |
 |-------|-------------|
 | *(empty / unset)* | Default. Email sending off. Safe to deploy. |
-| `console` | Development and tests. Messages go to an in-memory outbox (tests) and a metadata-only log line (no body, no tokens). |
-| `smtp` | Production. stdlib `smtplib`, 10 s timeout, `ssl` (SMTP_SSL) or `starttls`. |
+| `console` | Development and tests only. Messages go to an in-memory outbox (tests) and a metadata-only log line (no body, no tokens). In production (`APP_PROFILE=production` or `ENV=production`) this counts as **unconfigured**. |
+| `smtp` | Production. stdlib `smtplib`, 10 s timeout, `ssl` (SMTP_SSL) or `starttls`. Both modes verify the server certificate (`ssl.create_default_context()`). |
 
 `smtp` stays disabled (no crash) until **all** of `SMTP_HOST`, `SMTP_USERNAME`,
 `SMTP_PASSWORD`, and `EMAIL_FROM` are set **and** `FRONTEND_URL` is an absolute
 `http://` or `https://` URL (production SMTP also requires `https://`).
+`EMAIL_BACKEND=console` in production is the same as unset: reset returns
+**503** `EMAIL_NOT_CONFIGURED`, sign-up stays as it is today (no verification
+gate), and nothing is logged with an address or token.
+
+Forgot-password and resend-verification always return **202** for a well-formed
+address (known, unknown, or per-email rate-limited) and send on a bounded
+background executor so response time does not leak whether the address exists.
 
 ## Environment variables
 

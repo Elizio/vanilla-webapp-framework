@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
+from concurrent.futures import Future, ThreadPoolExecutor
 from email.utils import formataddr
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 from urllib.parse import urlencode
 
-from flask import current_app
+from flask import Flask, current_app
 
 from .backend import EmailBackend, OutboundEmail
 from .console import ConsoleEmailBackend
@@ -24,6 +26,8 @@ _EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
 SUPPORTED_LOCALES = frozenset({'en', 'pt-BR'})
 VERIFY_PURPOSE = 'verify'
 RESET_PURPOSE = 'reset'
+_EMAIL_EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix='email-send')
+_PENDING_EMAIL_JOBS: set[Future[None]] = set()
 
 
 def whitelist_locale(raw: object) -> str:
@@ -70,11 +74,21 @@ def _is_absolute_url(url: str) -> bool:
     return lowered.startswith('https://') or lowered.startswith('http://')
 
 
+def _is_production() -> bool:
+    """Return True for ``APP_PROFILE=production`` or ``ENV=production``."""
+    profile = str(current_app.config.get('APP_PROFILE') or '').strip().lower()
+    if profile == 'production':
+        return True
+    env = str(os.getenv('ENV') or current_app.config.get('ENV') or '').strip()
+    return env.lower() == 'production'
+
+
 def is_email_configured() -> bool:
     """Return True when a backend can send and ``FRONTEND_URL`` is absolute.
 
-    Missing SMTP env vars, a relative ``FRONTEND_URL``, or an unknown
-    ``EMAIL_BACKEND`` all count as unconfigured. Never raises.
+    Missing SMTP env vars, a relative ``FRONTEND_URL``, an unknown
+    ``EMAIL_BACKEND``, or the console backend in production all count as
+    unconfigured. Never raises.
 
     Returns:
         Whether verification mail and password reset may run.
@@ -85,7 +99,7 @@ def is_email_configured() -> bool:
         if not _is_absolute_url(frontend):
             return False
         if name == 'console':
-            return True
+            return not _is_production()
         if name != 'smtp':
             return False
         host = str(current_app.config.get('SMTP_HOST') or '').strip()
@@ -175,23 +189,37 @@ def get_email_backend() -> EmailBackend | None:
     return None
 
 
-def _deliver(user: User, purpose: str, locale: str, token: str) -> None:
-    backend = get_email_backend()
-    if backend is None:
-        return
+def _build_message(user: User, purpose: str, locale: str, token: str) -> OutboundEmail:
     link = frontend_action_url(purpose, token)
     subject, body = render_email(purpose, locale, _app_name(), link)
-    message = OutboundEmail(
+    return OutboundEmail(
         to=str(user.email),
         subject=subject,
         body=body,
         from_addr=_from_addr(),
         purpose=purpose,
     )
+
+
+def _prepare_message(user: User, purpose: str, locale: str) -> OutboundEmail | None:
+    from ..api.auth_tokens import can_send, issue_auth_token
+
+    if not user.email or not is_email_configured():
+        return None
+    if not can_send(int(user.id), purpose):
+        return None
+    raw = issue_auth_token(int(user.id), purpose)
+    return _build_message(user, purpose, whitelist_locale(locale), raw)
+
+
+def _send_now(message: OutboundEmail) -> None:
+    backend = get_email_backend()
+    if backend is None:
+        return
     try:
         backend.send(message)
     except Exception:
-        logger.exception('Failed to send email purpose=%s', purpose)
+        logger.exception('Failed to send email purpose=%s', message.purpose)
 
 
 def send_verification_email(user: User, locale: str = 'en') -> None:
@@ -205,14 +233,9 @@ def send_verification_email(user: User, locale: str = 'en') -> None:
         user: Persisted user with a normalized ``email``.
         locale: Whitelisted locale for the template.
     """
-    from ..api.auth_tokens import PURPOSE_VERIFY, can_send, issue_auth_token
-
-    if not user.email or not is_email_configured():
-        return
-    if not can_send(int(user.id), PURPOSE_VERIFY):
-        return
-    raw = issue_auth_token(int(user.id), PURPOSE_VERIFY)
-    _deliver(user, PURPOSE_VERIFY, whitelist_locale(locale), raw)
+    message = _prepare_message(user, VERIFY_PURPOSE, locale)
+    if message is not None:
+        _send_now(message)
 
 
 def send_reset_email(user: User, locale: str = 'en') -> None:
@@ -222,11 +245,53 @@ def send_reset_email(user: User, locale: str = 'en') -> None:
         user: Persisted user with a normalized ``email``.
         locale: Whitelisted locale for the template.
     """
-    from ..api.auth_tokens import PURPOSE_RESET, can_send, issue_auth_token
+    message = _prepare_message(user, RESET_PURPOSE, locale)
+    if message is not None:
+        _send_now(message)
 
-    if not user.email or not is_email_configured():
-        return
-    if not can_send(int(user.id), PURPOSE_RESET):
-        return
-    raw = issue_auth_token(int(user.id), PURPOSE_RESET)
-    _deliver(user, PURPOSE_RESET, whitelist_locale(locale), raw)
+
+def wait_for_auth_emails(timeout: float = 5.0) -> None:
+    """Block until queued background email jobs finish.
+
+    Args:
+        timeout: Seconds to wait for each pending future.
+    """
+    pending = list(_PENDING_EMAIL_JOBS)
+    for future in pending:
+        future.result(timeout=timeout)
+
+
+def queue_auth_email(purpose: str, email: str, locale: str) -> None:
+    """Look up ``email`` and enqueue a send off the request thread.
+
+    Known and unknown addresses share this path: one lookup, then one
+    bounded-executor job. The worker calls the mailer (or no-ops when
+    the address is unknown). Failures log ``purpose`` only.
+
+    Args:
+        purpose: ``verify`` or ``reset``.
+        email: Normalized recipient.
+        locale: Whitelisted locale.
+    """
+    from ..models.user import User
+
+    user = User.query.filter_by(email=email).first()
+    message: OutboundEmail | None = None
+    if user is not None and (purpose == RESET_PURPOSE or not bool(user.email_verified)):
+        message = _prepare_message(user, purpose, locale)
+    _enqueue_outbound_email(message)
+
+
+def _enqueue_outbound_email(message: OutboundEmail | None) -> None:
+    app = cast(Flask, getattr(current_app, '_get_current_object')())
+    future = _EMAIL_EXECUTOR.submit(_deliver_queued, app, message)
+    _PENDING_EMAIL_JOBS.add(future)
+    future.add_done_callback(_PENDING_EMAIL_JOBS.discard)
+
+
+def _deliver_queued(app: Flask, message: OutboundEmail | None) -> None:
+    """Run the mailer on a worker thread; ``message`` is already rendered."""
+    with app.app_context():
+        if message is None:
+            return
+        _send_now(message)

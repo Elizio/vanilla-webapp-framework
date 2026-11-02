@@ -106,8 +106,11 @@ def can_send(user_id: int, purpose: str, *, now: datetime | None = None) -> bool
 def consume_auth_token(raw: str, purpose: str) -> User | None:
     """Mark a matching unused, unexpired token used and return its user.
 
-    For ``reset``, every reset token for that user is marked used.
-    Unknown, reused, expired, or wrong-purpose tokens return ``None``.
+    Consumes with a conditional ``UPDATE ... SET used_at=now WHERE id=...
+    AND used_at IS NULL AND expires_at > now`` and requires ``rowcount == 1``,
+    so a double consume succeeds only once. For ``reset``, every remaining
+    reset token for that user is then marked used. Unknown, reused, expired,
+    or wrong-purpose tokens return ``None``.
 
     Args:
         raw: Opaque token from the request body.
@@ -128,14 +131,23 @@ def consume_auth_token(raw: str, purpose: str) -> User | None:
         .filter_by(token_hash=digest, purpose=purpose)
         .first()
     )
-    if row is None or row.used_at is not None:
-        return None
-    if row.expires_at <= now:
+    if row is None:
         return None
     user = cast(User | None, db_session.get(User, int(row.user_id)))
     if user is None:
         return None
-    row.used_at = now
+    matched = (
+        db_session.query(AuthToken)
+        .filter(
+            AuthToken.id == row.id,
+            AuthToken.used_at.is_(None),
+            AuthToken.expires_at > now,
+        )
+        .update({'used_at': now}, synchronize_session='fetch')
+    )
+    if int(matched or 0) != 1:
+        db_session.rollback()
+        return None
     if purpose == PURPOSE_RESET:
         (
             db_session.query(AuthToken)

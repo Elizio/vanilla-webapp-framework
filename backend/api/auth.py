@@ -38,7 +38,7 @@ from ..email.service import (
     is_email_configured,
     login_blocked_unverified,
     normalize_email,
-    send_reset_email,
+    queue_auth_email,
     send_verification_email,
     whitelist_locale,
 )
@@ -482,9 +482,27 @@ def _accepted_email_response():
     return jsonify({'code': EMAIL_ACCEPTED}), 202
 
 
-def _record_email_send_attempt(email: str) -> None:
-    """Hit the hashed-email rate-limit bucket; fail-open on store errors."""
-    increment_counter('reset_email', email, 3600)
+EMAIL_SEND_SCOPE = 'reset_email'
+EMAIL_SEND_WINDOW_SECONDS = 3600
+EMAIL_SEND_MAX = 5
+
+
+def _email_send_allowed(email: str) -> bool:
+    """Increment the per-email hour bucket; True unless the cap is exceeded.
+
+    Fail-open when the counter store errors so a DB blip cannot distinguish
+    known addresses. The HTTP response is always the same 202 body.
+
+    Args:
+        email: Normalized address used as the hashed counter key.
+
+    Returns:
+        Whether a background send may be queued.
+    """
+    count = increment_counter(EMAIL_SEND_SCOPE, email, EMAIL_SEND_WINDOW_SECONDS)
+    if count is None:
+        return True
+    return int(count) <= EMAIL_SEND_MAX
 
 
 @auth_bp.route('/api/auth/capabilities', methods=['GET'])
@@ -684,10 +702,8 @@ def resend_verification():
     email = normalize_email(data.get('email'))
     if email is None:
         return _accepted_email_response()
-    _record_email_send_attempt(email)
-    user = User.query.filter_by(email=email).first()
-    if user and not user.email_verified:
-        send_verification_email(user, locale=whitelist_locale(data.get('locale')))
+    if _email_send_allowed(email):
+        queue_auth_email(PURPOSE_VERIFY, email, whitelist_locale(data.get('locale')))
     return _accepted_email_response()
 
 
@@ -725,10 +741,8 @@ def forgot_password():
     email = normalize_email(data.get('email'))
     if email is None:
         return _accepted_email_response()
-    _record_email_send_attempt(email)
-    user = User.query.filter_by(email=email).first()
-    if user:
-        send_reset_email(user, locale=whitelist_locale(data.get('locale')))
+    if _email_send_allowed(email):
+        queue_auth_email(PURPOSE_RESET, email, whitelist_locale(data.get('locale')))
     return _accepted_email_response()
 
 

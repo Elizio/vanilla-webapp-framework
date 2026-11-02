@@ -2,12 +2,18 @@
 
 from __future__ import annotations
 
+import logging
 import re
+import ssl
+import threading
+import time
 from datetime import timedelta
-from typing import Any
+from collections.abc import Iterator
+from typing import Any, Callable
 from unittest.mock import MagicMock
 
 import jwt
+import pytest
 from flask import Flask
 from flask.testing import FlaskClient
 from pytest import MonkeyPatch
@@ -17,18 +23,27 @@ from werkzeug.test import TestResponse
 from backend.api.auth_tokens import (
     PURPOSE_RESET,
     PURPOSE_VERIFY,
+    consume_auth_token,
     hash_auth_token,
     issue_auth_token,
 )
 from backend.api.jwt_utils import JWT_ALGORITHM
 from backend.api.refresh_tokens import utc_now
 from backend.db_repository.database import db_session
+from backend.email.backend import OutboundEmail
 from backend.email.console import clear_outbox, get_outbox
-from backend.email.service import is_email_configured
+from backend.email.service import is_email_configured, wait_for_auth_emails
 from backend.models.auth_token import AuthToken
 from backend.models.refresh_token import RefreshToken
 from backend.models.user import User
 from backend.tests.conftest import csrf_headers, login_user, register_user
+
+
+@pytest.fixture(autouse=True)
+def _drain_background_email_jobs(test_db: object) -> Iterator[None]:
+    """Finish queued forgot/resend jobs before the schema is dropped."""
+    yield
+    wait_for_auth_emails()
 
 
 def _enable_console_email(
@@ -52,12 +67,30 @@ def _json(response: TestResponse) -> dict[str, Any]:
 
 def _token_from_outbox(purpose: str) -> str:
     """Extract the raw action token from the latest console message."""
+    wait_for_auth_emails()
     messages = [item for item in get_outbox() if item.purpose == purpose]
     assert messages, f'no console email for purpose={purpose}'
     key = 'verify_token' if purpose == PURPOSE_VERIFY else 'reset_token'
     match = re.search(rf'{key}=([^&\s]+)', messages[-1].body)
     assert match, messages[-1].body
     return match.group(1)
+
+
+def _wait_until(predicate: Callable[[], bool], *, timeout: float = 2.0) -> None:
+    """Poll ``predicate`` until it is true or ``timeout`` seconds elapse."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if predicate():
+            return
+        time.sleep(0.01)
+    raise AssertionError(f'condition not met within {timeout}s')
+
+
+def _assert_verifying_tls_context(context: object) -> None:
+    """Fail unless ``context`` is an SSLContext that verifies certificates."""
+    assert isinstance(context, ssl.SSLContext)
+    assert context.verify_mode == ssl.CERT_REQUIRED
+    assert context.check_hostname is True
 
 
 def test_unconfigured_register_and_login_match_today(
@@ -572,6 +605,7 @@ def test_smtp_backend_uses_starttls_or_ssl(
             )
         )
     smtp_ssl.assert_called_once()
+    _assert_verifying_tls_context(smtp_ssl.call_args.kwargs.get('context'))
     instance.login.assert_called_once_with('resend', 're_secret_key')
     instance.sendmail.assert_called_once()
     sent_payload = instance.sendmail.call_args[0][2]
@@ -596,6 +630,9 @@ def test_smtp_backend_uses_starttls_or_ssl(
         )
     smtp_plain.assert_called_once()
     starttls_client.starttls.assert_called_once()
+    _assert_verifying_tls_context(
+        starttls_client.starttls.call_args.kwargs.get('context')
+    )
     starttls_client.login.assert_called_once_with('resend', 're_secret_key')
 
 
@@ -629,3 +666,186 @@ def test_console_does_not_log_body_in_production(
     combined = ' '.join(recorded)
     assert 'super-secret-token' not in combined
     assert 'purpose=verify' in combined
+
+
+def test_forgot_and_resend_do_not_send_on_the_request_thread(
+    test_client: FlaskClient,
+    test_db: object,
+    test_app: Flask,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """Known and unknown addresses must not SMTP-send on the request thread."""
+    from backend.email.console import ConsoleEmailBackend
+
+    _enable_console_email(test_app)
+    test_client.post(
+        '/api/register',
+        json={
+            'username': 'timing',
+            'password': 'testpass8',
+            'email': 'timing@example.com',
+        },
+        headers=csrf_headers(test_client),
+    )
+    clear_outbox()
+    request_ident = threading.get_ident()
+    send_idents: list[int] = []
+    original_send = ConsoleEmailBackend.send
+
+    def _tracking_send(self: ConsoleEmailBackend, message: OutboundEmail) -> None:
+        send_idents.append(threading.get_ident())
+        original_send(self, message)
+
+    monkeypatch.setattr(ConsoleEmailBackend, 'send', _tracking_send)
+    headers = csrf_headers(test_client)
+    known = test_client.post(
+        '/api/auth/password/forgot',
+        json={'email': 'timing@example.com'},
+        headers=headers,
+    )
+    unknown = test_client.post(
+        '/api/auth/password/forgot',
+        json={'email': 'missing-timing@example.com'},
+        headers=csrf_headers(test_client),
+    )
+    assert known.status_code == unknown.status_code == 202
+    assert known.json == unknown.json == {'code': 'EMAIL_ACCEPTED'}
+    assert request_ident not in send_idents
+    _wait_until(lambda: any(item.purpose == PURPOSE_RESET for item in get_outbox()))
+    assert request_ident not in send_idents
+    assert send_idents
+    assert all(ident != request_ident for ident in send_idents)
+    resend_known = test_client.post(
+        '/api/auth/verify-email/resend',
+        json={'email': 'timing@example.com'},
+        headers=csrf_headers(test_client),
+    )
+    resend_unknown = test_client.post(
+        '/api/auth/verify-email/resend',
+        json={'email': 'missing-timing@example.com'},
+        headers=csrf_headers(test_client),
+    )
+    assert resend_known.status_code == resend_unknown.status_code == 202
+    assert resend_known.json == resend_unknown.json
+    wait_for_auth_emails()
+    assert request_ident not in send_idents
+
+
+def test_consume_auth_token_succeeds_only_once(
+    test_client: FlaskClient, test_db: object, test_app: Flask
+) -> None:
+    """A second consume of the same token must lose the used_at race."""
+    with test_app.app_context():
+        user = User(
+            username='onceonly',
+            password_hash=generate_password_hash('testpass8'),
+            email='once@example.com',
+            email_verified=False,
+        )
+        db_session.add(user)
+        db_session.commit()
+        raw = issue_auth_token(int(user.id), PURPOSE_VERIFY)
+        first = consume_auth_token(raw, PURPOSE_VERIFY)
+        second = consume_auth_token(raw, PURPOSE_VERIFY)
+        assert first is not None
+        assert int(first.id) == int(user.id)
+        assert second is None
+        row = (
+            db_session.query(AuthToken).filter_by(token_hash=hash_auth_token(raw)).one()
+        )
+        assert row.used_at is not None
+
+
+def test_per_email_send_limit_still_returns_accepted(
+    test_client: FlaskClient,
+    test_db: object,
+    test_app: Flask,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """The hashed per-email bucket caps sends; the body stays EMAIL_ACCEPTED."""
+    _enable_console_email(test_app)
+    monkeypatch.setattr('backend.api.auth_tokens.SEND_COOLDOWN', timedelta(0))
+    monkeypatch.setattr('backend.api.auth_tokens.SEND_HOUR_MAX', 100)
+    test_client.post(
+        '/api/register',
+        json={
+            'username': 'limited',
+            'password': 'testpass8',
+            'email': 'limited@example.com',
+        },
+        headers=csrf_headers(test_client),
+    )
+    clear_outbox()
+    bodies: list[tuple[int, dict[str, Any]]] = []
+    for _ in range(6):
+        response = test_client.post(
+            '/api/auth/password/forgot',
+            json={'email': 'limited@example.com'},
+            headers=csrf_headers(test_client),
+        )
+        bodies.append((response.status_code, _json(response)))
+    assert all(
+        status == 202 and payload == {'code': 'EMAIL_ACCEPTED'}
+        for status, payload in bodies
+    )
+    wait_for_auth_emails()
+    assert len(get_outbox()) == 5
+    unknown = test_client.post(
+        '/api/auth/password/forgot',
+        json={'email': 'limited@example.com'},
+        headers=csrf_headers(test_client),
+    )
+    assert unknown.status_code == 202
+    assert _json(unknown) == {'code': 'EMAIL_ACCEPTED'}
+
+
+def test_production_console_backend_is_unconfigured(
+    test_client: FlaskClient,
+    test_db: object,
+    test_app: Flask,
+    caplog: Any,
+) -> None:
+    """EMAIL_BACKEND=console in production is treated as sending-off."""
+    _enable_console_email(test_app)
+    test_app.config['APP_PROFILE'] = 'production'
+    with test_app.app_context():
+        assert is_email_configured() is False
+    with caplog.at_level(logging.DEBUG):
+        forgot = test_client.post(
+            '/api/auth/password/forgot',
+            json={'email': 'prod@example.com'},
+            headers=csrf_headers(test_client),
+        )
+        assert forgot.status_code == 503
+        assert _json(forgot)['code'] == 'EMAIL_NOT_CONFIGURED'
+        created = register_user(
+            test_client, username='prodconsole', password='testpass8'
+        )
+        assert created.status_code == 201
+        assert _json(created)['authenticated'] is True
+        assert _json(created)['code'] == 'USER_CREATED'
+    assert get_outbox() == []
+    combined = caplog.text.lower()
+    assert 'verify_token' not in combined
+    assert 'reset_token' not in combined
+    assert 'prod@example.com' not in combined
+
+
+def test_env_production_console_backend_is_unconfigured(
+    test_client: FlaskClient,
+    test_db: object,
+    test_app: Flask,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """ENV=production also disables the console backend."""
+    _enable_console_email(test_app)
+    monkeypatch.setenv('ENV', 'production')
+    with test_app.app_context():
+        assert is_email_configured() is False
+    forgot = test_client.post(
+        '/api/auth/password/forgot',
+        json={'email': 'envprod@example.com'},
+        headers=csrf_headers(test_client),
+    )
+    assert forgot.status_code == 503
+    assert _json(forgot)['code'] == 'EMAIL_NOT_CONFIGURED'
